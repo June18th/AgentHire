@@ -1,11 +1,15 @@
 package com.git.hui.offer.util.json;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.Objects;
 
 /**
  * 整形枚举基类
  */
 public interface IntBaseEnum {
+    @JsonValue
     Integer getValue();
 
     String getDesc();
@@ -18,6 +22,7 @@ public interface IntBaseEnum {
      * @param <E>
      * @return
      */
+    @JsonCreator
     static <E extends Enum<?> & IntBaseEnum> E getEnumByCode(Class<E> enumClass, Integer value) {
         if (!Objects.isNull(value) && enumClass != null) {
             E[] enumConstants = enumClass.getEnumConstants();

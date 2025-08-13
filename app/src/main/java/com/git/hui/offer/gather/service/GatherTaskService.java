@@ -95,6 +95,16 @@ public class GatherTaskService {
             return null;
         }
 
+        return markTaskProcessing(tasks);
+    }
+
+    /**
+     * 标记任务为处理中
+     *
+     * @param tasks
+     * @return
+     */
+    public GatherTaskProcessBo markTaskProcessing(GatherTaskEntity tasks) {
         // 如果找到了，则尝试更新状态为处理中
         tasks.setState(GatherTaskStateEnum.PROCESSING.getValue());
         // 处理次数+1
@@ -170,5 +180,13 @@ public class GatherTaskService {
             }
         });
         return PageListVo.of(list, page.getTotal(), page.getPage(), page.getSize());
+    }
+
+    public GatherTaskEntity getTask(Long taskId) {
+        GatherTaskEntity tasks = gatherTaskRepository.findById(taskId).orElse(null);
+        if (tasks == null) {
+            throw new BizException(StatusEnum.RECORDS_NOT_EXISTS, taskId + "非法");
+        }
+        return tasks;
     }
 }

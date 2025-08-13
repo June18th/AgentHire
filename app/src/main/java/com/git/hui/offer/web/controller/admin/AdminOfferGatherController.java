@@ -1,10 +1,13 @@
 package com.git.hui.offer.web.controller.admin;
 
+import com.git.hui.offer.agents.AgentExecutor;
+import com.git.hui.offer.agents.OcAgentState;
 import com.git.hui.offer.constants.gather.GatherModelEnum;
 import com.git.hui.offer.constants.gather.GatherTargetTypeEnum;
 import com.git.hui.offer.constants.gather.GatherTaskStateEnum;
 import com.git.hui.offer.constants.user.permission.Permission;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
+import com.git.hui.offer.gather.dao.entity.GatherTaskEntity;
 import com.git.hui.offer.gather.model.GatherFileBo;
 import com.git.hui.offer.gather.model.GatherTaskSaveBo;
 import com.git.hui.offer.gather.service.GatherTaskService;
@@ -19,6 +22,7 @@ import com.git.hui.offer.web.model.res.TaskVo;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.Assert;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -40,11 +44,14 @@ public class AdminOfferGatherController {
 
     private final GatherTaskService gatherTaskService;
 
+    private final AgentExecutor agentExecutor;
+
 
     @Autowired
-    public AdminOfferGatherController(OfferGatherService offerGatherService, GatherTaskService gatherTaskService) {
+    public AdminOfferGatherController(OfferGatherService offerGatherService, GatherTaskService gatherTaskService, AgentExecutor agentExecutor) {
         this.offerGatherService = offerGatherService;
         this.gatherTaskService = gatherTaskService;
+        this.agentExecutor = agentExecutor;
     }
 
     /**
@@ -116,4 +123,10 @@ public class AdminOfferGatherController {
         return gatherTaskService.resetTaskState(taskId);
     }
 
+    @GetMapping(path = "/agentRun")
+    public OcAgentState agentRun(Long taskId) {
+        GatherTaskEntity task = gatherTaskService.getTask(taskId);
+        OcAgentState state = agentExecutor.invoke(task);
+        return state;
+    }
 }

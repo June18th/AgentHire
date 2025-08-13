@@ -1,18 +1,11 @@
 package com.git.hui.offer.util.json;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import org.springframework.beans.BeanUtils;
-import org.springframework.util.StringUtils;
+import com.git.hui.offer.constants.gather.GatherTargetTypeEnum;
+import org.hibernate.Hibernate;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -28,54 +21,19 @@ public class JsonUtil {
     static {
         mapper.findAndRegisterModules();
         SimpleModule module = new SimpleModule();
-        module.addDeserializer(IntBaseEnum.class, new CustomerIntegerEnumDeserializer());
-        module.addSerializer(IntBaseEnum.class, new CustomerIntegerEnumSerializer());
-        module.addDeserializer(StringBaseEnum.class, new CustomerStringEnumDeserializer());
-        module.addSerializer(StringBaseEnum.class, new CustomerStringEnumSerializer());
         mapper.registerModule(module);
         mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
     }
 
-    public static class CustomerIntegerEnumSerializer<E extends Enum<?> & IntBaseEnum> extends JsonSerializer<E> {
-        @Override
-        public void serialize(E value, JsonGenerator jsonGenerator, SerializerProvider serializers) throws IOException {
-            jsonGenerator.writeNumber(value.getValue());
-        }
-    }
+    public static void main(String[] args) {
+        // 使用 @JsonValue 和 @JsonCreator 实现枚举的自定义序列化
+        GatherTargetTypeEnum type = GatherTargetTypeEnum.TEXT;
+        String text = JsonUtil.toStr(type);
+        System.out.println("当前的内容为:" + text);
 
-    public static class CustomerIntegerEnumDeserializer<E extends Enum<?> & IntBaseEnum> extends JsonDeserializer<E> {
-        @SuppressWarnings("unchecked")
-        @Override
-        public E deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
-            final JsonNode node = jsonParser.getCodec().readTree(jsonParser);
-            Class type = BeanUtils.findPropertyType(jsonParser.getCurrentName(), jsonParser.getCurrentValue().getClass());
-            if (!StringUtils.isEmpty(node.asText())) {
-                int code = node.asInt();
-                return (E) IntBaseEnum.getEnumByCode(type, code);
-            } else {
-                return null;
-            }
-        }
-    }
-
-    public static class CustomerStringEnumSerializer<E extends Enum<?> & StringBaseEnum> extends JsonSerializer<E> {
-        @SuppressWarnings("unchecked")
-        @Override
-        public void serialize(E value, JsonGenerator jsonGenerator, SerializerProvider serializers) throws IOException {
-            jsonGenerator.writeString(value.getValue());
-        }
-    }
-
-    public static class CustomerStringEnumDeserializer<E extends Enum<?> & StringBaseEnum> extends JsonDeserializer<E> {
-        @SuppressWarnings("unchecked")
-        @Override
-        public E deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
-            final JsonNode node = jsonParser.getCodec().readTree(jsonParser);
-            Class type = BeanUtils.findPropertyType(jsonParser.getCurrentName(), jsonParser.getCurrentValue().getClass());
-            String code = node.asText();
-            return (E) StringBaseEnum.getEnumByCode(type, code);
-        }
+        GatherTargetTypeEnum out = JsonUtil.toObj(text, GatherTargetTypeEnum.class);
+        System.out.println(out);
     }
 
     /**
@@ -86,6 +44,11 @@ public class JsonUtil {
      */
     public static String toStr(Object o) {
         try {
+            // 在使用JPA时，Hibernate会创建代理对象来实现延迟加载等功能，这会导致获取到的对象是HibernateProxy代理对象
+            // 为了避免这种代理对象的序列化异常，我们做一个代理对象转换成实体对象的动作
+            if (o.getClass().getName().contains("HibernateProxy")) {
+                o = Hibernate.unproxy(o);
+            }
             return mapper.writeValueAsString(o);
         } catch (IOException e) {
             throw new RuntimeException(e);

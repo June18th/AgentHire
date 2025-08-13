@@ -41,7 +41,6 @@ import org.springframework.util.MimeTypeUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -113,31 +112,43 @@ public class OfferGatherService {
                     return;
                 }
 
-                GatherReq req = new GatherReq(bo.content(), bo.type().getValue(), bo.model());
-                try {
-                    GatherFileBo file = null;
-                    if (bo.type() == GatherTargetTypeEnum.CSV_FILE || bo.type() == GatherTargetTypeEnum.EXCEL_FILE
-                            || bo.type() == GatherTargetTypeEnum.IMAGE) {
-                        // 文件，需要先下来
-                        file = gatherTaskService.loadTmpFile(bo.content());
-                    }
-                    GatherVo vo = gatherInfo(req, file);
-
-                    // 保存任务执行结果
-                    GatherTaskResultBo res = new GatherTaskResultBo(
-                            GatherTaskResultBo.SUCCESS
-                            , vo.getInsertList().stream().map(OcDraftEntity::getId).collect(Collectors.toList())
-                            , vo.getUpdateList().stream().map(OcDraftEntity::getId).collect(Collectors.toList())
-                    );
-                    gatherTaskService.saveTaskResult(bo.taskId(), res);
-                } catch (Exception e) {
-                    log.error("gather task error: {}", bo, e);
-                    // 任务执行失败，同样需要保存结果
-                    gatherTaskService.saveTaskResult(bo.taskId(), new GatherTaskResultBo(e.getMessage(), List.of(), List.of()));
-                }
+                gatherInfo(bo);
             }
         } finally {
             SCHEDULE_LOCK.set(false);
+        }
+    }
+
+    /**
+     * 执行任务采集
+     *
+     * @param bo
+     * @return
+     */
+    public GatherVo gatherInfo(GatherTaskProcessBo bo) {
+        GatherReq req = new GatherReq(bo.content(), bo.type().getValue(), bo.model());
+        try {
+            GatherFileBo file = null;
+            if (bo.type() == GatherTargetTypeEnum.CSV_FILE || bo.type() == GatherTargetTypeEnum.EXCEL_FILE
+                    || bo.type() == GatherTargetTypeEnum.IMAGE) {
+                // 文件，需要先下来
+                file = gatherTaskService.loadTmpFile(bo.content());
+            }
+            GatherVo vo = gatherInfo(req, file);
+
+            // 保存任务执行结果
+            GatherTaskResultBo res = new GatherTaskResultBo(
+                    GatherTaskResultBo.SUCCESS
+                    , vo.getInsertList().stream().map(OcDraftEntity::getId).collect(Collectors.toList())
+                    , vo.getUpdateList().stream().map(OcDraftEntity::getId).collect(Collectors.toList())
+            );
+            gatherTaskService.saveTaskResult(bo.taskId(), res);
+            return vo;
+        } catch (Exception e) {
+            log.error("gather task error: {}", bo, e);
+            // 任务执行失败，同样需要保存结果
+            gatherTaskService.saveTaskResult(bo.taskId(), new GatherTaskResultBo(e.getMessage(), List.of(), List.of()));
+            return new GatherVo();
         }
     }
 
