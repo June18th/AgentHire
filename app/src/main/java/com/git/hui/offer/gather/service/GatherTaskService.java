@@ -83,6 +83,23 @@ public class GatherTaskService {
         return taskEntity;
     }
 
+    public GatherTaskEntity directAddTask(GatherTaskSaveBo taskBo) throws IOException {
+        String file = null;
+        if (taskBo.file() != null) {
+            file = tempSaveInputFile(taskBo.file());
+        }
+
+        GatherTaskEntity taskEntity = new GatherTaskEntity()
+                .setType(0)
+                .setModel(taskBo.model())
+                .setContent(file != null ? file : taskBo.content())
+                .setState(GatherTaskStateEnum.INIT.getValue())
+                .setProcessTime(null)
+                .setCnt(0).setCreateTime(new Date()).setUpdateTime(new Date());
+        gatherTaskRepository.saveAndFlush(taskEntity);
+        return taskEntity;
+    }
+
     /**
      * 获取一个未处理的任务，开始执行
      *

@@ -4,6 +4,8 @@ import com.alibaba.ttl.TransmittableThreadLocal;
 import lombok.Data;
 
 import java.security.Principal;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 请求上下文，携带用户身份相关信息
@@ -12,6 +14,7 @@ import java.security.Principal;
  * @date 2022/7/6
  */
 public class ReqInfoContext {
+    public static final String REQ_INFO_KEY = "agentSseEmitter";
     private static TransmittableThreadLocal<ReqInfo> contexts = new TransmittableThreadLocal<>();
 
     public static void addReqInfo(ReqInfo reqInfo) {
@@ -84,9 +87,25 @@ public class ReqInfoContext {
          */
         private String chatId;
 
+        private Map<String, Object> context;
+
         @Override
         public String getName() {
             return session;
+        }
+
+        public void addContextVar(String key, Object value) {
+            if (context == null) {
+                context = new HashMap<>();
+            }
+            context.put(key, value);
+        }
+
+        public Object getContextVar(String key) {
+            if (context == null) {
+                return null;
+            }
+            return context.get(key);
         }
     }
 }

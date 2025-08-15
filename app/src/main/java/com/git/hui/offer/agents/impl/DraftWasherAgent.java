@@ -32,7 +32,7 @@ public class DraftWasherAgent extends BaseAgent {
         // 根据规则，将大模型新增和更新的数据进行清洗，若清洗完毕之后，一个数据已非常符合发布的条件，则将其传递给下一个发布节点；否则不发布这个节点
 
         Map<String, Object> map = new HashMap<>();
-        map.put(OcAgentState.WASHER, new WasherRecords(List.of(1L, 2L)));
+        map.put(OcAgentState.WASHER, new WasherRecords(List.of()));
         printAgentEndLog(map);
         return map;
     }

@@ -174,6 +174,125 @@ export async function submitAIEntry(params: { content: string; model: string; ty
   throw new Error(res.data?.msg || "AI录入失败")
 }
 
+/**
+ * 提交AI代理任务（非SSE版本）
+ */
+export async function submitAIAgentTask(params: { content: string; model: string; type: string, file: any }) {
+  const async = true;
+  if (params.file) {
+    // 传文件的方式
+    const formData = new FormData();
+    formData.append("file", params.file);
+    formData.append("model", "zhipu");
+    formData.append("type", "0");
+    const ans = await api.post(getSubmitPath(async), formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    if (ans.data && ans.data.code === 0) {
+      return ans.data.data
+    } else {
+      throw new Error(ans.data?.msg || "AI录入失败")
+    }
+  }
+
+  const res = await api.post("/api/admin/gather/agentSubmit", params, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  })
+  if (res.data && res.data.code === 0) {
+    return res.data.data
+  }
+  throw new Error(res.data?.msg || "AI录入失败")
+}
+
+/**
+ * 提交AI代理任务（SSE版本）
+ * @param params 请求参数
+ * @param onMessage 消息处理回调
+ * @param onError 错误处理回调
+ * @param onComplete 完成处理回调
+ * @param controller AbortController实例，用于取消请求
+ */
+export function submitAIAgentTaskSSE(
+  params: { content: string; model: string; type: string, file: any },
+  onMessage: (data: string) => void,
+  onError: (error: Error) => void,
+  onComplete?: () => void,
+  controller?: AbortController
+) {
+  const formData = new FormData();
+  formData.append('model', params.model || 'ZhiPu');
+  formData.append('type', params.type || '0');
+  if (params.file) {
+    formData.append('file', params.file);
+  }
+  if (params.content) {
+    formData.append('content', params.content);
+  }
+
+  // 创建axios请求配置
+  const config = {
+    method: 'post',
+    url: '/api/admin/gather/agentSubmit',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    responseType: 'stream',
+    signal: controller?.signal
+  };
+
+  // 发送请求
+  api(config)
+    .then(response => {
+      const reader = response.data.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      console.log('进入这里哈');
+      function read() {
+        reader.read()
+          .then(({ done, value }) => {
+            if (done) {
+              // 处理最后剩余的缓冲区内容
+              if (buffer.trim()) {
+                onMessage(buffer);
+              }
+              if (onComplete) {
+                onComplete();
+              }
+              return;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+
+            // 按行分割消息
+            let lineEnd;
+            while ((lineEnd = buffer.indexOf('\n')) !== -1) {
+              const line = buffer.substring(0, lineEnd).trim();
+              buffer = buffer.substring(lineEnd + 1);
+              if (line) {
+                onMessage(line);
+              }
+            }
+
+            read();
+          })
+          .catch(error => {
+            if (!controller?.signal.aborted) {
+              onError(new Error(`读取流失败: ${error.message}`));
+            }
+          });
+      }
+
+      read();
+    })
+    .catch(error => {
+      if (!controller.signal.aborted) {
+        onError(new Error(`请求失败: ${error.message}`));
+      }
+    });
+}
+
 
 export interface TaskListQuery {
   page?: number;

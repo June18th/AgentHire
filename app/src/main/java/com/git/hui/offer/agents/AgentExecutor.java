@@ -4,6 +4,7 @@ import com.git.hui.offer.agents.impl.DraftPublishAgent;
 import com.git.hui.offer.agents.impl.DraftWasherAgent;
 import com.git.hui.offer.agents.impl.TaskClassifyAgent;
 import com.git.hui.offer.agents.impl.TaskGatherAgent;
+import com.git.hui.offer.components.context.ReqInfoContext;
 import com.git.hui.offer.gather.dao.entity.GatherTaskEntity;
 import com.git.hui.offer.web.model.res.GatherVo;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +15,9 @@ import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.utils.EdgeMappings;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static org.bsc.langgraph4j.StateGraph.END;
@@ -46,9 +49,21 @@ public class AgentExecutor {
     }
 
     public OcAgentState invoke(GatherTaskEntity input) {
-        return this.compiledGraph
-                .invoke(Map.of(OcAgentState.INPUT, input))
-                .orElseGet(() -> new OcAgentState(Map.of("Error", "NoDataResponse")));
+        try {
+            return this.compiledGraph
+                    .invoke(Map.of(OcAgentState.INPUT, input))
+                    .orElseGet(() -> new OcAgentState(Map.of("Error", "NoDataResponse")));
+        } finally {
+            SseEmitter sseEmitter = (SseEmitter) ReqInfoContext.getReqInfo().getContextVar(ReqInfoContext.REQ_INFO_KEY);
+            if (sseEmitter != null) {
+                try {
+                    sseEmitter.send(Map.of("cmd", "over"));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                sseEmitter.complete();
+            }
+        }
     }
 
     public class GraphBuilder {
