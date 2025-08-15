@@ -14,4 +14,9 @@
     <changeSet id="250722_00000002" author="YiHui">
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/init_data_250722.sql"/>
     </changeSet>
+
+    <!-- 添加公司所属行业 -->
+    <changeSet id="250815_00000001" author="YiHui">
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_250815.sql"/>
+    </changeSet>
 </databaseChangeLog>

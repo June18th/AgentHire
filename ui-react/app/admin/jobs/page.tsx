@@ -36,6 +36,7 @@ interface JobOffer {
     id: string | number
     companyName: string
     companyType: string
+    companyIndustry: string
     jobLocation: string
     recruitmentType: string
     recruitmentTarget: string
@@ -197,18 +198,21 @@ export default function JobsPage() {
                     <Input placeholder="岗位" className="w-36" value={filters.position || ''} onChange={e => handleFilterChange('position', e.target.value)} />
                 </div>
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <Table>
+                    {/* 设置表格大小：使用min-w-full确保表格宽度足够，text-base调整字体大小 */}
+                    <Table className="min-w-full text-base">
                         <TableHeader className="bg-gray-100">
                             <TableRow>
-                                <TableHead>公司名称</TableHead>
-                                <TableHead>公司类型</TableHead>
-                                <TableHead>工作地点</TableHead>
-                                <TableHead>招聘类型</TableHead>
-                                <TableHead>招聘对象</TableHead>
-                                <TableHead>岗位</TableHead>
-                                <TableHead>状态</TableHead>
-                                <TableHead>编辑时间</TableHead>
-                                <TableHead>操作</TableHead>
+                                {/* 设置各列宽度，根据内容重要性和长度分配不同宽度 */}
+                                <TableHead className="w-[15%]">公司名称</TableHead>
+                                <TableHead className="w-[10%]">公司类型</TableHead>
+                                <TableHead className="w-[15%]">所属行业</TableHead>
+                                <TableHead className="w-[10%]">工作地点</TableHead>
+                                <TableHead className="w-[10%]">招聘类型</TableHead>
+                                <TableHead className="w-[10%]">招聘对象</TableHead>
+                                <TableHead className="w-[15%]">岗位</TableHead>
+                                <TableHead className="w-[5%]">状态</TableHead>
+                                <TableHead className="w-[10%]">编辑时间</TableHead>
+                                <TableHead className="w-[10%]">操作</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -222,12 +226,13 @@ export default function JobsPage() {
                                 jobOffers.map((offer) => (
                                     <TableRow key={String(offer.id)}>
                                         <TableCell className="font-medium">{offer.companyName}</TableCell>
-                                        <TableCell>{offer.companyType}</TableCell>
-                                        <TableCell>{offer.jobLocation || offer.location}</TableCell>
-                                        <TableCell>{offer.recruitmentType}</TableCell>
-                                        <TableCell>{offer.recruitmentTarget}</TableCell>
-                                        <TableCell>{offer.position}</TableCell>
-                                        <TableCell className="whitespace-nowrap text-center">
+                                        <TableCell className="">{offer.companyType}</TableCell>
+                                        <TableCell className="">{offer.companyIndustry}</TableCell>
+                                        <TableCell className="">{offer.jobLocation || offer.location}</TableCell>
+                                        <TableCell className="">{offer.recruitmentType}</TableCell>
+                                        <TableCell className="">{offer.recruitmentTarget}</TableCell>
+                                        <TableCell className="">{offer.position}</TableCell>
+                                        <TableCell className="">
                                             <Switch
                                                 checked={offer.state === 1}
                                                 onCheckedChange={(newState) => handleOcStateChange(offer.id, newState ? 1 : 0)}
@@ -341,6 +346,13 @@ export default function JobsPage() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium">所属行业</label>
+                                    <Input
+                                        value={editingOffer.companyIndustry}
+                                        onChange={(e) => setEditingOffer({ ...editingOffer, companyIndustry: e.target.value })}
+                                    />
                                 </div>
                                 <div className={recruitmentTypes.some(item => item.intro === editingOffer.recruitmentType) ? "" : "text-red-500"}>
                                     <label className="text-sm font-medium">招聘类型</label>

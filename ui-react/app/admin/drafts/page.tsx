@@ -246,6 +246,7 @@ export default function DraftsPage() {
                                 </TableHead>
                                 <TableHead className="whitespace-nowrap text-center">公司名称</TableHead>
                                 <TableHead className="whitespace-nowrap text-center">公司类型</TableHead>
+                                <TableHead className="whitespace-nowrap text-center">所属行业</TableHead>
                                 <TableHead className="whitespace-nowrap text-center">工作地点</TableHead>
                                 <TableHead className="whitespace-nowrap text-center">招聘类型</TableHead>
                                 <TableHead className="whitespace-nowrap text-center">招聘对象</TableHead>
@@ -271,6 +272,7 @@ export default function DraftsPage() {
                                         <TableCell className="whitespace-nowrap text-center"><input type="checkbox" disabled={draft.toProcess == 1} checked={selectedIds.includes(draft.id)} onChange={e => handleSelectOne(draft.id, e.target.checked)} /></TableCell>
                                         <TableCell className="whitespace-nowrap text-center max-w-[320px] truncate break-all" title={draft.companyName}>{draft.companyName}</TableCell>
                                         <TableCell className="whitespace-nowrap text-center"><Badge variant="secondary">{draft.companyType}</Badge></TableCell>
+                                        <TableCell className="whitespace-nowrap text-center max-w-[320px] truncate break-all" title={draft.companyIndustry}>{draft.companyIndustry}</TableCell>
                                         <TableCell className="whitespace-nowrap text-center max-w-[240px] truncate" title={draft.jobLocation}>{draft.jobLocation}</TableCell>
                                         <TableCell className="whitespace-nowrap text-center max-w-[240px] truncate" title={draft.recruitmentType}>{draft.recruitmentType}</TableCell>
                                         <TableCell className="whitespace-nowrap text-center max-w-[240px] truncate" title={draft.recruitmentTarget}>{draft.recruitmentTarget}</TableCell>
@@ -354,7 +356,7 @@ export default function DraftsPage() {
                         setIsAddingNew(false)
                     }}
                 >
-                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>{isAddingNew ? "添加新草稿" : "编辑草稿"}</DialogTitle>
                         </DialogHeader>
@@ -379,6 +381,10 @@ export default function DraftsPage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">所属行业</label>
+                                <Input value={editingDraft.companyIndustry} onChange={e => setEditingDraft({ ...editingDraft, companyIndustry: e.target.value })} />
                             </div>
                             <div>
                                 <label className="text-sm font-medium">工作地点</label>
@@ -457,7 +463,9 @@ export default function DraftsPage() {
                                 取消
                             </Button>
                             <Button onClick={() => handleSave(editingDraft)}>保存</Button>
-                            <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
+                            <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={async () => {
+                                // 先保存，然后再发布
+                                await handleSave(editingDraft)
                                 handlePublishOne(editingDraft.id)
                                 setEditingDraft(null)
                             }} disabled={publishOneLoadingId === editingDraft.id}>

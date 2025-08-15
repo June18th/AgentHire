@@ -35,6 +35,11 @@ public class OcDraftEntity {
     @Column(name = "company_type")
     private String companyType;
     /**
+     * 所属行业
+     */
+    @Column(name = "company_industry")
+    private String companyIndustry;
+    /**
      * 工作地点
      */
     @Column(name = "job_location")
@@ -117,6 +122,9 @@ public class OcDraftEntity {
             this.companyName = "";
         }
         if (this.companyType == null) {
+            this.companyType = "";
+        }
+        if (this.companyIndustry == null) {
             this.companyType = "";
         }
         if (this.jobLocation == null) {

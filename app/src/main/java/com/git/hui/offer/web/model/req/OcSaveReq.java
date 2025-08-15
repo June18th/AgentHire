@@ -17,6 +17,11 @@ public class OcSaveReq extends PageReq {
      * 公司类型
      */
     private String companyType;
+
+    /**
+     * 公司行业
+     */
+    private String companyIndustry;
     /**
      * 工作地点
      */

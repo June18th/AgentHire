@@ -87,10 +87,11 @@ INSERT INTO common_dict
     (app, `scope`, dict_key, dict_value, dict_intro, remark, state)
 VALUES ('oc', 0, 'CompanyTypeEnum', '0', '央国企', '公司类型', 1),
        ('oc', 0, 'CompanyTypeEnum', '1', '外企', '公司类型', 1),
-       ('oc', 0, 'CompanyTypeEnum', '2', '私企', '公司类型', 1),
+       ('oc', 0, 'CompanyTypeEnum', '2', '民企', '公司类型', 1),
        ('oc', 0, 'CompanyTypeEnum', '3', '事业单位', '公司类型', 1),
        ('oc', 0, 'CompanyTypeEnum', '4', '银行', '公司类型', 1),
-       ('oc', 0, 'CompanyTypeEnum', '5', '学校', '公司类型', 1);
+       ('oc', 0, 'CompanyTypeEnum', '5', '学校', '公司类型', 1),
+       ('oc', 0, 'CompanyTypeEnum', '6', '央企', '公司类型', 1);
 INSERT INTO common_dict
     (app, `scope`, dict_key, dict_value, dict_intro, remark, state)
 VALUES ('oc', 0, 'DraftProcessEnum', '0', '未处理', '采集数据是否待同步oc', 1),

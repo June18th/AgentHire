@@ -13,10 +13,11 @@ import lombok.Getter;
 public enum CompanyTypeEnum implements IntBaseEnum {
     STATE_ENTERPRISE(0, "央国企"),
     FOREIGN_ENTERPRISE(1, "外企"),
-    PRIVATE_ENTERPRISE(2, "私企"),
+    PRIVATE_ENTERPRISE(2, "民企"),
     GOVERNMENT_AFFILIATED_INSTITUTIONS(3, "事业单位"),
     BANK(4, "银行"),
     SCHOOL(5, "学校"),
+    CENTRAL_ENTERPRISES(6, "央企");
     ;
 
     private final Integer value;

@@ -18,6 +18,10 @@ public class DraftOcUpdateReq {
      */
     private String companyType;
     /**
+     * 公司行业
+     */
+    private String companyIndustry;
+    /**
      * 工作地点
      */
     private String jobLocation;

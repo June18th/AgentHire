@@ -244,6 +244,7 @@ export interface DraftItem {
   id: number
   companyName: string
   companyType: string
+  companyIndustry: string
   jobLocation: string
   recruitmentType: string
   recruitmentTarget: string

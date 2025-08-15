@@ -19,6 +19,7 @@ public class DraftConvert {
         return new OcDraftEntity()
                 .setCompanyName(bo.companyName())
                 .setCompanyType(bo.companyType())
+                .setCompanyIndustry(bo.companyIndustry())
                 .setJobLocation(bo.jobLocation())
                 .setRecruitmentType(bo.recruitmentType())
                 .setRecruitmentTarget(bo.requirementTarget())

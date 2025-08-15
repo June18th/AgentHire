@@ -37,6 +37,7 @@ interface JobOffer {
   id: string | number
   companyName: string
   companyType: string
+  companyIndustry: string
   location: string
   recruitmentType: string
   recruitmentTarget: string
@@ -181,6 +182,7 @@ export default function HomePage() {
           id: item.id,
           companyName: item.companyName,
           companyType: item.companyType,
+          companyIndustry: item.companyIndustry,
           location: item.jobLocation,
           recruitmentType: item.recruitmentType,
           recruitmentTarget: item.recruitmentTarget,
@@ -430,6 +432,7 @@ export default function HomePage() {
               <TableRow>
                 <TableHead className="w-32 break-words">公司名称</TableHead>
                 <TableHead className="w-32 break-words">公司类型</TableHead>
+                <TableHead className="w-32 break-words">所属行业</TableHead>
                 <TableHead className="w-32 break-words">工作地点</TableHead>
                 <TableHead className="w-24 break-words">招聘类型</TableHead>
                 <TableHead className="w-28 break-words">招聘对象</TableHead>
@@ -474,6 +477,7 @@ export default function HomePage() {
                       {offer.companyType}
                     </Badge>
                   </TableCell>
+                  <TableCell className="break-words w-32">{offer.companyIndustry}</TableCell>
                   <TableCell className="break-words w-32">{offer.location}</TableCell>
                   <TableCell className="break-words w-24">
                     <Badge variant="outline" className="text-pink-600 border-pink-600 rounded-md">
