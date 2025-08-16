@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { submitAIAgentTaskSSE } from "@/lib/api"
-
+import { submitAIAgentTaskSSE, GlobalConfigItemValue } from "@/lib/api"
+import { getConfigValue } from "@/lib/config";
 // 进度节点类型定义
 interface ProgressNode {
   id: string;
@@ -54,6 +54,10 @@ export default function ProgressPage() {
     }
   ];
 
+  const [taskTypeOptions, setTaskTypeOptions] = useState<GlobalConfigItemValue[]>([]);
+  useEffect(() => {
+    getConfigValue('gather', 'GatherTargetTypeEnum').then(setTaskTypeOptions);
+  }, []);
   // 输入框状态
   const [inputValue, setInputValue] = useState("");
   // 上传文件状态
@@ -62,6 +66,8 @@ export default function ProgressPage() {
 
   // 0 未开始 1 运行中 2 运行完成
   const [runState, setRunState] = useState(0)
+  const [stateInfo, setStateInfo] = useState<{ [key: number]: string }>({})
+
 
   // 处理输入变化
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +106,21 @@ export default function ProgressPage() {
       }
     }
   };
+  useEffect(() => {
+    function handlePaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].kind === "file") {
+            setSelectedFile(items[i].getAsFile());
+            break;
+          }
+        }
+      }
+    }
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  });
 
   // 清除选中的文件
   const clearSelectedFile = () => {
@@ -142,15 +163,41 @@ export default function ProgressPage() {
       setCurrentStep(node.step);
     }
 
-    info = JSON.stringify(info);
+    const strInfo = JSON.stringify(info);
 
     if (cmd === 'init') {
       setRunState(1)
-      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] ${info}`]);
+      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] ${strInfo}`]);
     } else if (cmd == 'start') {
-      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] 【${node?.title}】 启动执行 ${info}`]);
+      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] 【${node?.title}】 启动执行 ${strInfo}`]);
     } else if (cmd == 'end') {
-      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] 【${node?.title}】 结束执行 ${info}`]);
+      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] 【${node?.title}】 结束执行 ${strInfo}`]);
+
+      let stepInfo = '';
+      if (node?.step == 1) {
+        // 分类
+        // 遍历taskTypeOptions找到匹配的项目
+        const matchedOption = taskTypeOptions.find(option => option.value == info.task.type) || { intro: '未映射' };
+        stepInfo = `任务分类为：【${matchedOption.intro}】`
+      } else if (node?.step == 2) {
+        // 提取
+        stepInfo = `任务提取结果：\n 新增: ${info.insertList.length}条\n更新：${info.updateList.length}条`
+      } else if (node?.step == 3) {
+        // 数据清洗
+        stepInfo = `完成数据清洗: ${info.washer.ids.length}条`
+      } else if (node?.step == 4) {
+        stepInfo = `成功发布上线: ${info.publish.length}条`
+      }
+
+      // 使用函数形式确保获取最新状态
+      setStateInfo(prevStateInfo => {
+        // 创建深拷贝以避免直接修改状态
+        const newStates = { ...prevStateInfo };
+        if (node) {
+          newStates[node.step] = stepInfo;
+        }
+        return newStates;
+      });
     } else if (cmd == 'over') {
       // 表示执行完成
       setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] 【任务完成】`]);
@@ -237,8 +284,18 @@ export default function ProgressPage() {
     }
   };
 
+  const restart = () => {
+    setCurrentStep(0)
+    setRunState(0)
+    setInputValue('')
+    setSelectedFile(null)
+    setStateInfo({})
+    setLogs([])
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 max-w-[100%] mx-auto">
+
       <header className="bg-white border-b">
         <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -247,18 +304,23 @@ export default function ProgressPage() {
           </div>
         </div>
       </header>
-      <div className="full-w mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-[96%]">
         {/* 进度图 */}
-        <div className="mb-8 bg-white rounded-lg shadow p-6 overflow-x-auto">
+        <div className="mb-8 bg-white rounded-lg shadow p-6 overflow-x-auto max-w-[96%]">
           <h2 className="text-xl font-semibold mb-6">任务进度流程</h2>
-          <div className="flex flex-row items-center justify-between relative min-w-[600px] w-full">
+          <div className="flex flex-row items-center justify-between relative min-w-[600px] max-w-[94%]">
             {/* 连接线 */}
             <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 transform -translate-y-1/2 z-0"></div>
             <div className={`absolute top-1/2 left-0 h-1 bg-blue-500 transform -translate-y-1/2 z-10`} style={{ width: `${(currentStep / (progressNodes.length - 1)) * 100}%` }}></div>
 
             {/* 进度节点 */}
             {progressNodes.map((node, index) => (
-              <div key={node.id} className="relative z-20 flex flex-col items-center" style={{ flex: '1 1 20%' }}>
+              <div key={node.id} className="relative z-20 flex flex-col items-center" style={{ flex: '1 1 20%' }} onClick={() => {
+                if (runState > 0 || true) {
+                  setCurrentStep(index)
+                }
+              }
+              }>
                 <div
                   className={`w-12 h-12 rounded-full flex items-center justify-center mb-2
                     ${index === currentStep
@@ -278,19 +340,24 @@ export default function ProgressPage() {
           </div>
 
           {/* 当前节点信息 */}
-          {/* <div className="mt-8 p-4 bg-blue-50 rounded-md border border-blue-100">
-            <div className="flex items-center">
-              <Badge className="mr-2" color="blue">当前步骤</Badge>
-              <h3 className="text-lg font-semibold">
-                {currentStep + 1}. {progressNodes[currentStep].title}
-              </h3>
+          <div>
+            <div className="mt-8 p-4 bg-blue-50 rounded-md border border-blue-100">
+              <div className="flex items-center">
+                <Badge className="mr-2" color="blue">当前步骤</Badge>
+                <h3 className="text-lg font-semibold">
+                  {currentStep + 1}. {progressNodes[currentStep].title}
+                </h3>
+              </div>
+              <p className="mt-2">{progressNodes[currentStep].description}</p>
+              {stateInfo[currentStep] &&
+                <p className="mt-2 text-blue-700">{stateInfo[currentStep]}</p>
+              }
             </div>
-            <p className="mt-2 text-blue-700">{progressNodes[currentStep].description}</p>
-          </div> */}
+          </div>
         </div>
 
         {/* 业务区域 */}
-        <div className="bg-white rounded-lg shadow p-6 full-w">
+        <div className="bg-white rounded-lg shadow p-6 overflow-x-auto max-w-[96%]">
           {currentStep === 0 ? (
             // 录入任务节点的业务内容
             <div>
@@ -348,7 +415,6 @@ export default function ProgressPage() {
               </div>
               <div className="flex justify-end mt-4">
                 <Button onClick={handleSubmitTask} disabled={!inputValue && !selectedFile}>提交</Button>
-                <Button onClick={handleNextStep} >下一步</Button>
               </div>
             </div>
           ) : (
@@ -368,17 +434,16 @@ export default function ProgressPage() {
                 <div className="flex gap-3">
                   {runState === 2 && (
                     <Button onClick={() => {
-                      setCurrentStep(0)
-                      setRunState(0)
-                      setInputValue('')
-                      setSelectedFile(null)
+                      restart();
+
                     }}>再次提交</Button>
                   )}
                 </div>
               </div>
               {/* 日志区域 - 只在录入任务步骤显示 */}
-              <div className="w-full mt-6 bg-gray-50 p-4 rounded-md border border-gray-200 h-64 overflow-y-auto">
-                <h3 className="font-medium text-gray-700 mb-2">任务日志</h3>
+              <h2 className="text-xl font-semibold w-[90%] mx-auto mt-6 overflow-y-auto">执行记录</h2>
+              <div className="w-[90%] mx-auto mt-6 bg-gray-50 p-4 rounded-md border border-gray-200 h-64 overflow-y-auto">
+                <h3 className="font-medium text-gray-700 mb-2">任务明细</h3>
                 {logs.length === 0 ? (
                   <p className="text-gray-500 text-sm">暂无日志</p>
                 ) : (

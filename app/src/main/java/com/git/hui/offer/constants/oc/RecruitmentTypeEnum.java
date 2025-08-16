@@ -15,7 +15,8 @@ public enum RecruitmentTypeEnum implements IntBaseEnum {
     SPRING_RECRUITMENT(1, "春招"),
     AUTUMN_RECRUITMENT(2, "秋招"),
     SUPPLEMENTAL_ADMISSION(3, "补录"),
-    EARLY_AUTUMN_RECRUITMENT(4, "春招提前批"),
+    EARLY_SPRING_RECRUITMENT(4, "春招提前批"),
+    EARLY_AUTUMN_RECRUITMENT(5, "秋招提前批"),
 
     DAILY_INTERNSHIP(101, "日常实习"),
     SUMMER_INTERNSHIP(102, "暑期实习"),
