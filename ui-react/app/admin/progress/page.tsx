@@ -11,6 +11,7 @@ interface ProgressNode {
   id: string;
   title: string;
   description: string;
+  step: number;
 }
 
 export default function ProgressPage() {
@@ -22,27 +23,34 @@ export default function ProgressPage() {
     {
       id: "entry",
       title: "录入任务",
-      description: "输入任务信息并上传相关文件"
+      description: "输入采集任务",
+      step: 0,
     },
     {
-      id: "classification",
+      id: "task_classify",
       title: "任务分类",
-      description: "系统自动分类任务类型"
+      description: "系统自动分类任务类型",
+      step: 1
     },
     {
-      id: "extraction",
+      id: "task_gather",
       title: "数据提取",
-      description: "从上传文件中提取关键数据"
+      description: "大模型提取校招数据",
+      step: 2,
+
     },
     {
-      id: "cleaning",
+      id: "draft_washer",
       title: "数据清洗",
-      description: "清洗并标准化提取的数据"
+      description: "清洗转换为标准化数据",
+      step: 3,
+
     },
     {
-      id: "publishing",
+      id: "draft_publish",
       title: "发布上线",
-      description: "数据审核通过后发布上线"
+      description: "自动上架标准数据",
+      step: 4,
     }
   ];
 
@@ -52,11 +60,14 @@ export default function ProgressPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 0 未开始 1 运行中 2 运行完成
+  const [runState, setRunState] = useState(0)
+
   // 处理输入变化
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
   };
-  
+
 
   // 处理文件选择
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,7 +121,7 @@ export default function ProgressPage() {
     try {
       // 清空之前的日志
       setLogs([]);
-      
+
       // 直接调用SSE连接函数，该函数会处理参数和请求
       await setupSSEConnection();
     } catch (error) {
@@ -120,8 +131,31 @@ export default function ProgressPage() {
 
   // 添加日志的辅助函数
   const addLog = (message: string, type: 'info' | 'error' = 'info') => {
-    setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] ${message}`]);
+    // 再这里，进行打印日志啦
+    // setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] ${message}`]);
     console.log(`[日志] ${message}`);
+    const msg = JSON.parse(message);
+    let { cmd, info, agent } = msg;
+    // agent 与 progressNodes 中的id进行匹配，判断当前执行到哪一步了
+    const node = progressNodes.find(item => item.id === agent);
+    if (node) {
+      setCurrentStep(node.step);
+    }
+
+    info = JSON.stringify(info);
+
+    if (cmd === 'init') {
+      setRunState(1)
+      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] ${info}`]);
+    } else if (cmd == 'start') {
+      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] 【${node?.title}】 启动执行 ${info}`]);
+    } else if (cmd == 'end') {
+      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] 【${node?.title}】 结束执行 ${info}`]);
+    } else if (cmd == 'over') {
+      // 表示执行完成
+      setLogs(prevLogs => [...prevLogs, `[${new Date().toLocaleTimeString()}] 【任务完成】`]);
+      setRunState(2)
+    }
   };
 
   // 设置SSE连接的函数
@@ -177,49 +211,8 @@ export default function ProgressPage() {
         newController
       );
 
-      addLog('SSE连接已建立，开始接收任务进度...');
-
-      // const reader = response.body?.getReader();
-      // if (!reader) {
-      //   throw new Error('没有可读流');
-      // }
-
-      // const decoder = new TextDecoder();
-      // let buffer = '';
-
-      // while (true) {
-      //   const { done, value } = await reader.read();
-      //   if (done) break;
-
-      //   buffer += decoder.decode(value, { stream: true });
-
-      //   // 处理接收到的SSE消息
-      //   let lineEnd;
-      //   while ((lineEnd = buffer.indexOf('\n')) !== -1) {
-      //     const line = buffer.substring(0, lineEnd).trim();
-      //     buffer = buffer.substring(lineEnd + 1);
-
-      //     if (line.startsWith('data: ')) {
-      //       const dataStr = line.substring(6);
-      //       if (dataStr === '[DONE]') break;
-
-      //       try {
-      //         const data = JSON.parse(dataStr);
-      //         addLog(`任务进度: ${data.progress || '未知'}, 状态: ${data.status || '未知'}`);
-
-      //         // 如果任务完成，关闭连接
-      //         if (data.status === 'completed' || data.status === 'failed') {
-      //           newController.abort();
-      //           setSseController(null);
-      //           addLog(`任务${data.status === 'completed' ? '成功完成' : '失败'}`);
-      //           break;
-      //         }
-      //       } catch (error) {
-      //         addLog(`解析SSE消息失败: ${error instanceof Error ? error.message : String(error)}`);
-      //       }
-      //     }
-      //   }
-      // }
+      // 开始啦
+      addLog('{"cmd":"init", "info": "SSE连接已建立，开始接收任务进度..", "agent": "entry"}');
     } catch (error) {
       if (!newController.signal.aborted) {
         addLog(`SSE连接错误: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -248,7 +241,7 @@ export default function ProgressPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
         <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-16">
             <h1 className="text-2xl font-bold text-gray-900">校招派Agent</h1>
             <h3 className="text-sm text-gray-500">任务录入，全自动实现数据提取、清洗、上线流程</h3>
           </div>
@@ -271,8 +264,8 @@ export default function ProgressPage() {
                     ${index === currentStep
                       ? 'bg-blue-500 text-white' // 当前节点
                       : index < currentStep
-                      ? 'bg-green-500 text-white' // 已完成节点
-                      : 'bg-gray-200 text-gray-500'}`} // 未完成节点
+                        ? 'bg-green-500 text-white' // 已完成节点
+                        : 'bg-gray-200 text-gray-500'}`} // 未完成节点
                 >
                   {index + 1}
                 </div>
@@ -297,7 +290,7 @@ export default function ProgressPage() {
         </div>
 
         {/* 业务区域 */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 full-w">
           {currentStep === 0 ? (
             // 录入任务节点的业务内容
             <div>
@@ -354,50 +347,52 @@ export default function ProgressPage() {
                 </div>
               </div>
               <div className="flex justify-end mt-4">
-            <Button onClick={handleSubmitTask} disabled={!inputValue && !selectedFile}>提交</Button>
-          </div>
-          
-          {/* 日志区域 - 只在录入任务步骤显示 */}
-          {currentStep === 0 && (
-            <div className="mt-6 bg-gray-50 p-4 rounded-md border border-gray-200 h-64 overflow-y-auto">
-              <h3 className="font-medium text-gray-700 mb-2">任务日志</h3>
-              {logs.length === 0 ? (
-                <p className="text-gray-500 text-sm">暂无日志</p>
-              ) : (
-                <div className="space-y-1 text-sm">
-                  {logs.map((log, index) => (
-                    <div key={index} className={`
-                      ${log.includes('成功') ? 'text-green-600' : ''}
-                      ${log.includes('失败') ? 'text-red-600' : ''}
-                      ${log.includes('错误') ? 'text-red-600' : ''}
-                    `}>
-                      {log}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                <Button onClick={handleSubmitTask} disabled={!inputValue && !selectedFile}>提交</Button>
+                <Button onClick={handleNextStep} >下一步</Button>
+              </div>
             </div>
           ) : (
             // 其他节点的业务内容
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <svg className="w-24 h-24 text-gray-300 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <h3 className="text-xl font-semibold mb-2">{progressNodes[currentStep].title}</h3>
-              <p className="text-gray-500 max-w-md mb-8">
-                {currentStep === 1 && "系统正在根据您提供的信息自动分类任务类型，请稍候..."}
-                {currentStep === 2 && "系统正在从上传的文件中提取关键数据，请稍候..."}
-                {currentStep === 3 && "系统正在清洗并标准化提取的数据，请稍候..."}
-                {currentStep === 4 && "数据已审核通过并成功发布上线！"}
-              </p>
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={handlePrevStep} disabled={currentStep === 0}>
-                  上一步
-                </Button>
-                {currentStep < progressNodes.length - 1 && (
-                  <Button onClick={handleNextStep}>继续</Button>
+            <div className="full-w">
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <svg className="w-24 h-24 text-gray-300 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 className="text-xl font-semibold mb-2">{progressNodes[currentStep].title}</h3>
+                <p className="text-gray-500 max-w-md mb-8">
+                  {currentStep === 1 && "系统正在根据您提供的信息自动分类任务类型，请稍候..."}
+                  {currentStep === 2 && "系统正在从上传的文件中提取关键数据，请稍候..."}
+                  {currentStep === 3 && "系统正在清洗并标准化提取的数据，请稍候..."}
+                  {currentStep === 4 && "数据已审核通过并成功发布上线！"}
+                </p>
+                <div className="flex gap-3">
+                  {runState === 2 && (
+                    <Button onClick={() => {
+                      setCurrentStep(0)
+                      setRunState(0)
+                      setInputValue('')
+                      setSelectedFile(null)
+                    }}>再次提交</Button>
+                  )}
+                </div>
+              </div>
+              {/* 日志区域 - 只在录入任务步骤显示 */}
+              <div className="w-full mt-6 bg-gray-50 p-4 rounded-md border border-gray-200 h-64 overflow-y-auto">
+                <h3 className="font-medium text-gray-700 mb-2">任务日志</h3>
+                {logs.length === 0 ? (
+                  <p className="text-gray-500 text-sm">暂无日志</p>
+                ) : (
+                  <div className="space-y-1 text-sm">
+                    {logs.map((log, index) => (
+                      <div key={index} className={`
+                      ${log.includes('启动执行') ? 'text-blue-600' : ''}
+                      ${log.includes('结束执行') ? 'text-green-600' : ''}
+                      ${log.includes('任务完成') ? 'text-red-600' : ''}
+                    `}>
+                        {log}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

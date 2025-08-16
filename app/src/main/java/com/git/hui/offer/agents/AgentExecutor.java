@@ -61,7 +61,7 @@ public class AgentExecutor {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                sseEmitter.complete();
+//                sseEmitter.complete();
             }
         }
     }

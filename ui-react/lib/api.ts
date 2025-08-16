@@ -177,13 +177,13 @@ export async function submitAIEntry(params: { content: string; model: string; ty
 /**
  * 提交AI代理任务（非SSE版本）
  */
-export async function submitAIAgentTask(params: { content: string; model: string; type: string, file: any }) {
+export async function submitAIAgentTaskSimple(params: { content: string; model: string; type: string, file: any }) {
   const async = true;
   if (params.file) {
     // 传文件的方式
     const formData = new FormData();
     formData.append("file", params.file);
-    formData.append("model", "zhipu");
+    formData.append("model", "ZhiPu");
     formData.append("type", "0");
     const ans = await api.post(getSubmitPath(async), formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -205,30 +205,26 @@ export async function submitAIAgentTask(params: { content: string; model: string
 }
 
 /**
- * 提交AI代理任务（SSE版本）
+ * 提交AI代理任务并获取任务ID
  * @param params 请求参数
- * @param onMessage 消息处理回调
+ * @param onSuccess 获取任务ID成功回调
  * @param onError 错误处理回调
- * @param onComplete 完成处理回调
  * @param controller AbortController实例，用于取消请求
  */
-export function submitAIAgentTaskSSE(
+export function submitAIAgentTask(
   params: { content: string; model: string; type: string, file: any },
-  onMessage: (data: string) => void,
+  onSuccess: (taskId: string) => void,
   onError: (error: Error) => void,
-  onComplete?: () => void,
   controller?: AbortController
 ) {
+  // 用于文件上传的表单数据
   const formData = new FormData();
-  formData.append('model', params.model || 'ZhiPu');
-  formData.append('type', params.type || '0');
-  if (params.file) {
-    formData.append('file', params.file);
-  }
-  if (params.content) {
-    formData.append('content', params.content);
-  }
-
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null) {
+      formData.append(key, params[key]);
+    }
+  });
+  
   // 创建axios请求配置
   const config = {
     method: 'post',
@@ -237,60 +233,204 @@ export function submitAIAgentTaskSSE(
     headers: {
       'Content-Type': 'multipart/form-data',
     },
-    responseType: 'stream',
     signal: controller?.signal
   };
-
+  
   // 发送请求
   api(config)
     .then(response => {
-      const reader = response.data.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      console.log('进入这里哈');
-      function read() {
-        reader.read()
-          .then(({ done, value }) => {
-            if (done) {
-              // 处理最后剩余的缓冲区内容
-              if (buffer.trim()) {
-                onMessage(buffer);
-              }
-              if (onComplete) {
-                onComplete();
-              }
-              return;
-            }
-
-            buffer += decoder.decode(value, { stream: true });
-
-            // 按行分割消息
-            let lineEnd;
-            while ((lineEnd = buffer.indexOf('\n')) !== -1) {
-              const line = buffer.substring(0, lineEnd).trim();
-              buffer = buffer.substring(lineEnd + 1);
-              if (line) {
-                onMessage(line);
-              }
-            }
-
-            read();
-          })
-          .catch(error => {
-            if (!controller?.signal.aborted) {
-              onError(new Error(`读取流失败: ${error.message}`));
-            }
-          });
+      if (!response?.data?.data) {
+        throw new Error('未能获取有效的任务ID');
       }
-
-      read();
+      onSuccess(response.data.data);
     })
     .catch(error => {
-      if (!controller.signal.aborted) {
-        onError(new Error(`请求失败: ${error.message}`));
+      if (!controller?.signal.aborted) {
+        console.error('提交任务失败:', error);
+        onError(new Error(`提交任务失败: ${error.message}`));
       }
     });
+}
+
+/**
+ * 通过任务ID建立SSE连接获取任务结果
+ * @param taskId 任务ID
+ * @param onMessage 消息处理回调
+ * @param onError 错误处理回调
+ * @param onComplete 完成处理回调
+ * @returns 用于关闭连接的函数
+ */
+export function connectSSEByTaskId(
+  taskId: string,
+  onMessage: (data: string) => void,
+  onError: (error: Error) => void,
+  onComplete?: () => void
+) {
+  let controller: AbortController | null = new AbortController();
+  let isClosed = false;
+
+  async function startFetch() {
+    try {
+      // 创建请求头，包含X-OC-TOKEN
+      const headers = new Headers();
+      const token = typeof window !== 'undefined' ? localStorage.getItem('oc-token') : null;
+      if (token) {
+        headers.append('X-OC-TOKEN', token);
+      }
+
+      // 创建fetch请求
+      const url = `${BASE_URL}/api/admin/gather/autoInvoke?taskId=${encodeURIComponent(taskId)}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: headers,
+        signal: controller?.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error('ReadableStream not supported in this browser');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      // 读取流数据
+      while (!isClosed) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (buffer) {
+            // 处理剩余的缓冲区数据
+            processMessage(buffer);
+          }
+          if (onComplete && !isClosed) {
+            onComplete();
+          }
+          close();
+          break;
+        }
+
+        const directResponse =  decoder.decode(value, { stream: true });
+        processBuffer(directResponse);
+        // buffer += directResponse;
+        // processBuffer(buffer);
+      }
+    } catch (error) {
+      if (!isClosed && !(error instanceof DOMException && error.name === 'AbortError')) {
+        // console.error('SSE连接错误:', error);
+        onError(new Error(`SSE连接发生错误: ${error instanceof Error ? error.message : String(error)}`));
+        close();
+      }
+    }
+  }
+
+  // 处理缓冲区数据，识别以data:开头的行作为新数据
+  function processBuffer(buffer: string) {
+    // 按换行符分割所有行
+    const lines = buffer.split('\n');
+    
+    let currentMessage = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // 如果行为空，则放在当前消息中
+      if (line === '') {
+        currentMessage += line;
+        continue;
+      }
+      
+      // 检查是否以data:开头
+      if (line.startsWith('data:')) {
+        // 如果已有未处理的消息，先处理它
+        if (currentMessage) {
+          processMessage(currentMessage);
+        }
+        // 提取data:后面的内容
+        currentMessage = line.substring(5).trim(); // 5 是 "data:" 的长度
+      } else if (currentMessage) {
+        // 如果不是以data:开头，但已有当前消息，将其添加到当前消息
+        currentMessage += '\n' + line;
+      } else {
+        // 如果没有当前消息，但行不为空，直接处理它（兼容原有格式）
+        processMessage(line);
+      }
+    }
+    
+    // 处理最后一条消息（如果有）
+    if (currentMessage) {
+      processMessage(currentMessage);
+    }
+  }
+
+  // 处理单条消息
+  function processMessage(data: string) {
+    if (isClosed) return;
+    try {
+      // console.log('接收到SSE消息:', data);
+      onMessage(data);
+    } catch (error) {
+      // console.error('处理SSE消息时出错:', error);
+      onError(new Error(`处理SSE消息时出错: ${error instanceof Error ? error.message : String(error)}`));
+    }
+  }
+
+  // 关闭连接的函数
+  function close() {
+    if (isClosed) return;
+    isClosed = true;
+    if (controller) {
+      controller.abort();
+      controller = null;
+    }
+    console.log('SSE连接已关闭');
+  }
+
+  // 启动fetch请求
+  startFetch();
+
+  return close;
+}
+
+/**
+ * 提交AI代理任务并建立SSE连接（整合版）
+ * @param params 请求参数
+ * @param onMessage 消息处理回调
+ * @param onError 错误处理回调
+ * @param onComplete 完成处理回调
+ * @param controller AbortController实例，用于取消请求
+ * @returns 用于关闭SSE连接的函数
+ */
+export function submitAIAgentTaskSSE(
+  params: { content: string; model: string; type: string, file: any },
+  onMessage: (data: string) => void,
+  onError: (error: Error) => void,
+  onComplete?: () => void,
+  controller?: AbortController
+) {
+  let closeSSE: (() => void) | null = null;
+
+  // 提交任务获取taskId
+  submitAIAgentTask(
+    params,
+    (taskId) => {
+      console.log('成功获取任务ID:', taskId);
+      // 使用taskId建立SSE连接
+      closeSSE = connectSSEByTaskId(taskId, onMessage, onError, onComplete);
+    },
+    onError,
+    controller
+  );
+
+  // 返回关闭函数
+  return () => {
+    if (closeSSE) {
+      closeSSE();
+    }
+  };
 }
 
 

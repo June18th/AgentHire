@@ -35,10 +35,10 @@ public class TaskGatherAgent extends BaseAgent {
 
     public Map<String, Object> apply(OcAgentState ocAgentState) {
         GatherTaskProcessBo task = ocAgentState.getTask();
+        printAgentStartLog(task);
 
         // 执行任务采集
         GatherVo vo = offerGatherService.gatherInfo(task);
-        printAgentStartLog(vo);
 
         // 返回采集结果
         Map<String, Object> map = new HashMap<>();

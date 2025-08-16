@@ -142,22 +142,26 @@ public class AdminOfferGatherController {
      * @return
      * @throws Exception
      */
-    @RequestMapping(path = "agentSubmit", produces = {org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE})
-    public SseEmitter agentSubmit(GatherReq req, HttpServletRequest request) throws Exception {
+    @RequestMapping(path = "agentSubmit")
+    public Long agentSubmit(GatherReq req, HttpServletRequest request) throws Exception {
         MultipartFile file = null;
         if (request instanceof MultipartHttpServletRequest) {
             file = ((MultipartHttpServletRequest) request).getFile("file");
         }
-        SseEmitter sseEmitter = new SseEmitter(LoginConstants.SSE_EXPIRE_TIME);
-        ReqInfoContext.getReqInfo().addContextVar(ReqInfoContext.REQ_INFO_KEY, sseEmitter);
 
         GatherTargetTypeEnum type = IntBaseEnum.getEnumByCode(GatherTargetTypeEnum.class, req.type());
         GatherTaskSaveBo saveBo = new GatherTaskSaveBo(type, req.model(), req.content(), file);
         GatherTaskEntity task = gatherTaskService.directAddTask(saveBo);
+        return task.getId();
+    }
 
+    @GetMapping(path = "autoInvoke", produces = {org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE})
+    public SseEmitter autoInvoke(Long taskId) {
+        SseEmitter sseEmitter = new SseEmitter(LoginConstants.SSE_EXPIRE_TIME);
+        ReqInfoContext.getReqInfo().addContextVar(ReqInfoContext.REQ_INFO_KEY, sseEmitter);
         // 异步执行任务
-//        AsyncUtil.submit(() -> agentExecutor.invoke(task));
-        agentExecutor.invoke(task);
+        GatherTaskEntity task = gatherTaskService.getTask(taskId);
+        AsyncUtil.submit(() -> agentExecutor.invoke(task));
         return sseEmitter;
     }
 }
