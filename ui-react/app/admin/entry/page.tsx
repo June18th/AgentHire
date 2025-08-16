@@ -209,7 +209,7 @@ export default function EntryPage() {
       <div className="full-w mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList className="mb-6">
-            <TabsTrigger value="form">表单录入</TabsTrigger>
+            {/* <TabsTrigger value="form">表单录入</TabsTrigger> */}
             <TabsTrigger value="ai">AI录入</TabsTrigger>
             <TabsTrigger value="task">任务列表</TabsTrigger>
           </TabsList>

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Home } from "lucide-react"
 
 const menu = [
+    { label: "校招派Agent", path: "/admin/progress" },
     { label: "录入数据", path: "/admin/entry" },
     { label: "草稿列表", path: "/admin/drafts" },
     { label: "职位列表", path: "/admin/jobs" },
