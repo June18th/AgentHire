@@ -3,23 +3,26 @@ package com.git.hui.offer.user.service;
 import com.git.hui.offer.components.bizexception.BizException;
 import com.git.hui.offer.components.bizexception.StatusEnum;
 import com.git.hui.offer.components.context.ReqInfoContext;
+import com.git.hui.offer.components.context.UserBo;
 import com.git.hui.offer.components.id.IdUtil;
 import com.git.hui.offer.configs.service.CommonDictService;
 import com.git.hui.offer.constants.user.RechargeConstants;
 import com.git.hui.offer.constants.user.RechargeLevelEnum;
 import com.git.hui.offer.constants.user.RechargeStatusEnum;
 import com.git.hui.offer.constants.user.ThirdPayWayEnum;
-import com.git.hui.offer.user.model.PayCallbackBo;
-import com.git.hui.offer.user.model.PrePayInfoResBo;
-import com.git.hui.offer.user.model.ThirdPayOrderReqBo;
 import com.git.hui.offer.user.convert.RechargeConvert;
 import com.git.hui.offer.user.dao.entity.RechargeEntity;
 import com.git.hui.offer.user.dao.repository.RechargeRepository;
+import com.git.hui.offer.user.model.PayCallbackBo;
+import com.git.hui.offer.user.model.PrePayInfoResBo;
+import com.git.hui.offer.user.model.ThirdPayOrderReqBo;
 import com.git.hui.offer.user.service.pay.ThirdPayHandler;
 import com.git.hui.offer.util.PriceUtil;
 import com.git.hui.offer.util.json.JsonUtil;
 import com.git.hui.offer.web.model.PageListVo;
+import com.git.hui.offer.web.model.req.CouponSearchReq;
 import com.git.hui.offer.web.model.res.CommonDictVo;
+import com.git.hui.offer.web.model.res.CouponUseRecordVo;
 import com.git.hui.offer.web.model.res.DictItemVo;
 import com.git.hui.offer.web.model.res.RechargePayVo;
 import com.git.hui.offer.web.model.res.RechargeRecordVo;
@@ -79,6 +82,26 @@ public class RechargeService {
         List<RechargeRecordVo> voList = RechargeConvert.toRecordList(list);
         return PageListVo.of(voList, list.size(), 1, list.size());
     }
+
+    /**
+     * 查询优惠券使用记录
+     *
+     * @param req
+     * @return
+     */
+    public PageListVo<CouponUseRecordVo> listCouponUseRecords(CouponSearchReq req) {
+        PageListVo<RechargeEntity> list = rechargeRepository.findList(req);
+        if (list.getTotal() <= 0L) {
+            return PageListVo.emptyVo();
+        }
+
+        // 补齐用户信息
+        List<Long> userIdList = list.getList().stream().map(RechargeEntity::getUserId).toList();
+        List<UserBo> users = userService.getUserByUserIds(userIdList);
+        List<CouponUseRecordVo> voList = RechargeConvert.toCouponUseRecordList(list.getList(), users);
+        return PageListVo.of(voList, list.getTotal(), req.getPage(), req.getSize());
+    }
+
 
     /**
      * 准备充值

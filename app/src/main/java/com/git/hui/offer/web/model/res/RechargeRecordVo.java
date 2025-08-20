@@ -13,7 +13,7 @@ public record RechargeRecordVo(
         , String amount
         // 充值级别
         , Integer level
-        // 充斥状态
+        // 充值状态
         , Integer status
         // 支付成功时间
         , Long payTime

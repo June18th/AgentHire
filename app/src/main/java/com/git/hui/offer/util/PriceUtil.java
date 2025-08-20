@@ -49,6 +49,28 @@ public class PriceUtil {
     }
 
     /**
+     * 折扣转百分比
+     *
+     * @param discount 10 表示10折，即100%
+     * @return
+     */
+    public static Integer discount2Percent(String discount) {
+        if (StringUtils.isBlank(discount)) {
+            return null;
+        }
+        return new BigDecimal(discount).multiply(new BigDecimal("10.0")).setScale(0, RoundingMode.HALF_DOWN).intValue();
+    }
+
+
+    public static String percent2Discount(Integer discount) {
+        if (discount == null) {
+            return null;
+        }
+        DecimalFormat df1 = new DecimalFormat("0.0");
+        return df1.format(discount / 10f);
+    }
+
+    /**
      * 判断是否为合法的价格
      *
      * @param price

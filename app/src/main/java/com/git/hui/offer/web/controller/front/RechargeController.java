@@ -41,7 +41,8 @@ public class RechargeController {
      * @return
      */
     @RequestMapping("/toPay")
-    public RechargePayVo toPay(@RequestParam(value = "vipLevel", required = false) Integer vipLevel, @RequestParam(value = "vipPrice", required = false) String vipPrice) {
+    public RechargePayVo toPay(@RequestParam(value = "vipLevel", required = false) Integer vipLevel,
+                               @RequestParam(value = "vipPrice", required = false) String vipPrice) {
         RechargeLevelEnum level = IntBaseEnum.getEnumByCode(RechargeLevelEnum.class, vipLevel);
         if (level == null && StringUtils.isBlank(vipPrice)) {
             throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS_MIXED, "请选择充值会员等级或充值金额");

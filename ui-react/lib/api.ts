@@ -827,3 +827,84 @@ export async function getGlobalConfig(): Promise<{ [key: string]: GlobalConfigIt
   }
   throw new Error(res.data?.msg || "获取全局配置失败");
 }
+
+
+// ----------------- 优惠券
+
+export interface CouponListItem {
+  couponId?: number;
+  // 优惠券code
+  couponCode?: string;
+  // 优惠券类型
+  couponType: number;
+  // 优惠券金额/百分比
+  couponValue: string;
+  // 作用域
+  scope: number;
+  // 优惠券数量
+  couponCount: number;
+  // 使用数量
+  useCount?: number;
+  // 扩展信息
+  extra?: string;
+  // 开始时间
+  startTime: number;
+  // 结束时间
+  endTime: number;
+}
+
+export interface CouponListResponse {
+  list: CouponListItem[];
+  hasMore: boolean;
+  page: number;
+  size: number;
+  total: number;
+}
+
+export interface CouponListQuery {
+  page?: number;
+  size?: number;
+  code?: string;
+  type?: number;
+}
+
+export async function fetchCouponList(params?: CouponListQuery): Promise<CouponListResponse> {
+  const res = await api.get("/api/admin/coupon/list", { params });
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "获取优惠券列表失败");
+}
+
+export async function fetchCouponDetail(id: number): Promise<CouponListItem> {
+  const res = await api.get("/api/admin/coupon/useDetail?couponId=" + id);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "获取优惠券详情失败");
+}
+
+export async function fetchCouponSave(params: CouponListItem) {
+  const res = await api.post("/api/admin/coupon/create", params);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "保存优惠券失败");
+}
+
+export async function fetchCouponDelete(id: number) {
+  const res = await api.get("/api/admin/coupon/delete?couponId=" + id);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "删除优惠券失败");
+}
+
+export async function fetchCouponUpdate(params: CouponListItem) {
+  const res = await api.post("/api/admin/coupon/update", params);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "更新优惠券失败");
+}
+

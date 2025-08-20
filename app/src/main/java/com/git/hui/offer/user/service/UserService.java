@@ -206,4 +206,8 @@ public class UserService {
         }
         return UserConvert.toBo(user);
     }
+
+    public List<UserBo> getUserByUserIds(List<Long> ids) {
+        return userRepository.findByIdIn(ids).stream().map(UserConvert::toBo).toList();
+    }
 }
