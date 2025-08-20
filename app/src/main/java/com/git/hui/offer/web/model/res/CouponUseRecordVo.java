@@ -6,7 +6,8 @@ import com.git.hui.offer.components.context.UserBo;
  * @author YiHui
  * @date 2025/8/20
  */
-public record CouponUseRecordVo(String coupon
+public record CouponUseRecordVo(
+        String coupon
         , Long payId // 支付id
         , String tradeNo // 交易号
         , String amount// 充值金额

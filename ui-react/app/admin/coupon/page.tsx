@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Link from "next/link"
 import {
   Table,
   TableBody,
@@ -65,6 +67,9 @@ import {
 import { formatDateTime as formatDateTimeStr } from "@/lib/utils";
 
 export default function CouponPage() {
+  // 路由对象
+  const router = useRouter();
+
   // 优惠券列表数据
   const [couponList, setCouponList] = useState<CouponListItem[]>([]);
   // 加载状态
@@ -105,13 +110,6 @@ export default function CouponPage() {
   // 提示框
   const { toast } = useToast();
 
-  // 查看优惠券使用详情
-  const showCouponUseDetail = (couponId: number) => {
-    // 这里可以实现查看优惠券使用详情的逻辑
-    console.log("查看优惠券使用详情:", couponId);
-    // 例如打开一个详情弹窗
-  };
-
   // 处理删除确认
   const handleDeleteConfirm = async () => {
     if (!dictToDelete) return;
@@ -138,13 +136,13 @@ export default function CouponPage() {
       const response = await fetchCouponListApi({
         page: pagination.page,
         size: pagination.size,
-        ...searchParams
+        ...searchParams,
       });
       // 更新优惠券列表和分页信息
       setCouponList(response.list);
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
-        total: response.total
+        total: response.total,
       }));
     } catch (error) {
       toast({ title: "获取优惠券列表失败", variant: "destructive" });
@@ -165,7 +163,7 @@ export default function CouponPage() {
   // 处理搜索
   const handleSearch = () => {
     if (pagination.page !== 1) {
-      setPagination(prev => ({ ...prev, page: 1 }));
+      setPagination((prev) => ({ ...prev, page: 1 }));
     } else {
       fetchCouponList();
     }
@@ -467,7 +465,7 @@ export default function CouponPage() {
                             mode="single"
                             selected={form.endTime}
                             onSelect={(date) => {
-                               if (!date) {
+                              if (!date) {
                                 return;
                               }
                               // 设置为当天23:59:59
@@ -646,7 +644,7 @@ export default function CouponPage() {
                             mode="single"
                             selected={form.startTime}
                             onSelect={(date) => {
-                               if (!date) {
+                              if (!date) {
                                 return;
                               }
                               // 设置为当天0点
@@ -683,7 +681,7 @@ export default function CouponPage() {
                             mode="single"
                             selected={form.endTime}
                             onSelect={(date) => {
-                               if (!date) {
+                              if (!date) {
                                 return;
                               }
                               // 设置为当天23:59:59
@@ -730,7 +728,9 @@ export default function CouponPage() {
                   onChange={(e) =>
                     setSearchParams({
                       ...searchParams,
-                      couponCode: e.target.value.trim() ? e.target.value : undefined,
+                      couponCode: e.target.value.trim()
+                        ? e.target.value
+                        : undefined,
                     })
                   }
                 />
@@ -759,28 +759,31 @@ export default function CouponPage() {
                   <TableRow key={coupon.couponId}>
                     <TableCell>{coupon.couponId}</TableCell>
                     <TableCell className="flex items-center space-x-2">
-  {coupon.couponCode}
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={() => {
-      navigator.clipboard.writeText(coupon.couponCode).then(() => {
-        toast({
-          title: "成功",
-          description: "券码已复制到剪贴板",
-        });
-      }).catch(err => {
-        toast({
-          title: "失败",
-          description: "复制失败: " + err.message,
-          variant: "destructive",
-        });
-      });
-    }}
-  >
-    <Copy className="h-4 w-4" />
-  </Button>
-</TableCell>
+                      {coupon.couponCode}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(coupon.couponCode)
+                            .then(() => {
+                              toast({
+                                title: "成功",
+                                description: "券码已复制到剪贴板",
+                              });
+                            })
+                            .catch((err) => {
+                              toast({
+                                title: "失败",
+                                description: "复制失败: " + err.message,
+                                variant: "destructive",
+                              });
+                            });
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                     <TableCell>
                       {formatCouponValue(
                         Number(coupon.couponValue),
@@ -790,13 +793,16 @@ export default function CouponPage() {
                     <TableCell>{formatCouponType(coupon.couponType)}</TableCell>
                     <TableCell>{coupon.couponCount}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => showCouponUseDetail(coupon.couponId)}
-                      >
-                        {coupon.useCount}
-                      </Button>
+                      {coupon.useCount ? (
+                        <Link
+                          href={`/admin/coupon/detail?code=${coupon.couponCode}`}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {coupon.useCount}
+                        </Link>
+                      ) : (
+                        "未使用"
+                      )}
                     </TableCell>
                     <TableCell>{formatScope(coupon.scope)}</TableCell>
                     <TableCell>{formatDateTimeStr(coupon.startTime)}</TableCell>
@@ -871,15 +877,23 @@ export default function CouponPage() {
                     onClick={(e) => {
                       e.preventDefault();
                       if (pagination.page > 1) {
-                        setPagination({ ...pagination, page: pagination.page - 1 });
+                        setPagination({
+                          ...pagination,
+                          page: pagination.page - 1,
+                        });
                       }
                     }}
-                    className={pagination.page <= 1 ? "pointer-events-none opacity-50" : ""}
+                    className={
+                      pagination.page <= 1
+                        ? "pointer-events-none opacity-50"
+                        : ""
+                    }
                   />
                 </PaginationItem>
                 <PaginationItem>
                   <span className="text-sm text-muted-foreground">
-                    第 {pagination.page} /{Math.ceil(pagination.total / pagination.size)} 页
+                    第 {pagination.page} /
+                    {Math.ceil(pagination.total / pagination.size)} 页
                   </span>
                 </PaginationItem>
                 <PaginationItem>
@@ -887,11 +901,21 @@ export default function CouponPage() {
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      if (pagination.page * pagination.size < pagination.total) {
-                        setPagination({ ...pagination, page: pagination.page + 1 });
+                      if (
+                        pagination.page * pagination.size <
+                        pagination.total
+                      ) {
+                        setPagination({
+                          ...pagination,
+                          page: pagination.page + 1,
+                        });
                       }
                     }}
-                    className={pagination.page * pagination.size >= pagination.total ? "pointer-events-none opacity-50" : ""}
+                    className={
+                      pagination.page * pagination.size >= pagination.total
+                        ? "pointer-events-none opacity-50"
+                        : ""
+                    }
                   />
                 </PaginationItem>
               </PaginationContent>
