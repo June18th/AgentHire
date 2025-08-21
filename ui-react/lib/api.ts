@@ -1,50 +1,52 @@
-import axios from "axios"
+import axios from "axios";
 
-const BASE_URL = "http://localhost:8080"
+const BASE_URL = "http://localhost:8080";
 
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 360000,
-})
+});
 
 // 全局请求拦截器，自动带上 X-OC-TOKEN
 api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('oc-token');
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("oc-token");
     if (token) {
       config.headers = config.headers || {};
-      config.headers['X-OC-TOKEN'] = token;
+      config.headers["X-OC-TOKEN"] = token;
     }
-
   }
   return config;
 });
 
 // 响应拦截器，处理302重定向
 api.interceptors.response.use(
-  response => {
-    console.log('响应拦截器', response)
+  (response) => {
+    console.log("响应拦截器", response);
     if (response.data.code == 100403003) {
       // 清除本地缓存的登录信息
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('oc-token');
-        localStorage.removeItem('oc-user');
-        window.location.href = '/';
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("oc-token");
+        localStorage.removeItem("oc-user");
+        window.location.href = "/";
       }
       return Promise.reject("未登录");
     }
     return response;
   },
-  error => {
-    if (error.response && error.response.data && error.response.data.code === 100403003) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
+  (error) => {
+    if (
+      error.response &&
+      error.response.data &&
+      error.response.data.code === 100403003
+    ) {
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
       }
     }
     return Promise.reject(error);
   }
 );
-
 
 /**
  * 获取微信扫码登录 SSE 订阅 URL
@@ -65,89 +67,95 @@ export async function postWxCallback(xml: string): Promise<void> {
 }
 
 export interface JobListQuery {
-  companyName?: string
-  companyType?: string
-  jobLocation?: string
-  recruitmentType?: string
-  recruitmentTarget?: string
-  position?: string
-  deliveryProgress?: string
-  state?: number
-  page?: number
-  size?: number
+  companyName?: string;
+  companyType?: string;
+  jobLocation?: string;
+  recruitmentType?: string;
+  recruitmentTarget?: string;
+  position?: string;
+  deliveryProgress?: string;
+  state?: number;
+  page?: number;
+  size?: number;
 }
 
 export interface JobListResponse {
-  list: any[]
-  hasMore: boolean
-  page: number
-  size: number
-  total: number
-  online?: number
-  locked: boolean
+  list: any[];
+  hasMore: boolean;
+  page: number;
+  size: number;
+  total: number;
+  online?: number;
+  locked: boolean;
 }
 
-export async function fetchJobList(params?: JobListQuery): Promise<JobListResponse> {
-  const res = await api.get("/api/oc/list", { params })
+export async function fetchJobList(
+  params?: JobListQuery
+): Promise<JobListResponse> {
+  const res = await api.get("/api/oc/list", { params });
   if (res.data && res.data.code === 0) {
     // 将外层的在线人数写到内部
-    res.data.data.online = res.data.online
-    return res.data.data
+    res.data.data.online = res.data.online;
+    return res.data.data;
   }
-  throw new Error(res.data?.msg || "获取岗位列表失败")
+  throw new Error(res.data?.msg || "获取岗位列表失败");
 }
-
 
 export async function jobDetail(id: number) {
-  const res = await api.get(`/api/oc/detail?id=${id}`)
+  const res = await api.get(`/api/oc/detail?id=${id}`);
   if (res.data && res.data.code === 0) {
-    return res.data.data
+    return res.data.data;
   }
-  throw new Error(res.data?.msg || "获取岗位信息失败")
+  throw new Error(res.data?.msg || "获取岗位信息失败");
 }
 
-
-export async function fetchAdminJobList(params?: JobListQuery): Promise<JobListResponse> {
-  const res = await api.get("/api/admin/oc/list", { params })
+export async function fetchAdminJobList(
+  params?: JobListQuery
+): Promise<JobListResponse> {
+  const res = await api.get("/api/admin/oc/list", { params });
   if (res.data && res.data.code === 0) {
-    return res.data.data
+    return res.data.data;
   }
-  throw new Error(res.data?.msg || "获取岗位列表失败")
+  throw new Error(res.data?.msg || "获取岗位列表失败");
 }
 
 export async function submitOcEntry(params: any) {
-  const res = await api.post("/api/admin/oc/save", params)
+  const res = await api.post("/api/admin/oc/save", params);
   if (res.data && res.data.code === 0) {
-    return res.data.data
+    return res.data.data;
   }
-  throw new Error(res.data?.msg || "提交岗位信息失败")
+  throw new Error(res.data?.msg || "提交岗位信息失败");
 }
 
-export async function updateOcState(params: { id: number, state: number }) {
-  console.log('这里啦');
-  const res = await api.get(`/api/admin/oc/updateState?id=${params.id}&state=${params.state}`)
+export async function updateOcState(params: { id: number; state: number }) {
+  console.log("这里啦");
+  const res = await api.get(
+    `/api/admin/oc/updateState?id=${params.id}&state=${params.state}`
+  );
   if (res.data && res.data.code === 0) {
-    return res.data.data
+    return res.data.data;
   }
-  throw new Error(res.data?.msg || "更新岗位状态失败")
+  throw new Error(res.data?.msg || "更新岗位状态失败");
 }
-
 
 //  ---------------------------- gather 相关
-
 
 function getSubmitPath(async: boolean) {
   if (async) {
     // 异步执行
-    return "/api/admin/gather/asyncSubmit"
+    return "/api/admin/gather/asyncSubmit";
   } else {
     // 同步执行
-    return "/api/admin/gather/submit"
+    return "/api/admin/gather/submit";
   }
 }
 
-
-export async function submitAIEntry(params: { content: string; model: string; type: string, file: any }) {
+export async function submitAIEntry(params: {
+  content: string;
+  model: string;
+  type: string;
+  file: any;
+}) {
   const async = true;
   if (params.file) {
     // 传文件的方式
@@ -159,25 +167,30 @@ export async function submitAIEntry(params: { content: string; model: string; ty
       headers: { "Content-Type": "multipart/form-data" },
     });
     if (ans.data && ans.data.code === 0) {
-      return ans.data.data
+      return ans.data.data;
     } else {
-      throw new Error(ans.data?.msg || "AI录入失败")
+      throw new Error(ans.data?.msg || "AI录入失败");
     }
   }
 
   const res = await api.post(getSubmitPath(async), params, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  })
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
   if (res.data && res.data.code === 0) {
-    return res.data.data
+    return res.data.data;
   }
-  throw new Error(res.data?.msg || "AI录入失败")
+  throw new Error(res.data?.msg || "AI录入失败");
 }
 
 /**
  * 提交AI代理任务（非SSE版本）
  */
-export async function submitAIAgentTaskSimple(params: { content: string; model: string; type: string, file: any }) {
+export async function submitAIAgentTaskSimple(params: {
+  content: string;
+  model: string;
+  type: string;
+  file: any;
+}) {
   const async = true;
   if (params.file) {
     // 传文件的方式
@@ -189,19 +202,19 @@ export async function submitAIAgentTaskSimple(params: { content: string; model: 
       headers: { "Content-Type": "multipart/form-data" },
     });
     if (ans.data && ans.data.code === 0) {
-      return ans.data.data
+      return ans.data.data;
     } else {
-      throw new Error(ans.data?.msg || "AI录入失败")
+      throw new Error(ans.data?.msg || "AI录入失败");
     }
   }
 
   const res = await api.post("/api/admin/gather/agentSubmit", params, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  })
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
   if (res.data && res.data.code === 0) {
-    return res.data.data
+    return res.data.data;
   }
-  throw new Error(res.data?.msg || "AI录入失败")
+  throw new Error(res.data?.msg || "AI录入失败");
 }
 
 /**
@@ -212,41 +225,41 @@ export async function submitAIAgentTaskSimple(params: { content: string; model: 
  * @param controller AbortController实例，用于取消请求
  */
 export function submitAIAgentTask(
-  params: { content: string; model: string; type: string, file: any },
+  params: { content: string; model: string; type: string; file: any },
   onSuccess: (taskId: string) => void,
   onError: (error: Error) => void,
   controller?: AbortController
 ) {
   // 用于文件上传的表单数据
   const formData = new FormData();
-  Object.keys(params).forEach(key => {
+  Object.keys(params).forEach((key) => {
     if (params[key] !== undefined && params[key] !== null) {
       formData.append(key, params[key]);
     }
   });
-  
+
   // 创建axios请求配置
   const config = {
-    method: 'post',
-    url: '/api/admin/gather/agentSubmit',
+    method: "post",
+    url: "/api/admin/gather/agentSubmit",
     data: formData,
     headers: {
-      'Content-Type': 'multipart/form-data',
+      "Content-Type": "multipart/form-data",
     },
-    signal: controller?.signal
+    signal: controller?.signal,
   };
-  
+
   // 发送请求
   api(config)
-    .then(response => {
+    .then((response) => {
       if (!response?.data?.data) {
-        throw new Error('未能获取有效的任务ID');
+        throw new Error("未能获取有效的任务ID");
       }
       onSuccess(response.data.data);
     })
-    .catch(error => {
+    .catch((error) => {
       if (!controller?.signal.aborted) {
-        console.error('提交任务失败:', error);
+        console.error("提交任务失败:", error);
         onError(new Error(`提交任务失败: ${error.message}`));
       }
     });
@@ -273,17 +286,20 @@ export function connectSSEByTaskId(
     try {
       // 创建请求头，包含X-OC-TOKEN
       const headers = new Headers();
-      const token = typeof window !== 'undefined' ? localStorage.getItem('oc-token') : null;
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("oc-token") : null;
       if (token) {
-        headers.append('X-OC-TOKEN', token);
+        headers.append("X-OC-TOKEN", token);
       }
 
       // 创建fetch请求
-      const url = `${BASE_URL}/api/admin/gather/autoInvoke?taskId=${encodeURIComponent(taskId)}`;
+      const url = `${BASE_URL}/api/admin/gather/autoInvoke?taskId=${encodeURIComponent(
+        taskId
+      )}`;
       const response = await fetch(url, {
-        method: 'GET',
+        method: "GET",
         headers: headers,
-        signal: controller?.signal
+        signal: controller?.signal,
       });
 
       if (!response.ok) {
@@ -291,12 +307,12 @@ export function connectSSEByTaskId(
       }
 
       if (!response.body) {
-        throw new Error('ReadableStream not supported in this browser');
+        throw new Error("ReadableStream not supported in this browser");
       }
 
       const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
 
       // 读取流数据
       while (!isClosed) {
@@ -313,15 +329,24 @@ export function connectSSEByTaskId(
           break;
         }
 
-        const directResponse =  decoder.decode(value, { stream: true });
+        const directResponse = decoder.decode(value, { stream: true });
         processBuffer(directResponse);
         // buffer += directResponse;
         // processBuffer(buffer);
       }
     } catch (error) {
-      if (!isClosed && !(error instanceof DOMException && error.name === 'AbortError')) {
+      if (
+        !isClosed &&
+        !(error instanceof DOMException && error.name === "AbortError")
+      ) {
         // console.error('SSE连接错误:', error);
-        onError(new Error(`SSE连接发生错误: ${error instanceof Error ? error.message : String(error)}`));
+        onError(
+          new Error(
+            `SSE连接发生错误: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          )
+        );
         close();
       }
     }
@@ -330,21 +355,21 @@ export function connectSSEByTaskId(
   // 处理缓冲区数据，识别以data:开头的行作为新数据
   function processBuffer(buffer: string) {
     // 按换行符分割所有行
-    const lines = buffer.split('\n');
-    
-    let currentMessage = '';
-    
+    const lines = buffer.split("\n");
+
+    let currentMessage = "";
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       // 如果行为空，则放在当前消息中
-      if (line === '') {
+      if (line === "") {
         currentMessage += line;
         continue;
       }
-      
+
       // 检查是否以data:开头
-      if (line.startsWith('data:')) {
+      if (line.startsWith("data:")) {
         // 如果已有未处理的消息，先处理它
         if (currentMessage) {
           processMessage(currentMessage);
@@ -353,13 +378,13 @@ export function connectSSEByTaskId(
         currentMessage = line.substring(5).trim(); // 5 是 "data:" 的长度
       } else if (currentMessage) {
         // 如果不是以data:开头，但已有当前消息，将其添加到当前消息
-        currentMessage += '\n' + line;
+        currentMessage += "\n" + line;
       } else {
         // 如果没有当前消息，但行不为空，直接处理它（兼容原有格式）
         processMessage(line);
       }
     }
-    
+
     // 处理最后一条消息（如果有）
     if (currentMessage) {
       processMessage(currentMessage);
@@ -374,7 +399,13 @@ export function connectSSEByTaskId(
       onMessage(data);
     } catch (error) {
       // console.error('处理SSE消息时出错:', error);
-      onError(new Error(`处理SSE消息时出错: ${error instanceof Error ? error.message : String(error)}`));
+      onError(
+        new Error(
+          `处理SSE消息时出错: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      );
     }
   }
 
@@ -386,7 +417,7 @@ export function connectSSEByTaskId(
       controller.abort();
       controller = null;
     }
-    console.log('SSE连接已关闭');
+    console.log("SSE连接已关闭");
   }
 
   // 启动fetch请求
@@ -405,7 +436,7 @@ export function connectSSEByTaskId(
  * @returns 用于关闭SSE连接的函数
  */
 export function submitAIAgentTaskSSE(
-  params: { content: string; model: string; type: string, file: any },
+  params: { content: string; model: string; type: string; file: any },
   onMessage: (data: string) => void,
   onError: (error: Error) => void,
   onComplete?: () => void,
@@ -417,7 +448,7 @@ export function submitAIAgentTaskSSE(
   submitAIAgentTask(
     params,
     (taskId) => {
-      console.log('成功获取任务ID:', taskId);
+      console.log("成功获取任务ID:", taskId);
       // 使用taskId建立SSE连接
       closeSSE = connectSSEByTaskId(taskId, onMessage, onError, onComplete);
     },
@@ -432,7 +463,6 @@ export function submitAIAgentTaskSSE(
     }
   };
 }
-
 
 export interface TaskListQuery {
   page?: number;
@@ -464,16 +494,17 @@ export interface TaskListResponse {
   total: number;
 }
 
-export async function fetchTaskList(params: TaskListQuery): Promise<TaskListResponse> {
+export async function fetchTaskList(
+  params: TaskListQuery
+): Promise<TaskListResponse> {
   const res = await api.post("/api/admin/gather/list", params, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
   if (res.data && res.data.code === 0) {
     return res.data.data;
   }
   throw new Error(res.data?.msg || "获取任务列表失败");
 }
-
 
 export async function reRunTask(taskId: number): Promise<boolean> {
   const res = await api.get(`/api/admin/gather/reRun?taskId=${taskId}`);
@@ -483,42 +514,41 @@ export async function reRunTask(taskId: number): Promise<boolean> {
   throw new Error(res.data?.msg || "重跑任务失败");
 }
 
-
 export interface DraftListQuery {
-  page?: number
-  size?: number
-  companyName?: string
-  companyType?: string
-  jobLocation?: string
-  recruitmentType?: string
-  recruitmentTarget?: string
-  position?: string
-  lastUpdatedTimeAfter?: number
-  lastUpdatedTimeBefore?: number
-  state?: number,
-  toProcess?: string,
+  page?: number;
+  size?: number;
+  companyName?: string;
+  companyType?: string;
+  jobLocation?: string;
+  recruitmentType?: string;
+  recruitmentTarget?: string;
+  position?: string;
+  lastUpdatedTimeAfter?: number;
+  lastUpdatedTimeBefore?: number;
+  state?: number;
+  toProcess?: string;
 }
 
 export interface DraftItem {
-  id: number
-  companyName: string
-  companyType: string
-  companyIndustry: string
-  jobLocation: string
-  recruitmentType: string
-  recruitmentTarget: string
-  position: string
-  deliveryProgress: string
-  lastUpdatedTime: string
-  deadline: string
-  relatedLink: string
-  jobAnnouncement: string
-  internalReferralCode: string
-  remarks: string
-  state: number
-  toProcess: number
-  createTime: string
-  updateTime: string
+  id: number;
+  companyName: string;
+  companyType: string;
+  companyIndustry: string;
+  jobLocation: string;
+  recruitmentType: string;
+  recruitmentTarget: string;
+  position: string;
+  deliveryProgress: string;
+  lastUpdatedTime: string;
+  deadline: string;
+  relatedLink: string;
+  jobAnnouncement: string;
+  internalReferralCode: string;
+  remarks: string;
+  state: number;
+  toProcess: number;
+  createTime: string;
+  updateTime: string;
 }
 
 export interface DraftListResponse {
@@ -526,16 +556,18 @@ export interface DraftListResponse {
   total: number;
 }
 
-export async function fetchDraftList(params: DraftListQuery): Promise<DraftListResponse> {
-  const res = await api.get("/api/admin/draft/list", { params })
+export async function fetchDraftList(
+  params: DraftListQuery
+): Promise<DraftListResponse> {
+  const res = await api.get("/api/admin/draft/list", { params });
   if (res.data && res.data.code === 0) {
     // 兼容 data 直接为数组或为对象
     if (Array.isArray(res.data.data)) {
-      return { list: res.data.data, total: res.data.data?.length }
+      return { list: res.data.data, total: res.data.data?.length };
     }
-    return res.data.data
+    return res.data.data;
   }
-  throw new Error(res.data?.msg || "获取草稿列表失败")
+  throw new Error(res.data?.msg || "获取草稿列表失败");
 }
 
 /**
@@ -544,11 +576,11 @@ export async function fetchDraftList(params: DraftListQuery): Promise<DraftListR
  * @returns 发布结果
  */
 export async function batchPublishDrafts(ids: number[]): Promise<void> {
-  const res = await api.post("/api/admin/draft/toOc", ids)
+  const res = await api.post("/api/admin/draft/toOc", ids);
   if (res.data && res.data.code === 0) {
-    return
+    return;
   }
-  throw new Error(res.data?.msg || "发布失败")
+  throw new Error(res.data?.msg || "发布失败");
 }
 
 /**
@@ -557,28 +589,25 @@ export async function batchPublishDrafts(ids: number[]): Promise<void> {
  * @returns 是否成功
  */
 export async function updateDraft(draft: DraftItem): Promise<boolean> {
-  const res = await api.post("/api/admin/draft/update", draft)
+  const res = await api.post("/api/admin/draft/update", draft);
   if (res.data && res.data.code === 0) {
-    return true
+    return true;
   }
-  throw new Error(res.data?.msg || "草稿更新失败")
+  throw new Error(res.data?.msg || "草稿更新失败");
 }
-
 
 /**
  * 删除草稿数据
- * @param id 
- * @returns 
+ * @param id
+ * @returns
  */
 export async function deleteDraft(id: number): Promise<boolean> {
-  const res = await api.get("/api/admin/draft/delete?draftId=" + id)
+  const res = await api.get("/api/admin/draft/delete?draftId=" + id);
   if (res.data && res.data.code === 0) {
-    return true
+    return true;
   }
-  throw new Error(res.data?.msg || "草稿删除失败")
+  throw new Error(res.data?.msg || "草稿删除失败");
 }
-
-
 
 // -------------------------- 用户相关
 
@@ -612,7 +641,9 @@ export interface UserListResponse {
   total: number;
 }
 
-export async function fetchUserList(params?: UserListQuery): Promise<UserListResponse> {
+export async function fetchUserList(
+  params?: UserListQuery
+): Promise<UserListResponse> {
   const res = await api.get("/api/admin/user/list", { params });
   if (res.data && res.data.code === 0) {
     return res.data.data;
@@ -625,20 +656,23 @@ export async function fetchUserList(params?: UserListQuery): Promise<UserListRes
  * @param params 包含 userId, role, expireTime
  * @returns 是否成功
  */
-export async function updateUserRole(params: { userId: number; role: number; expireTime: number }): Promise<boolean> {
+export async function updateUserRole(params: {
+  userId: number;
+  role: number;
+  expireTime: number;
+}): Promise<boolean> {
   const formData = new URLSearchParams();
-  formData.append('userId', String(params.userId));
-  formData.append('role', String(params.role));
-  formData.append('expireTime', String(params.expireTime));
+  formData.append("userId", String(params.userId));
+  formData.append("role", String(params.role));
+  formData.append("expireTime", String(params.expireTime));
   const res = await api.post("/api/admin/user/updateRole", formData, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
   if (res.data && res.data.code === 0) {
     return res.data.data === true;
   }
   throw new Error(res.data?.msg || "用户角色更新失败");
 }
-
 
 // -------------------------- 字典相关
 
@@ -670,7 +704,9 @@ export interface DictListResponse {
   total: number;
 }
 
-export async function fetchDictList(params?: DictListQuery): Promise<DictListResponse> {
+export async function fetchDictList(
+  params?: DictListQuery
+): Promise<DictListResponse> {
   const res = await api.get("/api/admin/dict/list", { params });
   if (res.data && res.data.code === 0) {
     return res.data.data;
@@ -689,7 +725,6 @@ export interface DictSaveReq {
   state: number;
 }
 
-
 export async function saveDict(params: DictSaveReq): Promise<boolean> {
   const res = await api.post("/api/admin/dict/save", params);
   if (res.data && res.data.code === 0) {
@@ -698,12 +733,20 @@ export async function saveDict(params: DictSaveReq): Promise<boolean> {
   throw new Error(res.data?.msg || "保存字典失败");
 }
 
-export async function updateDictState(id: number, state: number): Promise<boolean> {
-  const res = await api.post("/api/admin/dict/updateState", {
-    "id": id, "state": state
-  }, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  });
+export async function updateDictState(
+  id: number,
+  state: number
+): Promise<boolean> {
+  const res = await api.post(
+    "/api/admin/dict/updateState",
+    {
+      id: id,
+      state: state,
+    },
+    {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    }
+  );
   if (res.data && res.data.code === 0) {
     return true;
   }
@@ -717,8 +760,6 @@ export async function deleteDict(id: number): Promise<boolean> {
   }
   throw new Error(res.data?.msg || "删除失败");
 }
-
-
 
 // ---------------- 个人用户相关
 
@@ -746,8 +787,21 @@ export async function updateUserDetail(params: UserSaveReq) {
   throw new Error(res.data?.msg || "更新用户信息失败");
 }
 
-export async function toPay(vipLevel: number | string | String) {
-  const res = await api.get(`/api/recharge/toPay?vipPrice=${vipLevel}`);
+export async function toPay(
+  rechargeLevel: number | string | String,
+  vipAmount: number | string | String,
+  couponCode: string = ""
+) {
+  let url = `/api/recharge/toPay`;
+  if (rechargeLevel != "") {
+    url += `?vipLevel=${rechargeLevel}`;
+  } else {
+    url += `?vipPrice=${vipAmount}`;
+  }
+  if (couponCode) {
+    url += `&couponCode=${encodeURIComponent(couponCode)}`;
+  }
+  const res = await api.get(url);
   if (res.data && res.data.code === 0) {
     return res.data.data;
   }
@@ -799,9 +853,7 @@ export async function getRechargeList(): Promise<RechageListResponse> {
   throw new Error(res.data?.msg || "获取用户信息失败");
 }
 
-
 // ---------------- 全局配置
-
 
 export interface GlobalConfigItem {
   app: String;
@@ -814,8 +866,9 @@ export interface GlobalConfigItemValue {
   intro: String;
 }
 
-
-export async function getGlobalConfig(): Promise<{ [key: string]: GlobalConfigItem }> {
+export async function getGlobalConfig(): Promise<{
+  [key: string]: GlobalConfigItem;
+}> {
   const res = await api.get("/api/common/dict");
   if (res.data && res.data.code === 0) {
     const data = res.data.data;
@@ -826,4 +879,128 @@ export async function getGlobalConfig(): Promise<{ [key: string]: GlobalConfigIt
     return result;
   }
   throw new Error(res.data?.msg || "获取全局配置失败");
+}
+
+// ----------------- 优惠券
+
+export interface CouponListItem {
+  couponId?: number;
+  // 优惠券code
+  couponCode?: string;
+  // 优惠券类型
+  couponType: number;
+  // 优惠券金额/百分比
+  couponValue: string;
+  // 作用域
+  scope: number;
+  // 优惠券数量
+  couponCount: number;
+  // 使用数量
+  useCount?: number;
+  // 扩展信息
+  extra?: string;
+  // 开始时间
+  startTime: number;
+  // 结束时间
+  endTime: number;
+}
+
+export interface CouponListResponse {
+  list: CouponListItem[];
+  hasMore: boolean;
+  page: number;
+  size: number;
+  total: number;
+}
+
+export interface CouponListQuery {
+  page?: number;
+  size?: number;
+  code?: string;
+  type?: number;
+}
+
+export interface UserBo {
+  userId: number;
+  nickName: string;
+  avatar: string;
+  role: string;
+}
+
+export interface CouponDetail {
+  coupon: string;
+  payId: number;
+  tradeNo: string;
+  amount: string;
+  level: number;
+  status: number;
+  payTime: number;
+  transactionId: string;
+  promotionAmount: string; // 优惠金额
+  user: UserBo;
+}
+
+export interface CouponDetailListResponse {
+  list: CouponDetail[];
+  hasMore: boolean;
+  page: number;
+  size: number;
+  total: number;
+}
+
+export async function fetchCouponList(
+  params?: CouponListQuery
+): Promise<CouponListResponse> {
+  const res = await api.get("/api/admin/coupon/list", { params });
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "获取优惠券列表失败");
+}
+
+export async function fetchCouponDetail({
+  coupon,
+  page,
+  size,
+}: {
+  coupon: string;
+  page?: number;
+  size?: number;
+}): Promise<CouponDetailListResponse> {
+  const res = await api.get(
+    "/api/admin/coupon/useDetail?couponCode=" +
+      coupon +
+      "&page=" +
+      page +
+      "&size=" +
+      size
+  );
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "获取优惠券详情失败");
+}
+
+export async function fetchCouponSave(params: CouponListItem) {
+  const res = await api.post("/api/admin/coupon/create", params);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "保存优惠券失败");
+}
+
+export async function fetchCouponDelete(id: number) {
+  const res = await api.get("/api/admin/coupon/delete?couponId=" + id);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "删除优惠券失败");
+}
+
+export async function fetchCouponUpdate(params: CouponListItem) {
+  const res = await api.post("/api/admin/coupon/update", params);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "更新优惠券失败");
 }

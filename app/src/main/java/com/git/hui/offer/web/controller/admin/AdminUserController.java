@@ -3,6 +3,7 @@ package com.git.hui.offer.web.controller.admin;
 import com.git.hui.offer.constants.user.permission.Permission;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
 import com.git.hui.offer.user.service.UserService;
+import com.git.hui.offer.util.json.IntBaseEnum;
 import com.git.hui.offer.web.model.PageListVo;
 import com.git.hui.offer.web.model.req.UserSearchReq;
 import com.git.hui.offer.web.model.res.UserVo;
@@ -43,6 +44,8 @@ public class AdminUserController {
     public Boolean updateUserRole(Long userId, Integer role, Long expireTime) {
         Assert.notNull(userId, "用户id不能为空");
         Assert.notNull(role, "角色不能为空");
-        return userService.updateUserRole(userId, role, expireTime);
+        UserRoleEnum roleEnum = IntBaseEnum.getEnumByCode(UserRoleEnum.class, role);
+        Assert.notNull(roleEnum, "角色不能为空");
+        return userService.updateUserRole(userId, roleEnum, expireTime);
     }
 }

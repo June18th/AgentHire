@@ -82,23 +82,49 @@ public class UserService {
     }
 
 
-    public boolean updateUserVipInfo(Long userId, Integer vipLevel) {
-        return true;
-    }
-
-    public boolean updateUserRole(Long userId, Integer role, Long expireTime) {
+    /**
+     * 用户充值成功，自动更新对应的角色和过期时间
+     *
+     * @param userId   用户id
+     * @param vipLevel 充值的会员级别
+     * @return
+     */
+    public boolean updateUserVipInfo(Long userId, RechargeLevelEnum vipLevel) {
         UserEntity user = userRepository.findById(userId).orElse(null);
         if (user == null) {
             throw new BizException(StatusEnum.RECORDS_NOT_EXISTS, "用户不存在");
         }
-        if (Objects.equals(role, UserRoleEnum.VIP.getValue())) {
+
+        if (user.getRole().equals(UserRoleEnum.ADMIN.getValue())) {
+            // 管理员时，无需刷新过期时间
+            return true;
+        }
+
+        long lastExpireTime = user.getExpireTime() == null ? System.currentTimeMillis() : user.getExpireTime().getTime();
+        return updateUserRole(userId, UserRoleEnum.VIP, lastExpireTime + vipLevel.getMillSeconds());
+    }
+
+    /**
+     * 更新用户角色和会员到期时间
+     *
+     * @param userId
+     * @param role       用户角色
+     * @param expireTime 到期时间
+     * @return
+     */
+    public boolean updateUserRole(Long userId, UserRoleEnum role, Long expireTime) {
+        UserEntity user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            throw new BizException(StatusEnum.RECORDS_NOT_EXISTS, "用户不存在");
+        }
+        if (Objects.equals(role, UserRoleEnum.VIP)) {
             // vip用户，要求过期时间存在
             if (expireTime == null) {
                 expireTime = System.currentTimeMillis() + RechargeLevelEnum.MONTH.getMillSeconds();
             }
             user.setExpireTime(new Date(expireTime / DateUtil.ONE_DAY_MILL * DateUtil.ONE_DAY_MILL));
         }
-        user.setRole(role);
+        user.setRole(role.getValue());
         user.setUpdateTime(new Date());
         userRepository.saveAndFlush(user);
         return true;
@@ -205,5 +231,9 @@ public class UserService {
             return null;
         }
         return UserConvert.toBo(user);
+    }
+
+    public List<UserBo> getUserByUserIds(List<Long> ids) {
+        return userRepository.findByIdIn(ids).stream().map(UserConvert::toBo).toList();
     }
 }

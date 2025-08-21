@@ -24,7 +24,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
-import { fetchJobList, JobListResponse, getWxSseUrl, postWxCallback, GlobalConfigItemValue } from "@/lib/api"
+import { fetchJobList, JobListResponse, getWxSseUrl, postWxCallback, GlobalConfigItemValue, getUserDetail } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import { useSSE } from "@/hooks/useSSE"
 import { QRCodeCanvas } from "qrcode.react";
@@ -98,6 +98,44 @@ export default function HomePage() {
     getConfigValue('oc', 'RecruitmentTargetEnum').then(setRecruitmentTarget);
   }, [])
 
+  // Periodically check user info validity (5 minutes)
+   useEffect(() => {
+     const checkUserInfoValidity = async () => {
+       if (userInfo && userInfo.timestamp) {
+         const now = Date.now();
+         const fiveMinutes = 5 * 60 * 1000; // 5分钟有效期
+         if (now - userInfo.timestamp > fiveMinutes) {
+           try {
+             const updatedUser = await getUserDetail();
+             if (updatedUser) {
+               const info = {
+                 userId: updatedUser.userId,
+                 role: updatedUser.role,
+                 nickname: updatedUser.nickname,
+                 avatar: updatedUser.avatar,
+                 timestamp: now
+               };
+               setUserInfo(info);
+               if (typeof window !== 'undefined') {
+                 localStorage.setItem('oc-user', JSON.stringify(info));
+               }
+             }
+           } catch (error) {
+             console.error('Failed to update user info:', error);
+           }
+         }
+       }
+     };
+ 
+     // Check immediately on mount
+     checkUserInfoValidity();
+ 
+     // Then check every 30 seconds
+     const interval = setInterval(checkUserInfoValidity, 30000);
+ 
+     return () => clearInterval(interval);
+   }, [userInfo, setUserInfo])
+
 
   useEffect(() => {
     if (loginOpen) {
@@ -130,18 +168,19 @@ export default function HomePage() {
           }
         })();
         if (jwt) {
-          const info = {
-            userId: jwt.uid,
-            role: jwt.r,
-            nickname: jwt.un,
-            avatar: jwt.av
-          };
-          setUserInfo(info);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('oc-user', JSON.stringify(info));
-            localStorage.setItem('oc-token', token);
+            const info = {
+              userId: jwt.uid,
+              role: jwt.r,
+              nickname: jwt.un,
+              avatar: jwt.av,
+              timestamp: Date.now() // 添加时间戳记录存储时间
+            };
+            setUserInfo(info);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('oc-user', JSON.stringify(info));
+              localStorage.setItem('oc-token', token);
+            }
           }
-        }
       }
       // 重新请求下列表数据
       handleSearch()

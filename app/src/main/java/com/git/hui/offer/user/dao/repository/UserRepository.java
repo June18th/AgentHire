@@ -22,6 +22,8 @@ public interface UserRepository extends JpaRepository<UserEntity, Long>, JpaSpec
 
     UserEntity findByWxId(String wxId);
 
+    List<UserEntity> findByIdIn(List<Long> ids);
+
     /**
      * 更新用户权限
      *

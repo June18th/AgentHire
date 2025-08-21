@@ -12,6 +12,7 @@ const menu = [
     { label: "职位列表", path: "/admin/jobs" },
     { label: "字典管理", path: "/admin/dict" },
     { label: "用户管理", path: "/admin/users" },
+    { label: "券码管理", path: "/admin/coupon" },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

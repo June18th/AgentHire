@@ -92,4 +92,16 @@ public class RechargeEntity {
 
     @Column(name = "update_time")
     private Date updateTime;
+
+    /**
+     * 优惠券码
+     */
+    @Column(name = "coupon_code")
+    private String couponCode;
+
+    /**
+     * 优惠金额，单位为分
+     */
+    @Column(name = "promotion_amount")
+    private Integer promotionAmount;
 }
