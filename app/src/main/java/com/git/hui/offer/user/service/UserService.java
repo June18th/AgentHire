@@ -41,9 +41,12 @@ public class UserService {
     private final UserRepository userRepository;
     private final McpServerProperties mcpServerProperties;
 
-    public UserService(UserRepository userRepository, McpServerProperties mcpServerProperties) {
+    private final UserInterestService userInterestService;
+
+    public UserService(UserRepository userRepository, McpServerProperties mcpServerProperties, UserInterestService userInterestService) {
         this.userRepository = userRepository;
         this.mcpServerProperties = mcpServerProperties;
+        this.userInterestService = userInterestService;
     }
 
     public UserVo detail(Long userId) {
@@ -54,6 +57,7 @@ public class UserService {
 
         UserVo vo = UserConvert.toVo(user.get());
         vo.setConfig(buildMcpConfig(user.get()));
+        vo.setInterest(userInterestService.getUserInterest(userId));
         return vo;
     }
 

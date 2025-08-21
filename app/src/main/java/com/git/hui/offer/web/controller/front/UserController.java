@@ -3,6 +3,7 @@ package com.git.hui.offer.web.controller.front;
 import com.git.hui.offer.components.context.ReqInfoContext;
 import com.git.hui.offer.constants.user.permission.Permission;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
+import com.git.hui.offer.user.service.UserInterestService;
 import com.git.hui.offer.user.service.UserService;
 import com.git.hui.offer.web.model.req.UserSaveReq;
 import com.git.hui.offer.web.model.res.UserVo;
@@ -23,8 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
     private final UserService userService;
 
-    public UserController(UserService userService) {
+    private final UserInterestService userInterestService;
+
+    public UserController(UserService userService, UserInterestService userInterestService) {
         this.userService = userService;
+        this.userInterestService = userInterestService;
     }
 
 
@@ -49,6 +53,20 @@ public class UserController {
     public UserVo detail() {
         Long userId = ReqInfoContext.getReqInfo().getUserId();
         Assert.notNull(userId, "未登录");
+        return userService.detail(userId);
+    }
+
+    /**
+     * 提交自己的喜好
+     *
+     * @param text
+     * @return
+     */
+    @RequestMapping(path = "interest")
+    public UserVo submitInterest(String text) {
+        Long userId = ReqInfoContext.getReqInfo().getUserId();
+        Assert.notNull(userId, "未登录");
+        userInterestService.submitInterest(text);
         return userService.detail(userId);
     }
 }

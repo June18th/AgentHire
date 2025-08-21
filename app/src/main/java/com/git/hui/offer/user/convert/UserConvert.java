@@ -3,7 +3,9 @@ package com.git.hui.offer.user.convert;
 import com.git.hui.offer.components.context.UserBo;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
 import com.git.hui.offer.user.dao.entity.UserEntity;
+import com.git.hui.offer.user.dao.entity.UserInterestEntity;
 import com.git.hui.offer.util.json.IntBaseEnum;
+import com.git.hui.offer.web.model.res.UserInterestVo;
 import com.git.hui.offer.web.model.res.UserVo;
 
 import java.util.Collections;
@@ -45,5 +47,18 @@ public class UserConvert {
             return Collections.emptyList();
         }
         return list.stream().map(UserConvert::toVo).toList();
+    }
+
+
+    public static UserInterestVo toInterestVo(UserInterestEntity entity) {
+        if (entity == null) return null;
+        return new UserInterestVo(entity.getInterest()
+                , entity.getCompanyType()
+                , entity.getCompanyIndustry()
+                , entity.getJobLocation()
+                , entity.getRecruitmentType()
+                , entity.getRecruitmentTarget()
+                , entity.getPosition()
+        );
     }
 }

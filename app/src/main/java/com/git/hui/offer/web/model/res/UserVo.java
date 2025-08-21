@@ -27,4 +27,9 @@ public class UserVo {
      * mcp配置信息
      */
     private McpConfigVo config;
+
+    /**
+     * 用户的兴趣信息
+     */
+    private UserInterestVo interest;
 }

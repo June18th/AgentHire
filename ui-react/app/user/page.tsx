@@ -8,6 +8,7 @@ import {
   updateUserDetail,
   getRechargeList,
   UserSaveReq,
+  submitUserInterest,
 } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,17 +27,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { QRCodeCanvas } from "qrcode.react";
-import { Bell, User, ChevronDown } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import Link from "next/link";
-import { useLoginUser } from "@/hooks/useLoginUser";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { getConfigValue } from "@/lib/config";
 import {
@@ -68,6 +58,8 @@ export default function UserPage() {
   const [userInfo, setUserInfo] = useState<any>(null);
   const [activeMenu, setActiveMenu] = useState("vip");
   const [form, setForm] = useState<UserSaveReq>(newUserInitValue);
+  const [intro, setIntro] = useState<any>({});
+
   // 充值相关
   const [payInfo, setPayInfo] = useState<any>(null);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
@@ -99,15 +91,6 @@ export default function UserPage() {
     GlobalConfigItemValue[]
   >([]);
 
-  const {
-    userInfo: loginUserInfo,
-    setUserInfo: setLoginUserInfo,
-    logout: loginLogout,
-  } = useLoginUser();
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const router = useRouter();
-
   const getVipLevelLabel = (level: number) => {
     const item = vipOptions.find((v) => v.value == `${level}`);
     return item?.intro;
@@ -118,7 +101,6 @@ export default function UserPage() {
   };
 
   useEffect(() => {
-    setMounted(true);
     getConfigValue("recharge", "vipPrice").then(setRechargeOptions);
     getConfigValue("user", "RechargeStatusEnum").then(setRechargeStatusOptions);
     getConfigValue("user", "RechargeLevelEnum").then(setVipOptions);
@@ -188,6 +170,13 @@ export default function UserPage() {
 
       setUserInfo(data);
 
+      if (data.interest) {
+        // 当存在用户偏好时
+        setIntro(data.interest);
+      } else {
+        setIntro({ interest: "" });
+      }
+
       // 完成mcp相关配置
       let mcpConfigs = {
         mcpServers: {
@@ -224,6 +213,24 @@ export default function UserPage() {
       return () => clearInterval(timer);
     }
   }, [payInfo]);
+
+  const handleSubmitInterest = async () => {
+    await submitUserInterest(intro)
+      .then((res) => {
+        console.log("提交成功");
+        toast({
+          title: "成功",
+          description: "个人订阅偏好更新成功",
+        });
+      })
+      .catch((err) => {
+        toast({
+          title: "失败",
+          description: err.message,
+          variant: "destructive",
+        });
+      });
+  };
 
   const handleSaveUserInfo = async () => {
     await updateUserDetail(form)
@@ -446,91 +453,6 @@ export default function UserPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fa]">
-      {/* 顶部导航栏 */}
-      {/* <header className="bg-white border-b">
-        <div className="px-10">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <div className="flex items-center">
-                <a href="/" className="text-2xl font-bold text-blue-600">
-                  🚦校招派
-                </a>
-              </div>
-              <nav className="flex space-x-6">
-                <a href="/" className="text-gray-700 hover:text-blue-600">
-                  招聘
-                </a>
-              </nav>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Bell className="h-5 w-5 text-gray-500" />
-              {loginUserInfo ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <span className="flex items-center cursor-pointer">
-                      <img
-                        src={loginUserInfo.avatar}
-                        alt="avatar"
-                        className="w-8 h-8 rounded-full cursor-pointer"
-                        title={
-                          loginUserInfo.nickname ||
-                          `用户${loginUserInfo.userId}`
-                        }
-                      />
-                      <ChevronDown className="w-4 h-4 ml-1 text-gray-500" />
-                    </span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <div className="px-3 py-2">
-                      <div className="font-medium">
-                        {loginUserInfo.nickname ||
-                          `用户${loginUserInfo.userId}`}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {loginUserInfo.role === 1
-                          ? "普通用户"
-                          : loginUserInfo.role === 2
-                          ? "VIP用户"
-                          : loginUserInfo.role === 3
-                          ? "管理员"
-                          : "未知"}
-                      </div>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => {
-                        router.push("/user");
-                      }}
-                    >
-                      个人信息
-                    </DropdownMenuItem>
-                    {loginUserInfo.role === 3 && (
-                      <DropdownMenuItem onClick={() => router.push("/admin")}>
-                        管理后台
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    {(userInfo?.role === 2 || userInfo?.role === 3) && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => setMcpConfigDialogOpen(true)}
-                        >
-                          MCP配置
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
-                    <DropdownMenuItem onClick={loginLogout}>
-                      退出
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </header> */}
-      {/* 原有顶部横幅 */}
       <div className="bg-white shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-8 py-4">
           <div className="flex items-center space-x-4">
@@ -782,8 +704,136 @@ export default function UserPage() {
                   )}
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center min-h-[300px] text-gray-400 text-lg">
-                  暂无记录
+                <div className="max-w-3xl mx-auto">
+                  <div className="mb-4">
+                    <div className="mb-2 text-lg font-medium text-gray-800">
+                      订阅偏好
+                    </div>
+                    <Textarea
+                      value={intro.interest?.interest || intro.interest}
+                      onChange={(e) =>
+                        setIntro({
+                          ...intro,
+                          interest: {
+                            ...intro.interest,
+                            interest: e.target.value.trim(),
+                          },
+                        })
+                      }
+                      className="w-full bg-blue-50 min-h-[120px] rounded-lg border border-blue-100 p-3 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
+                      placeholder="请在这里输入你希望订阅的职业类型，例如：我是2026年毕业的大学生，希望寻找一些服务器开发、前端开发、算法相关的岗位，希望在北京、上海、深圳工作"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    {intro.interest && typeof intro === "object" ? (
+                      <Button
+                        onClick={handleSubmitInterest}
+                        className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg transition-colors"
+                      >
+                        更新
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleSubmitInterest}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+                      >
+                        保存
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* 已保存的订阅信息展示 */}
+                  {intro.interest && typeof intro === "object" && (
+                    <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="mb-3 text-lg font-medium text-gray-800">
+                        根据您的偏好，下面是AI提取的关键信息：
+                      </div>
+                      <div className="space-y-2 text-sm text-gray-600">
+                        {intro.companyIndustry && (
+                          <p>
+                            <span className="font-medium text-gray-700">
+                              行业偏好：
+                            </span>
+                            {intro.companyIndustry}
+                          </p>
+                        )}
+                        {intro.jobLocation && (
+                          <p>
+                            <span className="font-medium text-gray-700">
+                              工作地点：
+                            </span>
+                            {intro.jobLocation}
+                          </p>
+                        )}
+                        {intro.recruitmentTarget && (
+                          <p>
+                            <span className="font-medium text-gray-700">
+                              招聘对象：
+                            </span>
+                            {intro.recruitmentTarget}
+                          </p>
+                        )}
+                        {intro.position && (
+                          <p>
+                            <span className="font-medium text-gray-700">
+                              目标职位：
+                            </span>
+                            {intro.position}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 系统推荐职位 */}
+                  <div className="mt-8">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-lg font-medium text-gray-800">
+                        AI推荐职位
+                      </h3>
+                      <Button variant="link" className="text-blue-600">
+                        查看更多
+                      </Button>
+                    </div>
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((item) => (
+                        <div
+                          key={item}
+                          className="p-4 border border-gray-100 rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-white"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="text-base font-semibold text-gray-900">
+                                资深
+                                {["前端开发", "产品经理", "UI设计师"][item - 1]}
+                              </h4>
+                              <p className="mt-1 text-sm text-gray-600">
+                                {["字节跳动", "阿里巴巴", "腾讯"][item - 1]} ·{" "}
+                                {["北京", "杭州", "深圳"][item - 1]}
+                              </p>
+                            </div>
+                            <span className="text-sm font-medium text-blue-600">
+                              {["30K-50K", "25K-45K", "28K-48K"][item - 1]}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {["3-5年", "本科", "全职"][
+                              item % 3 === 0 ? 0 : item % 3
+                            ]
+                              .split(",")
+                              .map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -806,7 +856,10 @@ export default function UserPage() {
                     二维码有效期：{formatCountdown(countdown)}
                   </div>
                   {Number(payInfo.amount) == 0 ? (
-                    <Button className="mt-4 w-full" onClick={() => setPayDialogOpen(false)}>
+                    <Button
+                      className="mt-4 w-full"
+                      onClick={() => setPayDialogOpen(false)}
+                    >
                       支付成功
                     </Button>
                   ) : (

@@ -1,15 +1,13 @@
 package com.git.hui.offer.oc.service;
 
-import com.git.hui.offer.configs.service.CommonDictService;
 import com.git.hui.offer.constants.oc.DraftProcessEnum;
 import com.git.hui.offer.constants.oc.DraftStateEnum;
-import com.git.hui.offer.constants.oc.OcConstants;
 import com.git.hui.offer.constants.oc.OcStateEnum;
-import com.git.hui.offer.oc.convert.OcConvert;
 import com.git.hui.offer.oc.dao.entity.OcDraftEntity;
 import com.git.hui.offer.oc.dao.entity.OcInfoEntity;
 import com.git.hui.offer.oc.dao.repository.OcDraftRepository;
 import com.git.hui.offer.oc.dao.repository.OcRepository;
+import com.git.hui.offer.oc.helper.OcInfoTransfer;
 import com.git.hui.offer.web.model.PageListVo;
 import com.git.hui.offer.web.model.req.DraftOcUpdateReq;
 import com.git.hui.offer.web.model.req.DraftSearchReq;
@@ -39,13 +37,13 @@ public class GatherService {
     private final OcDraftRepository draftRepository;
     private final OcRepository ocRepository;
 
-    private final CommonDictService commonDictService;
+    private final OcInfoTransfer ocInfoTransfer;
 
     @Autowired
-    public GatherService(OcDraftRepository repository, OcRepository ocRepository, CommonDictService commonDictService) {
+    public GatherService(OcDraftRepository repository, OcRepository ocRepository, OcInfoTransfer ocInfoTransfer) {
         this.draftRepository = repository;
         this.ocRepository = ocRepository;
-        this.commonDictService = commonDictService;
+        this.ocInfoTransfer = ocInfoTransfer;
     }
 
     public PageListVo<OcDraftEntity> searchDraftList(DraftSearchReq req) {
@@ -168,58 +166,6 @@ public class GatherService {
     }
 
     /**
-     * 根据字典配置中的值，对草稿中的相关字段进行格式化
-     *
-     * @param draft 草稿数据
-     */
-    private OcInfoEntity autoFormatDraftInfo(OcDraftEntity draft) {
-        OcInfoEntity ocEntity = OcConvert.toOc(draft);
-        // 1. 公司类型
-        commonDictService.queryDictForOptional(OcConstants.APP, OcConstants.COMPANY_TYPE_KEY)
-                .ifPresent(dict -> {
-                    // 没有匹配的公司类型，则设置为空，让后续进行编辑
-                    if (dict.items().stream().noneMatch(item ->
-                            ocEntity.getCompanyType().equals(item.value())
-                                    || ocEntity.getCompanyType().equals(item.intro())
-                    )) {
-                        ocEntity.setCompanyType("");
-                    }
-                });
-
-        // 招聘类型
-        commonDictService.queryDictForOptional(OcConstants.APP, OcConstants.RECRUITMENT_TYPE_KEY)
-                .ifPresent(dict -> {
-                    if (dict.items().stream().noneMatch(item ->
-                            ocEntity.getRecruitmentType().equals(item.value())
-                                    || ocEntity.getRecruitmentType().equals(item.intro())
-                    )) {
-                        ocEntity.setRecruitmentType("");
-                    }
-                });
-
-        // 招聘对象
-        commonDictService.queryDictForOptional(OcConstants.APP, OcConstants.RECRUITMENT_TARGET_KEY)
-                .ifPresent(dict -> {
-                    if (dict.items().stream().noneMatch(item ->
-                            ocEntity.getRecruitmentTarget().equals(item.value())
-                                    || ocEntity.getRecruitmentTarget().equals(item.intro())
-                    )) {
-                        ocEntity.setRecruitmentTarget("");
-                    }
-                });
-
-        // 工作地点格式化
-        ocEntity.setJobLocation(OcConstants.jobLocationFormat(ocEntity.getJobLocation()));
-        // 职位格式化
-        ocEntity.setPosition(OcConstants.positionFormat(ocEntity.getPosition()));
-
-        // 链接校验
-        ocEntity.setRelatedLink(OcConstants.urlCheck(ocEntity.getRelatedLink()));
-        ocEntity.setJobAnnouncement(OcConstants.urlCheck(ocEntity.getJobAnnouncement()));
-        return ocEntity;
-    }
-
-    /**
      * 将草稿数据移动到正式数据中
      *
      * @param draftIds
@@ -236,7 +182,7 @@ public class GatherService {
         List<OcInfoEntity> insertList = new ArrayList<>();
         List<OcInfoEntity> updateList = new ArrayList<>();
         draftData.forEach(draft -> {
-            OcInfoEntity ocEntity = autoFormatDraftInfo(draft);
+            OcInfoEntity ocEntity = ocInfoTransfer.autoFormatDraftInfo(draft);
             ocEntity.setState(OcStateEnum.PUBLISHED.getValue());
             if (ocMap.containsKey(draft.getId())) {
                 // 更新

@@ -2,7 +2,10 @@ package com.git.hui.offer.gather.service.ai;
 
 import com.git.hui.offer.components.bizexception.BizException;
 import com.git.hui.offer.components.bizexception.StatusEnum;
+import com.git.hui.offer.constants.gather.GatherModelEnum;
+import com.git.hui.offer.constants.gather.GatherModelTypeEnum;
 import com.git.hui.offer.gather.model.ModelSelectReq;
+import com.git.hui.offer.gather.service.ai.impl.AbsOcChatModelApi;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -50,5 +53,18 @@ public class OcAiModelContext {
             }
         }
         throw new BizException(StatusEnum.MODEL_MISMATCH_SUPPORT);
+    }
+
+    /**
+     * 获取默认的聊天模型
+     *
+     * @return
+     */
+    public ChatClient getMainChatClient() {
+        try {
+            return chatClient(new ModelSelectReq(GatherModelEnum.ZHIPU, GatherModelTypeEnum.CHAT_MODEL));
+        } catch (Exception e) {
+            return ((AbsOcChatModelApi) list.get(0)).chatClient();
+        }
     }
 }
