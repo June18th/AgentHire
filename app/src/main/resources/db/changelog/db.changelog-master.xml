@@ -19,4 +19,8 @@
     <changeSet id="250815_00000001" author="YiHui">
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_250815.sql"/>
     </changeSet>
+
+    <changeSet id="250820_00000001" author="YiHui">
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_250820.sql"/>
+    </changeSet>
 </databaseChangeLog>
