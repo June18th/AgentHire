@@ -18,6 +18,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public interface RechargeRepository extends JpaRepository<RechargeEntity, Long>, JpaSpecificationExecutor<RechargeEntity> {
@@ -78,4 +79,13 @@ public interface RechargeRepository extends JpaRepository<RechargeEntity, Long>,
         );
         return PageListVo.of(ans.getContent(), ans.getTotalElements(), req.getPage(), req.getSize());
     }
+
+    /**
+     * 查询超时未支付的充值记录
+     *
+     * @param status
+     * @param expireTime
+     * @return
+     */
+    List<RechargeEntity> findByStatusAndPrePayExpireTimeBefore(Integer status, Date expireTime);
 }

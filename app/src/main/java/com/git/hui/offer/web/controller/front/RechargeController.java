@@ -42,14 +42,18 @@ public class RechargeController {
      */
     @RequestMapping("/toPay")
     public RechargePayVo toPay(@RequestParam(value = "vipLevel", required = false) Integer vipLevel,
-                               @RequestParam(value = "vipPrice", required = false) String vipPrice) {
+                               @RequestParam(value = "vipPrice", required = false) String vipPrice,
+                               @RequestParam(value = "couponCode", required = false) String couponCode) {
         RechargeLevelEnum level = IntBaseEnum.getEnumByCode(RechargeLevelEnum.class, vipLevel);
         if (level == null && StringUtils.isBlank(vipPrice)) {
             throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS_MIXED, "请选择充值会员等级或充值金额");
         }
-        level = rechargeService.getRechargeLevel(vipPrice);
+        if (level == null) {
+            // 根据传入的金额自动映射充值级别
+            level = rechargeService.getRechargeLevel(vipPrice);
+        }
         Assert.notNull(level, "请选择充值会员等级或充值金额");
-        return rechargeService.toPay(level);
+        return rechargeService.toPay(level, couponCode);
     }
 
     @RequestMapping("/refreshPay")

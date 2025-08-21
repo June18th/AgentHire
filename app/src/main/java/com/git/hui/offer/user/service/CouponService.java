@@ -126,4 +126,20 @@ public class CouponService {
         List<CouponVo> list = CouponConvert.toVoList(res.getList());
         return PageListVo.of(list, res.getTotal(), req.getPage(), req.getSize());
     }
+
+
+    public CouponEntity getCouponByCode(String code) {
+        return couponRepository.findByCouponCode(code);
+    }
+
+    /**
+     * 更新使用优惠券的次数
+     *
+     * @param code
+     * @param cnt
+     * @return
+     */
+    public boolean updateCouponUseCount(String code, Integer cnt) {
+        return couponRepository.updateCntByCode(code, cnt) > 0;
+    }
 }

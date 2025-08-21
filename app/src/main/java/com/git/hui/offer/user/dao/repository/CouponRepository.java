@@ -12,6 +12,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,4 +49,8 @@ public interface CouponRepository extends JpaRepository<CouponEntity, Long>, Jpa
         );
         return PageListVo.of(ans.getContent(), ans.getTotalElements(), req.getPage(), req.getSize());
     }
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = "update recharge_coupon r set r.useCount = r.useCount + :cnt, r.updateTime=now() where r.couponCode = :couponCode")
+    int updateCntByCode(@Param("couponCode") String couponCode, @Param("cnt") Integer cnt);
 }

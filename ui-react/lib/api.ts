@@ -787,8 +787,21 @@ export async function updateUserDetail(params: UserSaveReq) {
   throw new Error(res.data?.msg || "更新用户信息失败");
 }
 
-export async function toPay(vipLevel: number | string | String) {
-  const res = await api.get(`/api/recharge/toPay?vipPrice=${vipLevel}`);
+export async function toPay(
+  rechargeLevel: number | string | String,
+  vipAmount: number | string | String,
+  couponCode: string = ""
+) {
+  let url = `/api/recharge/toPay`;
+  if (rechargeLevel != "") {
+    url += `?vipLevel=${rechargeLevel}`;
+  } else {
+    url += `?vipPrice=${vipAmount}`;
+  }
+  if (couponCode) {
+    url += `&couponCode=${encodeURIComponent(couponCode)}`;
+  }
+  const res = await api.get(url);
   if (res.data && res.data.code === 0) {
     return res.data.data;
   }

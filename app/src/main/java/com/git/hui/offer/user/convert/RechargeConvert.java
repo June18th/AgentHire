@@ -19,7 +19,9 @@ public class RechargeConvert {
 
     public static RechargePayVo toVo(RechargeEntity entity) {
         return new RechargePayVo(entity.getId(), entity.getTradeNo(), PriceUtil.toYuanPrice(entity.getAmount()),
-                entity.getVipLevel(), entity.getPrePayId(), entity.getPrePayExpireTime().getTime());
+                entity.getVipLevel()
+                , entity.getPrePayId()
+                , entity.getPrePayExpireTime() == null ? 0 : entity.getPrePayExpireTime().getTime());
     }
 
     public static RechargeRecordVo toRecord(RechargeEntity entity) {
@@ -29,7 +31,10 @@ public class RechargeConvert {
                 , entity.getVipLevel()
                 , entity.getStatus()
                 , entity.getPayCallbackTime() == null ? entity.getUpdateTime().getTime() : entity.getPayCallbackTime().getTime()
-                , entity.getThirdTransCode());
+                , entity.getThirdTransCode()
+                , entity.getCouponCode()
+                , PriceUtil.toYuanPrice(entity.getPromotionAmount())
+        );
     }
 
     public static List<RechargeRecordVo> toRecordList(List<RechargeEntity> list) {
@@ -51,7 +56,7 @@ public class RechargeConvert {
                 , entity.getThirdTransCode()
                 , PriceUtil.toYuanPrice(entity.getPromotionAmount())
                 , user
-                );
+        );
     }
 
 

@@ -1,5 +1,8 @@
 package com.git.hui.offer.util;
 
+import com.git.hui.offer.components.bizexception.BizException;
+import com.git.hui.offer.components.bizexception.StatusEnum;
+import com.git.hui.offer.constants.user.coupon.CouponTypeEnum;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
@@ -83,5 +86,25 @@ public class PriceUtil {
 
         Integer pp = toCentPrice(price);
         return pp != null && pp > 0;
+    }
+
+    /**
+     * 计算优惠后的价格
+     *
+     * @param originalPrice
+     * @param couponType
+     * @param couponValue
+     * @return
+     */
+    public static Integer calculatePriceAfterCoupon(Integer originalPrice, Integer couponType, Integer couponValue) {
+        if (couponType.equals(CouponTypeEnum.SUB_AMOUNT.getValue())) {
+            // 金额减免
+            return Math.max(0, originalPrice - couponValue);
+        } else if (couponType.equals(CouponTypeEnum.DISCOUNT.getValue())) {
+            // 折扣
+            return Math.max(0, originalPrice * couponValue / 100);
+        } else {
+            throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS, "非法的优惠券类型");
+        }
     }
 }

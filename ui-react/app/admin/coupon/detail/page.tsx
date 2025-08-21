@@ -23,6 +23,9 @@ import { fetchCouponDetail, CouponDetailListResponse } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "next/navigation";
+import { getConfigValue } from "@/lib/config";
+import { GlobalConfigItemValue } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
 export default function CouponDetailPage() {
   // 获取路由参数
   const searchParams = useSearchParams();
@@ -35,6 +38,19 @@ export default function CouponDetailPage() {
 
   const [couponId, setCouponId] = useState("");
 
+  // 用户角色字典
+  const [roleOptions, setRoleOptions] = useState<GlobalConfigItemValue[]>([]);
+  // 支付状态定义字典
+  const [rechargeStatusOptions, setRechargeStatusOptions] = useState<
+    GlobalConfigItemValue[]
+  >([]);
+  const [vipOptions, setVipOptions] = useState<GlobalConfigItemValue[]>([]);
+  useEffect(() => {
+    getConfigValue("user", "UserRoleEnum").then(setRoleOptions);
+    getConfigValue("user", "RechargeStatusEnum").then(setRechargeStatusOptions);
+    getConfigValue("user", "RechargeLevelEnum").then(setVipOptions);
+  }, []);
+
   // 优惠券使用记录数据
   const [couponDetailList, setCouponDetailList] = useState<any[]>([]);
   // 加载状态
@@ -43,6 +59,15 @@ export default function CouponDetailPage() {
   const [pagination, setPagination] = useState({ page: 1, size: 10, total: 0 });
   // 提示框
   const { toast } = useToast();
+
+  const getVipLevelLabel = (level: number) => {
+    const item = vipOptions.find((v) => v.value == `${level}`);
+    return item?.intro;
+  };
+  const getPayStatusText = (status: number) => {
+    const item = rechargeStatusOptions.find((v) => v.value == `${status}`);
+    return item?.intro;
+  };
 
   // 获取优惠券详情
   const fetchCouponDetailData = async () => {
@@ -86,97 +111,144 @@ export default function CouponDetailPage() {
   }, [pagination.page, pagination.size]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">优惠券详情 - {couponId}</h1>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b">
+        <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <h1 className="text-2xl font-bold text-gray-900">
+              优惠券详情 - {couponId}
+            </h1>
+          </div>
+        </div>
+      </header>
+      <div className="full-w mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="overflow-x-auto mb-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>支付ID</TableHead>
+                  <TableHead>交易号</TableHead>
+                  <TableHead>充值金额</TableHead>
+                  <TableHead>充值级别</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>支付时间</TableHead>
+                  <TableHead>三方交易号</TableHead>
+                  <TableHead>优惠金额</TableHead>
+                  <TableHead>用户昵称</TableHead>
+                  <TableHead>用户头像</TableHead>
+                  <TableHead>用户角色</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {couponDetailList.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{item.payId}</TableCell>
+                    <TableCell>{item.tradeNo}</TableCell>
+                    <TableCell>{item.amount}￥</TableCell>
+                    <TableCell>{getVipLevelLabel(item.level)}</TableCell>
+                    <TableCell>
+                      {item.status === 0 ? (
+                        <Badge className="px-1 py-1 text-xs">
+                          {getPayStatusText(item.status)}
+                        </Badge>
+                      ) : item.status === 1 ? (
+                        <Badge variant="orange" className="px-1 py-1 text-xs">
+                          {getPayStatusText(item.status)}
+                        </Badge>
+                      ) : item.status === 2 ? (
+                        <Badge variant="green" className="px-1 py-1 text-xs">
+                          {getPayStatusText(item.status)}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="destructive"
+                          className="px-1 py-1 text-xs"
+                        >
+                          {getPayStatusText(item.status)}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{formatDateTime(item.payTime)}</TableCell>
+                    <TableCell>{item.transactionId}</TableCell>
+                    <TableCell>{item.promotionAmount}￥</TableCell>
+                    <TableCell>{item.user?.nickName || "-"}</TableCell>
+                    <TableCell>
+                      {item.user?.avatar ? (
+                        <img
+                          src={item.user.avatar}
+                          alt="用户头像"
+                          className="w-8 h-8 rounded-full"
+                        />
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const role = roleOptions.find(
+                          (r) => Number(r.value) === item.user.role
+                        );
+                        return (
+                          <span
+                            className={
+                              item.user.role === 1
+                                ? "text-gray-700"
+                                : item.user.role === 2
+                                ? "text-blue-600 font-semibold"
+                                : item.user.role === 3
+                                ? "text-green-600 font-semibold"
+                                : "text-gray-400"
+                            }
+                          >
+                            {role ? role.intro : "未知"}
+                          </span>
+                        );
+                      })()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
 
-      <div className="overflow-x-auto mb-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>支付ID</TableHead>
-              <TableHead>交易号</TableHead>
-              <TableHead>充值金额</TableHead>
-              <TableHead>充值级别</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>支付时间</TableHead>
-              <TableHead>三方交易号</TableHead>
-              <TableHead>优惠金额</TableHead>
-              <TableHead>用户昵称</TableHead>
-              <TableHead>用户头像</TableHead>
-              <TableHead>用户角色</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {couponDetailList.map((item, index) => (
-              <TableRow key={index}>
-                <TableCell>{item.payId}</TableCell>
-                <TableCell>{item.tradeNo}</TableCell>
-                <TableCell>{item.amount}</TableCell>
-                <TableCell>{item.level}</TableCell>
-                <TableCell>{item.status === 1 ? "成功" : "失败"}</TableCell>
-                <TableCell>{formatDateTimeStr(item.payTime)}</TableCell>
-                <TableCell>{item.transactionId}</TableCell>
-                <TableCell>{item.promotionAmount}</TableCell>
-                <TableCell>{item.user?.nickName || "-"}</TableCell>
-                <TableCell>
-                  {item.user?.avatar ? (
-                    <img
-                      src={item.user.avatar}
-                      alt="用户头像"
-                      className="w-8 h-8 rounded-full"
-                    />
-                  ) : (
-                    "-"
-                  )}
-                </TableCell>
-                <TableCell>
-                  {item.user?.role === 0
-                    ? "普通用户"
-                    : item.user?.role === 1
-                    ? "管理员"
-                    : "-"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* 分页组件 */}
-      <div className="flex justify-center">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => handlePageChange(pagination.page - 1)}
-                disabled={pagination.page === 1}
-              />
-            </PaginationItem>
-            {Array.from(
-              { length: Math.ceil(pagination.total / pagination.size) },
-              (_, i) => i + 1
-            ).map((page) => (
-              <PaginationItem key={page}>
-                <Button
-                  variant={page === pagination.page ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handlePageChange(page)}
-                >
-                  {page}
-                </Button>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => handlePageChange(pagination.page + 1)}
-                disabled={
-                  pagination.page >=
-                  Math.ceil(pagination.total / pagination.size)
-                }
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+          {/* 分页组件 */}
+          <div className="flex justify-center">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                  />
+                </PaginationItem>
+                {Array.from(
+                  { length: Math.ceil(pagination.total / pagination.size) },
+                  (_, i) => i + 1
+                ).map((page) => (
+                  <PaginationItem key={page}>
+                    <Button
+                      variant={page === pagination.page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </Button>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={
+                      pagination.page >=
+                      Math.ceil(pagination.total / pagination.size)
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        </div>
       </div>
     </div>
   );

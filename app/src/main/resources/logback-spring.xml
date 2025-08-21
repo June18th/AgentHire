@@ -2,7 +2,7 @@
 <configuration>
     <!-- fixme 知识点：logback配置变量的姿势，如何读取Spring配置参数   -->
     <springProperty scope="context" name="log.path" source="log.path" defaultValue="logs"/>
-    <springProperty scope="context" name="log.env" source="env.name" defaultValue="NO"/>
+    <springProperty scope="context" name="log.env" source="env.name" defaultValue="oc"/>
     <property name="log.req.name" value="req"/>
 
 

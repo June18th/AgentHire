@@ -18,5 +18,10 @@ public record RechargeRecordVo(
         // 支付成功时间
         , Long payTime
         // 三方交易号
-        , String transactionId) {
+        , String transactionId
+        // 优惠券
+        , String couponCode
+        // 优惠金额
+        , String promotionAmount
+) {
 }
