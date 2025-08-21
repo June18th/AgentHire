@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { getUserDetail } from "@/lib/api";
 
 function parseJwt(token: string) {
     try {
@@ -46,12 +47,42 @@ export function LoginUserProvider({ children }: { children: React.ReactNode }) {
     const [userInfo, setUserInfo] = useState<{ userId: number; role: number; nickname?: string; avatar?: string } | null>(null);
 
     useEffect(() => {
+        const fetchUserDetail = async () => {
+            try {
+                const data = await getUserDetail();
+                if (data) {
+                    const updatedInfo = {
+                        userId: data.userId,
+                        role: data.role,
+                        nickname: data.nickname,
+                        avatar: data.avatar,
+                        timestamp: Date.now()
+                    };
+                    setUserInfo(updatedInfo);
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('oc-user', JSON.stringify(updatedInfo));
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch user detail:', error);
+            }
+        };
+
         if (typeof window !== 'undefined') {
             const localUser = localStorage.getItem('oc-user');
             const token = localStorage.getItem('oc-token');
             if (localUser && token && isJwtValid(token)) {
                 try {
-                    setUserInfo(JSON.parse(localUser));
+                    const userInfo = JSON.parse(localUser);
+                    // Check if user info is older than 5 minutes (300000 ms)
+                    const isExpired = userInfo.timestamp && (Date.now() - userInfo.timestamp > 300000);
+                      
+                    setUserInfo(userInfo);
+                      
+                    // If user info is expired, fetch fresh data
+                    if (isExpired) {
+                        fetchUserDetail();
+                    }
                     return;
                 } catch { }
             } else {
@@ -68,6 +99,7 @@ export function LoginUserProvider({ children }: { children: React.ReactNode }) {
                     role: jwt.r,
                     nickname: jwt.un,
                     avatar: jwt.av,
+                    timestamp: Date.now() // Add timestamp when storing new user info
                 };
                 setUserInfo(info);
                 if (typeof window !== 'undefined') {
@@ -92,4 +124,4 @@ export function LoginUserProvider({ children }: { children: React.ReactNode }) {
             {children}
         </LoginUserContext.Provider>
     );
-} 
+}
