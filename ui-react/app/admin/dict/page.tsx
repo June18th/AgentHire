@@ -245,7 +245,7 @@ export default function DictPage() {
                                 </Select>
                             </div>
                             <Input
-                                placeholder="Code"
+                                placeholder="Code/Value/说明模糊查询"
                                 value={key}
                                 onChange={(e) => setKey(e.target.value)}
                                 className="max-w-xs"

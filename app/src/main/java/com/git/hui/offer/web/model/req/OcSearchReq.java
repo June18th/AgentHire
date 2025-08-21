@@ -2,6 +2,8 @@ package com.git.hui.offer.web.model.req;
 
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * @author YiHui
  * @date 2025/7/15
@@ -18,6 +20,10 @@ public class OcSearchReq extends PageReq {
      */
     private String companyType;
     /**
+     * 公司行业
+     */
+    private String companyIndustry;
+    /**
      * 工作地点
      */
     private String jobLocation;
@@ -25,6 +31,12 @@ public class OcSearchReq extends PageReq {
      * 招聘类型
      */
     private String recruitmentType;
+
+    /**
+     * 招聘类型，排除在外（如只想找校招相关的，排除掉实习信息）
+     */
+    private String recruitmentTypeExcept;
+
     /**
      * 招聘对象
      */

@@ -1,7 +1,6 @@
 "use client";
-import { useState } from "react";
 
-import { useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLoginModal } from "@/hooks/useLoginModal";
 import { Search, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -76,7 +75,6 @@ export default function HomePage() {
     companyIndustry: "", // 行业搜索
     location: "",
     recruitmentType: "",
-    recruitmentTypeExcept: "实习",
     recruitmentTarget: "",
     position: "",
   });
@@ -108,8 +106,8 @@ export default function HomePage() {
 
   // 请求岗位数据（带分页）
   const loadJobList = (params: any = {}, page = currentPage) => {
-    if (!params.recruitmentTypeExcept) {
-      params.recruitmentTypeExcept = "实习";
+    if (!params.recruitmentType) {
+      params.recruitmentType = "实习";
     }
 
     // 查询实习相关的岗位
@@ -150,7 +148,7 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    handleSearch()
+    handleSearch();
   }, [currentPage, searchFilters]);
 
   const handleSearch = () => {
@@ -183,7 +181,6 @@ export default function HomePage() {
       companyIndustry: "",
       location: "",
       recruitmentType: "",
-      recruitmentTypeExcept: "实习",
       recruitmentTarget: "",
       position: "",
     });
@@ -257,7 +254,7 @@ export default function HomePage() {
                 <SelectContent>
                   <SelectItem value={ALL_TAG}>全部招聘类型</SelectItem>
                   {recruitmentTypes.map((type) => {
-                    if (!type.intro.includes("实习")) {
+                    if (type.intro.includes("实习")) {
                       return (
                         <SelectItem
                           key={type.intro as string}
@@ -379,7 +376,6 @@ export default function HomePage() {
                       e.preventDefault();
                       e.stopPropagation();
                       if (!userInfo) {
-                        // 未登录时，需要打开登录弹窗
                         setLoginOpen(true);
                       } else {
                         router.push("/user");

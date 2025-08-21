@@ -3,7 +3,9 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { LoginUserProvider } from "@/hooks/useLoginUser"
+import { LoginModalProvider } from "@/hooks/useLoginModal"
 import { Toaster } from "@/components/ui/toaster"
+import AppLayout from "@/components/layout/AppLayout"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -22,7 +24,11 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className={inter.className}>
         <LoginUserProvider>
-          {children}
+          <LoginModalProvider>
+            <AppLayout>
+              {children}
+            </AppLayout>
+          </LoginModalProvider>
         </LoginUserProvider>
         <Toaster />
       </body>

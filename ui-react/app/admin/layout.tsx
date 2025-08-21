@@ -20,17 +20,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
         <SidebarProvider>
             <div className="flex min-h-screen w-full">
-                <Sidebar className="w-64 min-h-screen bg-sidebar text-sidebar-foreground border-r flex flex-col">
-                    <div className="h-16 flex items-center justify-center font-bold text-xl tracking-wide mb-0 select-none flex-row gap-2 w-full">
-                        <button
-                            className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-                            title="返回主页"
-                            onClick={() => window.location.href = "/"}
-                        >
-                            <Home className="w-7 h-7 text-blue-600" />
-                        </button>
-                        <span>管理后台</span>
-                    </div>
+                <Sidebar className="my-16 w-64 min-h-screen bg-sidebar text-sidebar-foreground border-r flex flex-col">
                     <div className="w-full border-b border-sidebar-border mb-2" />
                     <SidebarContent>
                         <SidebarMenu>

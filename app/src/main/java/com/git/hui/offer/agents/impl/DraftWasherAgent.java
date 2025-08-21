@@ -111,7 +111,7 @@ public class DraftWasherAgent extends BaseAgent {
         return autoTrans(dict, draft, COMPANY_TYPE, draft::getCompanyType, draft::setCompanyType, this::formatCompanyType);
     }
 
-    private static final Map<String, String> RECRUITMEN_TYPE = Map.of("实习", "暑期实习");
+    private static final Map<String, String> RECRUITMEN_TYPE = Map.of("实习", "暑期实习", "暑假实习", "暑期实习");
 
     private boolean formatRecruitmentType(OcDraftEntity draft) {
         // 招聘类型

@@ -118,7 +118,7 @@ public class OcService {
             throw new BizException(StatusEnum.RECORDS_NOT_EXISTS, id);
         }
 
-        if (entity.getState().equals(state)) {
+        if (entity.getState().equals(state.getValue())) {
             return true;
         }
         entity.setState(state.getValue());

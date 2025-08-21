@@ -447,7 +447,7 @@ export default function UserPage() {
   return (
     <div className="min-h-screen bg-[#f5f7fa]">
       {/* 顶部导航栏 */}
-      <header className="bg-white border-b">
+      {/* <header className="bg-white border-b">
         <div className="px-10">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-8">
@@ -529,7 +529,7 @@ export default function UserPage() {
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
       {/* 原有顶部横幅 */}
       <div className="bg-white shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-8 py-4">

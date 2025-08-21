@@ -41,7 +41,10 @@ public interface CommonDictRepository extends JpaRepository<CommonDictEntity, Lo
                 predicates.add(criteriaBuilder.equal(root.get("app"), req.getApp()));
             }
             if (StringUtils.isNotBlank(req.getKey())) {
-                predicates.add(criteriaBuilder.like(root.get("key"), "%" + req.getKey() + "%"));
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(root.get("key"), "%" + req.getKey() + "%"),
+                        criteriaBuilder.like(root.get("value"), "%" + req.getKey() + "%"),
+                        criteriaBuilder.like(root.get("intro"), "%" + req.getKey() + "%")));
             }
             if (req.getState() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("state"), req.getState()));

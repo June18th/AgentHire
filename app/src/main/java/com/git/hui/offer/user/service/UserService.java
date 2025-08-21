@@ -222,6 +222,12 @@ public class UserService {
         if (user == null) {
             return null;
         }
+        if (user.getRole().equals(UserRoleEnum.VIP.getValue())
+                && System.currentTimeMillis() >= user.getExpireTime().getTime()) {
+            // 会员已过期
+            user.setRole(UserRoleEnum.NORMAL.getValue());
+            userRepository.saveAndFlush(user);
+        }
         return UserConvert.toBo(user);
     }
 

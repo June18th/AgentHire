@@ -117,6 +117,9 @@ export function LoginUserProvider({ children }: { children: React.ReactNode }) {
             localStorage.removeItem('oc-user');
             localStorage.removeItem('oc-token');
         }
+        // 自动刷新当前页面
+        window.location.reload();
+
     };
 
     return (

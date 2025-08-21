@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,11 +42,17 @@ public interface OcRepository extends JpaRepository<OcInfoEntity, Long>, JpaSpec
             if (req.getCompanyType() != null && !req.getCompanyType().isEmpty()) {
                 predicates.add(criteriaBuilder.equal(root.get("companyType"), req.getCompanyType()));
             }
+            if (req.getCompanyIndustry() != null && !req.getCompanyIndustry().isEmpty()) {
+                predicates.add(criteriaBuilder.like(root.get("companyIndustry"), "%" + req.getCompanyIndustry() + "%"));
+            }
             if (req.getJobLocation() != null && !req.getJobLocation().isEmpty()) {
                 predicates.add(criteriaBuilder.like(root.get("jobLocation"), "%" + req.getJobLocation() + "%"));
             }
             if (req.getRecruitmentType() != null && !req.getRecruitmentType().isEmpty()) {
-                predicates.add(criteriaBuilder.equal(root.get("recruitmentType"), req.getRecruitmentType()));
+                predicates.add(criteriaBuilder.like(root.get("recruitmentType"), "%" + req.getRecruitmentType() + "%"));
+            }
+            if (req.getRecruitmentTypeExcept() != null && !req.getRecruitmentTypeExcept().isEmpty()) {
+                predicates.add(criteriaBuilder.notLike(root.get("recruitmentType"), "%" + req.getRecruitmentTypeExcept() + "%"));
             }
             if (req.getRecruitmentTarget() != null && !req.getRecruitmentTarget().isEmpty()) {
                 predicates.add(criteriaBuilder.like(root.get("recruitmentTarget"), "%" + req.getRecruitmentTarget() + "%"));

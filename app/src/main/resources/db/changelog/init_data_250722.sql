@@ -119,7 +119,7 @@ VALUES ('oc', 0, 'RecruitmentTypeEnum', '0', '社招', '招聘类型', 1),
        ('oc', 0, 'RecruitmentTypeEnum', '5', '秋招提前批', '招聘类型', 1),
        ('oc', 0, 'RecruitmentTypeEnum', '101', '日常实习', '招聘类型', 1),
        ('oc', 0, 'RecruitmentTypeEnum', '102', '暑期实习', '招聘类型', 1),
-       ('oc', 0, 'RecruitmentTypeEnum', '103', '寒期实习', '招聘类型', 1);
+       ('oc', 0, 'RecruitmentTypeEnum', '103', '寒假实习', '招聘类型', 1);
 
 INSERT INTO common_dict
     (app, `scope`, dict_key, dict_value, dict_intro, remark, state)
