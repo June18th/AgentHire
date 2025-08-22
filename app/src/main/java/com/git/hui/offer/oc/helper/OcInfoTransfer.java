@@ -6,6 +6,9 @@ import com.git.hui.offer.oc.convert.OcConvert;
 import com.git.hui.offer.oc.dao.entity.OcDraftEntity;
 import com.git.hui.offer.oc.dao.entity.OcInfoEntity;
 import com.git.hui.offer.user.dao.entity.UserInterestEntity;
+import com.git.hui.offer.web.model.res.CommonDictVo;
+import com.git.hui.offer.web.model.res.DictItemVo;
+import io.micrometer.common.util.StringUtils;
 import org.springframework.stereotype.Component;
 
 /**
@@ -72,31 +75,55 @@ public class OcInfoTransfer {
         return ocEntity;
     }
 
+    /**
+     * 根据字典配置中的值，对用户兴趣进行格式化（主要的目的是将大模型提取的结果，与系统预设的字典进行匹配，方便后续的查询推荐）
+     *
+     * @param entity 用户兴趣
+     */
     public void autoFormatDraftInfo(UserInterestEntity entity) {
         // 1. 公司类型
-        commonDictService.queryDictForOptional(OcConstants.APP, OcConstants.COMPANY_TYPE_KEY)
-                .ifPresent(dict -> {
-                    // 没有匹配的公司类型，则设置为空，让后续进行编辑
-                    if (dict.items().stream().noneMatch(item ->
-                            entity.getCompanyType().equals(item.value())
-                                    || entity.getCompanyType().equals(item.intro())
-                    )) {
-                        entity.setCompanyType("");
+        if (StringUtils.isNotBlank(entity.getCompanyType())) {
+            String[] types = entity.getCompanyType().split(",");
+            CommonDictVo vo = commonDictService.queryDict(OcConstants.APP, OcConstants.COMPANY_TYPE_KEY);
+            if (vo != null) {
+                StringBuilder builder = new StringBuilder();
+                for (String type : types) {
+                    for (DictItemVo item : vo.items()) {
+                        if (type.equals(item.value()) || type.equals(item.intro())) {
+                            builder.append(item.value()).append(",");
+                        }
                     }
-                });
+                }
+                if (!builder.isEmpty()) {
+                    entity.setCompanyType(builder.substring(0, builder.length() - 1));
+                } else {
+                    entity.setCompanyType("");
+                }
+            }
+        }
 
-        // 招聘类型
-        commonDictService.queryDictForOptional(OcConstants.APP, OcConstants.RECRUITMENT_TYPE_KEY)
-                .ifPresent(dict -> {
-                    if (dict.items().stream().noneMatch(item ->
-                            entity.getRecruitmentType().equals(item.value())
-                                    || entity.getRecruitmentType().equals(item.intro())
-                    )) {
-                        entity.setRecruitmentType("");
+        // 2. 招聘类型
+        if (StringUtils.isNotBlank(entity.getRecruitmentType())) {
+            String[] types = entity.getCompanyType().split(",");
+            CommonDictVo vo = commonDictService.queryDict(OcConstants.APP, OcConstants.RECRUITMENT_TYPE_KEY);
+            if (vo != null) {
+                StringBuilder builder = new StringBuilder();
+                for (String type : types) {
+                    for (DictItemVo item : vo.items()) {
+                        if (type.equals(item.value()) || type.equals(item.intro())) {
+                            builder.append(item.value()).append(",");
+                        }
                     }
-                });
+                }
+                if (!builder.isEmpty()) {
+                    entity.setRecruitmentType(builder.substring(0, builder.length() - 1));
+                } else {
+                    entity.setRecruitmentType("");
+                }
+            }
+        }
 
-        // 招聘对象
+        // 3.招聘对象
         commonDictService.queryDictForOptional(OcConstants.APP, OcConstants.RECRUITMENT_TARGET_KEY)
                 .ifPresent(dict -> {
                     if (dict.items().stream().noneMatch(item ->
@@ -107,9 +134,9 @@ public class OcInfoTransfer {
                     }
                 });
 
-        // 工作地点格式化
+        // 4.工作地点格式化
         entity.setJobLocation(OcConstants.jobLocationFormat(entity.getJobLocation()));
-        // 职位格式化
+        // 5.职位格式化
         entity.setPosition(OcConstants.positionFormat(entity.getPosition()));
     }
 }

@@ -11,6 +11,7 @@ import com.git.hui.offer.util.DateUtil;
 import com.git.hui.offer.web.model.PageListVo;
 import com.git.hui.offer.web.model.req.OcSaveReq;
 import com.git.hui.offer.web.model.req.OcSearchReq;
+import com.git.hui.offer.web.model.req.UserInterestRecommendReq;
 import com.git.hui.offer.web.model.res.OcVo;
 import io.micrometer.common.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -125,5 +126,12 @@ public class OcService {
         entity.setUpdateTime(new Date());
         ocRepository.saveAndFlush(entity);
         return true;
+    }
+
+
+    public PageListVo<OcVo> recommendForUser(UserInterestRecommendReq req) {
+        PageListVo<OcInfoEntity> list = ocRepository.recommend(req);
+        List<OcVo> voList = OcConvert.toVoList(list.getList());
+        return PageListVo.of(voList, list.getTotal(), req.getPage(), req.getSize());
     }
 }

@@ -67,7 +67,7 @@ public class UserInterestEntity {
     private String position;
 
     /**
-     * 微信支付创建订单回传的关键信息
+     * 创建时间
      */
     @Column(name = "create_time")
     private Date createTime;

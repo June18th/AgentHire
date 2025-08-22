@@ -1,8 +1,10 @@
 package com.git.hui.offer.oc.dao.repository;
 
+import com.git.hui.offer.constants.common.BaseStateEnum;
 import com.git.hui.offer.oc.dao.entity.OcInfoEntity;
 import com.git.hui.offer.web.model.PageListVo;
 import com.git.hui.offer.web.model.req.OcSearchReq;
+import com.git.hui.offer.web.model.req.UserInterestRecommendReq;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -87,5 +89,63 @@ public interface OcRepository extends JpaRepository<OcInfoEntity, Long>, JpaSpec
         );
         return PageListVo.of(ans.getContent(), ans.getTotalElements(), req.getPage(), req.getSize());
     }
+
+    default PageListVo<OcInfoEntity> recommend(UserInterestRecommendReq req) {
+        Specification<OcInfoEntity> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (!CollectionUtils.isEmpty(req.getCompanyTypeList())) {
+                List<Predicate> subQuery = new ArrayList<>();
+                for (String companyType : req.getCompanyTypeList()) {
+                    subQuery.add(criteriaBuilder.like(root.get("companyType"), "%" + companyType + "%"));
+                }
+                predicates.add(criteriaBuilder.or(subQuery.toArray(new Predicate[0])));
+            }
+            if (!CollectionUtils.isEmpty(req.getCompanyIndustryList())) {
+                List<Predicate> subQuery = new ArrayList<>();
+                for (String companyIndustry : req.getCompanyIndustryList()) {
+                    subQuery.add(criteriaBuilder.like(root.get("companyIndustry"), "%" + companyIndustry + "%"));
+                }
+                predicates.add(criteriaBuilder.or(subQuery.toArray(new Predicate[0])));
+            }
+            if (!CollectionUtils.isEmpty(req.getJobLocationList())) {
+                List<Predicate> subQuery = new ArrayList<>();
+                for (String jobLocation : req.getJobLocationList()) {
+                    subQuery.add(criteriaBuilder.like(root.get("jobLocation"), "%" + jobLocation + "%"));
+                }
+                predicates.add(criteriaBuilder.or(subQuery.toArray(new Predicate[0])));
+            }
+            if (req.getRecruitmentTarget() != null && !req.getRecruitmentTarget().isEmpty()) {
+                predicates.add(criteriaBuilder.like(root.get("recruitmentTarget"), "%" + req.getRecruitmentTarget() + "%"));
+            }
+            if (!CollectionUtils.isEmpty(req.getRecruitmentTypeList())) {
+                List<Predicate> subQuery = new ArrayList<>();
+                for (String recruitmentType : req.getRecruitmentTypeList()) {
+                    subQuery.add(criteriaBuilder.like(root.get("recruitmentType"), "%" + recruitmentType + "%"));
+                }
+                predicates.add(criteriaBuilder.or(subQuery.toArray(new Predicate[0])));
+            }
+            if (!CollectionUtils.isEmpty(req.getPositionList())) {
+                List<Predicate> subQuery = new ArrayList<>();
+                for (String position : req.getPositionList()) {
+                    subQuery.add(criteriaBuilder.like(root.get("position"), "%" + position + "%"));
+                }
+                predicates.add(criteriaBuilder.or(subQuery.toArray(new Predicate[0])));
+            }
+            // 永远使用真实的数据
+            predicates.add(criteriaBuilder.equal(root.get("state"), BaseStateEnum.NORMAL_STATE.getValue()));
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        // 分页时，PageNumber 从 0开始
+        Page<OcInfoEntity> ans = findAll(spec
+                // 分页查询
+                , PageRequest.of(req.getPage() - 1, req.getSize())
+                        // 根据id进行倒排
+                        .withSort(Sort.by(Sort.Order.desc("id")))
+        );
+        return PageListVo.of(ans.getContent(), ans.getTotalElements(), req.getPage(), req.getSize());
+    }
+
 
 }

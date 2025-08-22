@@ -7,7 +7,11 @@ import com.git.hui.offer.user.convert.UserConvert;
 import com.git.hui.offer.user.dao.entity.UserInterestEntity;
 import com.git.hui.offer.user.dao.repository.UserInterestRepository;
 import com.git.hui.offer.user.model.UserInterestBo;
+import com.git.hui.offer.web.model.req.PageReq;
+import com.git.hui.offer.web.model.req.UserInterestRecommendReq;
 import com.git.hui.offer.web.model.res.UserInterestVo;
+import com.google.common.base.Splitter;
+import io.micrometer.common.util.StringUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
@@ -49,6 +53,7 @@ public class UserInterestService {
         Long userId = ReqInfoContext.getReqInfo().getUserId();
         UserInterestEntity entity = userInterestRepository.findByUserId(userId);
         if (entity == null) {
+            // 不存在时创建新的实体；若存在则执行更新
             entity = new UserInterestEntity();
             entity.setUserId(userId);
             entity.setCreateTime(new Date());
@@ -62,6 +67,7 @@ public class UserInterestService {
                 .setPosition(userInterestBo.position())
                 .setUpdateTime(new Date());
 
+        // 数据清洗转换
         ocInfoTransfer.autoFormatDraftInfo(entity);
         userInterestRepository.saveAndFlush(entity);
     }
@@ -69,5 +75,44 @@ public class UserInterestService {
     public UserInterestVo getUserInterest(Long userId) {
         UserInterestEntity entity = userInterestRepository.findByUserId(userId);
         return UserConvert.toInterestVo(entity);
+    }
+
+    /**
+     * 构建用户偏好推荐request
+     *
+     * @param page
+     * @return
+     */
+    public UserInterestRecommendReq buildInterestRecommendReq(PageReq page) {
+        Long userId = ReqInfoContext.getReqInfo().getUserId();
+        UserInterestEntity entity = userInterestRepository.findByUserId(userId);
+        if (entity == null) {
+            return null;
+        }
+
+        page.autoInitPage();
+        UserInterestRecommendReq req = new UserInterestRecommendReq();
+        req.setPage(page.getPage());
+        req.setSize(page.getSize());
+
+        if (StringUtils.isNotBlank(entity.getCompanyType())) {
+            req.setCompanyTypeList(Splitter.on(",").splitToList(entity.getCompanyType()));
+        }
+        if (StringUtils.isNotBlank(entity.getCompanyIndustry())) {
+            req.setCompanyIndustryList(Splitter.on(",").splitToList(entity.getCompanyIndustry()));
+        }
+        if (StringUtils.isNotBlank(entity.getJobLocation())) {
+            req.setJobLocationList(Splitter.on(",").splitToList(entity.getJobLocation()));
+        }
+        if (StringUtils.isNotBlank(entity.getRecruitmentType())) {
+            req.setRecruitmentTypeList(Splitter.on(",").splitToList(entity.getRecruitmentType()));
+        }
+        if (StringUtils.isNotBlank(entity.getRecruitmentTarget())) {
+            req.setRecruitmentTarget(entity.getRecruitmentTarget());
+        }
+        if (StringUtils.isNotBlank(entity.getPosition())) {
+            req.setPositionList(Splitter.on("/").splitToList(entity.getPosition()));
+        }
+        return req;
     }
 }

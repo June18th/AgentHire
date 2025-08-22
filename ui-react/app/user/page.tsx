@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { act, useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -9,6 +9,7 @@ import {
   getRechargeList,
   UserSaveReq,
   submitUserInterest,
+  fetchUserInterestRecommend,
 } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import {
@@ -59,6 +60,9 @@ export default function UserPage() {
   const [activeMenu, setActiveMenu] = useState("vip");
   const [form, setForm] = useState<UserSaveReq>(newUserInitValue);
   const [intro, setIntro] = useState<any>({});
+  // 推荐职位相关
+  const [recommendedJobs, setRecommendedJobs] = useState<any[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
 
   // 充值相关
   const [payInfo, setPayInfo] = useState<any>(null);
@@ -139,7 +143,29 @@ export default function UserPage() {
       });
   };
 
+  // 获取推荐职位
+  const fetchRecommendedJobs = async () => {
+    setLoadingJobs(true);
+    try {
+      const data = await fetchUserInterestRecommend({ page: 1, size: 10 });
+      setRecommendedJobs(data?.list || []);
+    } catch (error) {
+      console.error("获取推荐职位失败:", error);
+      toast({
+        title: "获取推荐职位失败",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingJobs(false);
+    }
+  };
+
   useEffect(() => {
+    if (activeMenu == "fav") {
+      fetchRecommendedJobs();
+    }
+
     getUserDetail().then((data) => {
       // 根据用户信息，构建vip登记
       if (data.role == 3) {
@@ -789,49 +815,47 @@ export default function UserPage() {
                   <div className="mt-8">
                     <div className="mb-4 flex items-center justify-between">
                       <h3 className="text-lg font-medium text-gray-800">
-                        AI推荐职位
+                        AI职位推荐
                       </h3>
-                      <Button variant="link" className="text-blue-600">
-                        查看更多
-                      </Button>
                     </div>
                     <div className="space-y-4">
-                      {[1, 2, 3].map((item) => (
-                        <div
-                          key={item}
-                          className="p-4 border border-gray-100 rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-white"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="text-base font-semibold text-gray-900">
-                                资深
-                                {["前端开发", "产品经理", "UI设计师"][item - 1]}
-                              </h4>
-                              <p className="mt-1 text-sm text-gray-600">
-                                {["字节跳动", "阿里巴巴", "腾讯"][item - 1]} ·{" "}
-                                {["北京", "杭州", "深圳"][item - 1]}
-                              </p>
-                            </div>
-                            <span className="text-sm font-medium text-blue-600">
-                              {["30K-50K", "25K-45K", "28K-48K"][item - 1]}
-                            </span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {["3-5年", "本科", "全职"][
-                              item % 3 === 0 ? 0 : item % 3
-                            ]
-                              .split(",")
-                              .map((tag, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                          </div>
+                      {loadingJobs ? (
+                        <div className="flex justify-center py-10">
+                          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
                         </div>
-                      ))}
+                      ) : recommendedJobs && recommendedJobs.length > 0 ? (
+                        recommendedJobs.map((item) => (
+                          <div className="p-4 border border-gray-100 rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-white">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="text-base font-semibold text-gray-900">
+                                  {item.position}
+                                </h4>
+                                <p className="mt-1 gap-2 text-sm text-gray-600">
+                                  {item.companyName} ○ {item.companyType} 🚇︎{" "}
+                                  {item.jobLocation}
+                                </p>
+                                {item.remarks && (
+                                  <p className="mt-1 text-sm text-gray-600">
+                                    备注：{item.remarks}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-sm font-medium text-blue-600 text-right">
+                                <a href={item.relatedLink} target="_blank">去投递</a>
+                                <div className="py-2 text-gray-600">截止时间：{item.deadline} </div>
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                                {item.recruitmentTarget}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : <div className="text-gray-600 font-italic text-sm">
+                        暂无推荐内容，到首页看看吧~
+                        </div>}
                     </div>
                   </div>
                 </div>

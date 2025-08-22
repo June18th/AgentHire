@@ -787,6 +787,20 @@ export async function submitUserInterest(text: string | String) {
   throw new Error(res.data?.msg || "提交个人订阅偏好失败");
 }
 
+export async function fetchUserInterestRecommend({page, size}: {
+  page?: number;
+  size?: number;
+}) {
+  const res = await api.post("/api/user/recommend", {
+    page: page || 1, size: size || 10
+  }, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+   if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "更新用户信息失败");
+}
 
 export async function updateUserDetail(params: UserSaveReq) {
   const res = await api.post("/api/user/update", params);

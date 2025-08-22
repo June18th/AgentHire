@@ -3,9 +3,14 @@ package com.git.hui.offer.web.controller.front;
 import com.git.hui.offer.components.context.ReqInfoContext;
 import com.git.hui.offer.constants.user.permission.Permission;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
+import com.git.hui.offer.oc.service.OcService;
 import com.git.hui.offer.user.service.UserInterestService;
 import com.git.hui.offer.user.service.UserService;
+import com.git.hui.offer.web.model.PageListVo;
+import com.git.hui.offer.web.model.req.PageReq;
+import com.git.hui.offer.web.model.req.UserInterestRecommendReq;
 import com.git.hui.offer.web.model.req.UserSaveReq;
+import com.git.hui.offer.web.model.res.OcVo;
 import com.git.hui.offer.web.model.res.UserVo;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,9 +31,12 @@ public class UserController {
 
     private final UserInterestService userInterestService;
 
-    public UserController(UserService userService, UserInterestService userInterestService) {
+    private final OcService ocService;
+
+    public UserController(UserService userService, UserInterestService userInterestService, OcService ocService) {
         this.userService = userService;
         this.userInterestService = userInterestService;
+        this.ocService = ocService;
     }
 
 
@@ -68,5 +76,21 @@ public class UserController {
         Assert.notNull(userId, "未登录");
         userInterestService.submitInterest(text);
         return userService.detail(userId);
+    }
+
+    /**
+     * 基于用户订阅偏好的岗位推荐
+     *
+     * @param req 分页参数
+     * @return
+     */
+    @RequestMapping(path = "recommend")
+    public PageListVo<OcVo> recommend(PageReq req) {
+        UserInterestRecommendReq recommendReq = userInterestService.buildInterestRecommendReq(req);
+        if (recommendReq == null) {
+            // 用户还没有设置订阅偏好的场景下，不做任何推荐
+            return PageListVo.emptyVo();
+        }
+        return ocService.recommendForUser(recommendReq);
     }
 }
