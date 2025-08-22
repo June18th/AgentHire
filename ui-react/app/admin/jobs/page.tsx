@@ -17,7 +17,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { JobListQuery, JobListResponse, GlobalConfigItemValue, fetchAdminJobList, submitOcEntry, updateOcState } from "@/lib/api"
+import { JobListQuery, JobListResponse, GlobalConfigItemValue, fetchAdminJobList, submitOcEntry, updateOcState, execPublishBlogs } from "@/lib/api"
 import { formatDateTime } from '@/lib/utils'
 import { useToast } from "@/hooks/use-toast"
 import { getConfigValue } from "@/lib/config"
@@ -196,6 +196,7 @@ export default function JobsPage() {
 
                     <Input placeholder="工作地点" className="w-32" value={filters.jobLocation || ''} onChange={e => handleFilterChange('jobLocation', e.target.value)} />
                     <Input placeholder="岗位" className="w-36" value={filters.position || ''} onChange={e => handleFilterChange('position', e.target.value)} />
+                    <Button onClick={execPublishBlogs} className="bg-green-500 hover:bg-green-700">发布公众号博文</Button>
                 </div>
                 <div className="bg-white rounded-lg shadow overflow-hidden">
                     {/* 设置表格大小：使用min-w-full确保表格宽度足够，text-base调整字体大小 */}

@@ -3,6 +3,7 @@ package com.git.hui.offer.web.controller.admin;
 import com.git.hui.offer.constants.oc.OcStateEnum;
 import com.git.hui.offer.constants.user.permission.Permission;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
+import com.git.hui.offer.oc.mcp.WechatBlogPublishService;
 import com.git.hui.offer.oc.service.OcService;
 import com.git.hui.offer.util.json.IntBaseEnum;
 import com.git.hui.offer.web.model.PageListVo;
@@ -12,6 +13,7 @@ import com.git.hui.offer.web.model.res.OcVo;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.util.Asserts;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,9 +30,12 @@ import org.springframework.web.bind.annotation.RestController;
 @CrossOrigin
 public class AdminOcController {
     private final OcService ocService;
+    private final WechatBlogPublishService wechatBlogPublishService;
 
-    public AdminOcController(OcService ocService) {
+
+    public AdminOcController(OcService ocService, WechatBlogPublishService wechatBlogPublishService) {
         this.ocService = ocService;
+        this.wechatBlogPublishService = wechatBlogPublishService;
     }
 
     @RequestMapping(path = "list")
@@ -51,5 +56,10 @@ public class AdminOcController {
         OcStateEnum stateEnum = IntBaseEnum.getEnumByCode(OcStateEnum.class, state);
         Asserts.notNull(stateEnum, "state can not be null");
         return ocService.updateState(id, stateEnum);
+    }
+
+    @GetMapping(path = "publish")
+    public String publishBlog() {
+        return wechatBlogPublishService.publishTodayOcInfo();
     }
 }

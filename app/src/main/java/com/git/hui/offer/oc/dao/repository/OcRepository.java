@@ -15,6 +15,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public interface OcRepository extends JpaRepository<OcInfoEntity, Long>, JpaSpecificationExecutor<OcInfoEntity> {
@@ -147,5 +148,14 @@ public interface OcRepository extends JpaRepository<OcInfoEntity, Long>, JpaSpec
         return PageListVo.of(ans.getContent(), ans.getTotalElements(), req.getPage(), req.getSize());
     }
 
+
+    /**
+     * 查询某个时间点之后的记录
+     *
+     * @param createTime
+     * @param state
+     * @return
+     */
+    List<OcInfoEntity> searchOcInfoEntitiesByCreateTimeAfterAndState(Date createTime, Integer state);
 
 }

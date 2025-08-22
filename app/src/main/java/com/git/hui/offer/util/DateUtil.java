@@ -90,6 +90,10 @@ public class DateUtil {
         return last != now;
     }
 
+    public static String todayStr() {
+        return format(DB_DAY_FORMAT, System.currentTimeMillis());
+    }
+
     // 2025-7-11的字符串转date
     public static Date toDateOrNow(String day) {
         try {

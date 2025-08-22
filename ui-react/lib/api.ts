@@ -119,6 +119,14 @@ export async function fetchAdminJobList(
   throw new Error(res.data?.msg || "获取岗位列表失败");
 }
 
+export async function execPublishBlogs() {
+  const res = await api.get("/api/admin/oc/publish");
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "发布播客失败");
+}
+
 export async function submitOcEntry(params: any) {
   const res = await api.post("/api/admin/oc/save", params);
   if (res.data && res.data.code === 0) {

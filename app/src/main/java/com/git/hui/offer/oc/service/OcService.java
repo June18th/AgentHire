@@ -38,6 +38,17 @@ public class OcService {
 
     // -------------------------------------------- oc 相关服务 ------------------------------------------
 
+    /**
+     * 查询今日上新的列表
+     *
+     * @return
+     */
+    public List<OcVo> searchTodayOcList() {
+        Date today = new Date(System.currentTimeMillis() / 86400_000 * 86400_000);
+        List<OcInfoEntity> list = ocRepository.searchOcInfoEntitiesByCreateTimeAfterAndState(today, OcStateEnum.PUBLISHED.getValue());
+        return OcConvert.toVoList(list);
+    }
+
     public PageListVo<OcVo> searchOcList(OcSearchReq req) {
         if (req.getNotState() == null) {
             // 不支持查询已删除状态的数据
