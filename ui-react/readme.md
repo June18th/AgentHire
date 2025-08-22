@@ -42,3 +42,8 @@ pnpm build
 ```bash
 pnpm run deploy
 ```
+
+说明：
+
+- 如果执行上面的发布命令失败，可以尝试将 .next 文件删除之后再重新执行上面的命令
+- 发布完成后，需要重启SpringBoot项目，这样才能生效

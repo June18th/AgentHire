@@ -1,5 +1,9 @@
 "use client";
-import { act, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import ProfileSection from '@/app/user/sub/ProfileSection';
+import VipSection from '@/app/user/sub/VipSection';
+import OrdersSection from '@/app/user/sub/OrdersSection';
+import SubscriptionSection from '@/app/user/sub/SubscriptionSection';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -12,15 +16,7 @@ import {
   fetchUserInterestRecommend,
 } from "@/lib/api";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
+
 import {
   Dialog,
   DialogContent,
@@ -36,13 +32,12 @@ import {
   markPaying,
   refreshPay,
 } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
 
 const MENU = [
   { key: "vip", label: "我的会员", icon: "💎" },
   { key: "orders", label: "购买记录", icon: "🛒" },
   { key: "fav", label: "订阅收藏", icon: "⭐" },
-  // { key: "post", label: "职位录入", icon: "🏬" },
+  // { key: "post", label: "内推录入", icon: "🏬" },
   { key: "profile", label: "基本资料", icon: "📄" },
 ];
 
@@ -143,29 +138,7 @@ export default function UserPage() {
       });
   };
 
-  // 获取推荐职位
-  const fetchRecommendedJobs = async () => {
-    setLoadingJobs(true);
-    try {
-      const data = await fetchUserInterestRecommend({ page: 1, size: 10 });
-      setRecommendedJobs(data?.list || []);
-    } catch (error) {
-      console.error("获取推荐职位失败:", error);
-      toast({
-        title: "获取推荐职位失败",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingJobs(false);
-    }
-  };
-
   useEffect(() => {
-    if (activeMenu == "fav") {
-      fetchRecommendedJobs();
-    }
-
     getUserDetail().then((data) => {
       // 根据用户信息，构建vip登记
       if (data.role == 3) {
@@ -239,24 +212,6 @@ export default function UserPage() {
       return () => clearInterval(timer);
     }
   }, [payInfo]);
-
-  const handleSubmitInterest = async () => {
-    await submitUserInterest(intro)
-      .then((res) => {
-        console.log("提交成功");
-        toast({
-          title: "成功",
-          description: "个人订阅偏好更新成功",
-        });
-      })
-      .catch((err) => {
-        toast({
-          title: "失败",
-          description: err.message,
-          variant: "destructive",
-        });
-      });
-  };
 
   const handleSaveUserInfo = async () => {
     await updateUserDetail(form)
@@ -386,97 +341,6 @@ export default function UserPage() {
       });
   };
 
-  // 会员卡片样式
-  const renderVipCard = () => {
-    if (!userInfo) return null;
-    console.log("userInfo", userInfo);
-    const isVip =
-      userInfo.role == 2 ||
-      (typeof userInfo.vipLevel === "number" && userInfo.vipLevel >= 0);
-    // 如果是管理员，则表示终身会员
-    const isLife = userInfo.role == 3 || userInfo.vipLevel === 3;
-    if (!isVip) {
-      // 非会员灰色卡片
-      return (
-        <div className="relative bg-gradient-to-r from-gray-300 to-gray-400 rounded-2xl shadow text-white p-8 w-full max-w-md mx-auto mb-8 overflow-hidden">
-          <div className="text-2xl font-bold mb-2 flex items-center">
-            <span className="mr-2">非会员</span>
-          </div>
-          <div className="text-lg mt-2">{userInfo.displayName}</div>
-          <div className="mt-4 flex items-center justify-between">
-            <div className="text-sm opacity-80">会员ID: {userInfo.userId}</div>
-            <div className="text-sm opacity-80">您还不是会员</div>
-          </div>
-          <div className="absolute right-6 top-6 text-4xl opacity-10">VIP</div>
-        </div>
-      );
-    }
-    // 会员卡片
-    const level = isLife ? 3 : userInfo.vipLevel;
-    const levelInfo = vipOptions.find((l) => l.value === `${level}`);
-    return (
-      <div>
-        {/* 在右上角，添加一个 MCP配置的按钮 */}
-        <div className="flex justify-end">
-          <Button
-            onClick={() => setMcpConfigDialogOpen(true)}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-2 px-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-          >
-            MCP配置
-          </Button>
-        </div>
-        <div className="relative bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl shadow-xl text-white p-8 w-full max-w-md mx-auto mb-8 overflow-hidden">
-          <div className="text-2xl font-bold mb-2 flex items-center">
-            <span className="mr-2">{levelInfo?.intro}</span>
-            {/* <span className="text-lg font-normal">{levelInfo?.intro}</span> */}
-          </div>
-          <div className="text-lg mt-2">{userInfo.displayName}</div>
-          <div className="mt-4 flex items-center justify-between">
-            <div className="text-sm opacity-80">会员ID: {userInfo.userId}</div>
-            <div className="text-sm opacity-80">
-              {isLife
-                ? "永久有效"
-                : `到期日: ${
-                    userInfo.expireTime
-                      ? new Date(userInfo.expireTime).toLocaleDateString()
-                      : "-"
-                  }`}
-            </div>
-          </div>
-          <div className="absolute right-6 top-6 text-4xl opacity-20">VIP</div>
-        </div>
-      </div>
-    );
-  };
-
-  // 充值卡片
-  const renderRechargeCards = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 mt-4">
-      {userInfo?.role != 3 &&
-        rechargeOptions.map((level, index) => (
-          <div
-            key={`${level.value}`}
-            className="relative overflow-hidden rounded-2xl p-1 bg-gradient-to-br from-amber-200/70 via-orange-300/70 to-rose-400/70 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 w-3/4 mx-auto"
-          >
-            <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 flex flex-col items-center h-full">
-              <div className="text-3xl font-bold mb-2 bg-gradient-to-r from-amber-500 to-rose-500 bg-clip-text text-transparent">
-                ￥{level.value}
-              </div>
-              <div className="text-gray-700 mb-4 text-center">
-                {level.intro}
-              </div>
-              <Button
-                className="w-full bg-gradient-to-r from-amber-500 to-rose-500 text-white hover:from-amber-600 hover:to-rose-600 shadow-md"
-                onClick={() => handleRecharge(level.value)}
-              >
-                立即充值
-              </Button>
-            </div>
-          </div>
-        ))}
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-[#f5f7fa]">
       <div className="bg-white shadow-sm">
@@ -506,7 +370,6 @@ export default function UserPage() {
               </div>
             </div>
           </div>
-          {/* <Button variant="outline" className="text-gray-700" onClick={loginLogout}>退出登录</Button> */}
         </div>
       </div>
 
@@ -540,325 +403,38 @@ export default function UserPage() {
           <Card>
             <CardContent className="py-8 min-h-[300px]">
               {activeMenu === "profile" ? (
-                <div className="max-w-3xl mx-auto">
-                  <div className="font-bold text-lg mb-6">个人基本信息</div>
-                  <div className="flex items-start gap-8 mb-6">
-                    <Avatar className="w-20 h-20 border-4 border-white shadow">
-                      <AvatarImage
-                        src={userInfo?.avatar}
-                        alt={userInfo?.displayName || "avatar"}
-                      />
-                      <AvatarFallback>
-                        {userInfo?.displayName?.[0] || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 grid grid-cols-2 gap-6">
-                      <div>
-                        <div className="mb-1 text-sm text-gray-600">账号ID</div>
-                        <Input
-                          value={form.userId}
-                          disabled
-                          className="bg-blue-50"
-                        />
-                      </div>
-                      <div>
-                        <div className="mb-1 text-sm text-gray-600">昵称</div>
-                        <Input
-                          value={form.displayName}
-                          className="bg-blue-50"
-                        />
-                      </div>
-                      <div>
-                        <div className="mb-1 text-sm text-gray-600">邮箱</div>
-                        <Input
-                          value={form.email}
-                          onChange={(e) =>
-                            handleFormChange("email", e.target.value)
-                          }
-                          className="bg-blue-50"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mb-6">
-                    <div className="mb-1 text-sm text-gray-600">介绍</div>
-                    <Textarea
-                      value={form.intro}
-                      onChange={(e) =>
-                        handleFormChange("intro", e.target.value)
-                      }
-                      className="bg-blue-50 min-h-[100px]"
-                      placeholder="请输入个人介绍："
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <Button onClick={handleSaveUserInfo}>保存个人信息</Button>
-                  </div>
-                </div>
+                <ProfileSection
+                  userInfo={userInfo}
+                  form={form}
+                  handleFormChange={handleFormChange}
+                  handleSaveUserInfo={handleSaveUserInfo}
+                />
               ) : activeMenu === "vip" ? (
-                <div>
-                  {renderVipCard()}
-                  {/* 只有非终身会员且已是会员，或非会员时显示充值卡片 */}
-                  {(typeof userInfo?.vipLevel !== "number" ||
-                    userInfo.vipLevel !== 3) &&
-                    renderRechargeCards()}
-                </div>
+                <VipSection
+                  userInfo={userInfo}
+                  vipOptions={vipOptions}
+                  rechargeOptions={rechargeOptions}
+                  setMcpConfigDialogOpen={setMcpConfigDialogOpen}
+                  handleRecharge={handleRecharge}
+                />
               ) : activeMenu === "orders" ? (
-                <>
-                  {loading ? (
-                    <div className="flex flex-col items-center justify-center min-h-[300px] text-gray-400 text-lg">
-                      加载中...
-                    </div>
-                  ) : rechargeList?.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center min-h-[300px] text-gray-400 text-lg">
-                      暂无充值记录
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table className="min-w-full text-sm">
-                        <TableHeader>
-                          <TableRow className="bg-gray-100">
-                            <TableHead>支付ID</TableHead>
-                            <TableHead>交易号</TableHead>
-                            <TableHead>金额(元)</TableHead>
-                            <TableHead>会员等级</TableHead>
-                            <TableHead>支付状态</TableHead>
-                            <TableHead>支付时间</TableHead>
-                            <TableHead>交易ID</TableHead>
-                            <TableHead>优惠券</TableHead>
-                            <TableHead>编辑</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {rechargeList.map((item) => (
-                            <TableRow
-                              key={item.payId}
-                              className="hover:bg-gray-50"
-                            >
-                              <TableCell>{item.payId}</TableCell>
-                              <TableCell>{item.tradeNo}</TableCell>
-                              <TableCell>{item.amount}</TableCell>
-                              <TableCell>
-                                {getVipLevelLabel(item.level)}
-                              </TableCell>
-                              <TableCell>
-                                {item.status === 0 ? (
-                                  <Badge className="px-1 py-1 text-xs">
-                                    {getPayStatusText(item.status)}
-                                  </Badge>
-                                ) : item.status === 1 ? (
-                                  <Badge
-                                    variant="orange"
-                                    className="px-1 py-1 text-xs"
-                                  >
-                                    {getPayStatusText(item.status)}
-                                  </Badge>
-                                ) : item.status === 2 ? (
-                                  <Badge
-                                    variant="green"
-                                    className="px-1 py-1 text-xs"
-                                  >
-                                    {getPayStatusText(item.status)}
-                                  </Badge>
-                                ) : (
-                                  <Badge
-                                    variant="destructive"
-                                    className="px-1 py-1 text-xs"
-                                  >
-                                    {getPayStatusText(item.status)}
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {new Date(item.payTime).toLocaleString()}
-                              </TableCell>
-                              <TableCell>{item.transactionId}</TableCell>
-                              <TableCell>
-                                {item.couponCode}
-                                {item.couponCode ? (
-                                  <div>优惠:{item.promotionAmount}元</div>
-                                ) : null}
-                              </TableCell>
-
-                              <TableCell>
-                                {item.status === 0 && (
-                                  <Button
-                                    variant="promotion"
-                                    size="xs"
-                                    onClick={async () => {
-                                      console.log(
-                                        "输入金额=",
-                                        item.amount,
-                                        item.promotionAmount,
-                                        item.couponCode
-                                      );
-                                      await handleCouponSubmit(
-                                        item.level,
-                                        Number(item.amount) +
-                                          Number(item.promotionAmount),
-                                        item.couponCode
-                                      );
-                                    }}
-                                  >
-                                    去支付
-                                  </Button>
-                                )}
-                                {item.status === 1 && (
-                                  <Button
-                                    variant="share"
-                                    size="xs"
-                                    onClick={() => handleMarkFailed(item.payId)}
-                                  >
-                                    刷新
-                                  </Button>
-                                )}
-                                {item.status === 3 && (
-                                  <Button
-                                    variant="outline"
-                                    size="xs"
-                                    onClick={() => handleReRecharge(item.level)}
-                                  >
-                                    重新充值
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </>
+                <OrdersSection
+                  loading={loading}
+                  rechargeList={rechargeList}
+                  getVipLevelLabel={(level: number) => getVipLevelLabel(level) || ''}
+                  getPayStatusText={(level: number) => getPayStatusText(level) || ''}
+                  handleMarkFailed={(payId: string) => handleMarkFailed(Number(payId))}
+                  handleReRecharge={handleReRecharge}
+                  handleCouponSubmit={handleCouponSubmit}
+                />
               ) : (
-                <div className="max-w-3xl mx-auto">
-                  <div className="mb-4">
-                    <div className="mb-2 text-lg font-medium text-gray-800">
-                      订阅偏好
-                    </div>
-                    <Textarea
-                      value={intro.interest?.interest || intro.interest}
-                      onChange={(e) =>
-                        setIntro({
-                          ...intro,
-                          interest: {
-                            ...intro.interest,
-                            interest: e.target.value.trim(),
-                          },
-                        })
-                      }
-                      className="w-full bg-blue-50 min-h-[120px] rounded-lg border border-blue-100 p-3 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all"
-                      placeholder="请在这里输入你希望订阅的职业类型，例如：我是2026年毕业的大学生，希望寻找一些服务器开发、前端开发、算法相关的岗位，希望在北京、上海、深圳工作"
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    {intro.interest && typeof intro === "object" ? (
-                      <Button
-                        onClick={handleSubmitInterest}
-                        className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg transition-colors"
-                      >
-                        更新
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleSubmitInterest}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
-                      >
-                        保存
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* 已保存的订阅信息展示 */}
-                  {intro.interest && typeof intro === "object" && (
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                      <div className="mb-3 text-lg font-medium text-gray-800">
-                        根据您的偏好，下面是AI提取的关键信息：
-                      </div>
-                      <div className="space-y-2 text-sm text-gray-600">
-                        {intro.companyIndustry && (
-                          <p>
-                            <span className="font-medium text-gray-700">
-                              行业偏好：
-                            </span>
-                            {intro.companyIndustry}
-                          </p>
-                        )}
-                        {intro.jobLocation && (
-                          <p>
-                            <span className="font-medium text-gray-700">
-                              工作地点：
-                            </span>
-                            {intro.jobLocation}
-                          </p>
-                        )}
-                        {intro.recruitmentTarget && (
-                          <p>
-                            <span className="font-medium text-gray-700">
-                              招聘对象：
-                            </span>
-                            {intro.recruitmentTarget}
-                          </p>
-                        )}
-                        {intro.position && (
-                          <p>
-                            <span className="font-medium text-gray-700">
-                              目标职位：
-                            </span>
-                            {intro.position}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 系统推荐职位 */}
-                  <div className="mt-8">
-                    <div className="mb-4 flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-gray-800">
-                        AI职位推荐
-                      </h3>
-                    </div>
-                    <div className="space-y-4">
-                      {loadingJobs ? (
-                        <div className="flex justify-center py-10">
-                          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
-                        </div>
-                      ) : recommendedJobs && recommendedJobs.length > 0 ? (
-                        recommendedJobs.map((item) => (
-                          <div className="p-4 border border-gray-100 rounded-lg hover:shadow-md transition-shadow cursor-pointer bg-white">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="text-base font-semibold text-gray-900">
-                                  {item.position}
-                                </h4>
-                                <p className="mt-1 gap-2 text-sm text-gray-600">
-                                  {item.companyName} ○ {item.companyType} 🚇︎{" "}
-                                  {item.jobLocation}
-                                </p>
-                                {item.remarks && (
-                                  <p className="mt-1 text-sm text-gray-600">
-                                    备注：{item.remarks}
-                                  </p>
-                                )}
-                              </div>
-                              <span className="text-sm font-medium text-blue-600 text-right">
-                                <a href={item.relatedLink} target="_blank">去投递</a>
-                                <div className="py-2 text-gray-600">截止时间：{item.deadline} </div>
-                              </span>
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                {item.recruitmentTarget}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      ) : <div className="text-gray-600 font-italic text-sm">
-                        暂无推荐内容，到首页看看吧~
-                        </div>}
-                    </div>
-                  </div>
-                </div>
+                <SubscriptionSection
+                    intro={intro}
+                    activeMenu={activeMenu}
+                    setIntro={setIntro}
+                    recommendedJobs={recommendedJobs}
+                    loadingJobs={loadingJobs}
+                />
               )}
             </CardContent>
           </Card>

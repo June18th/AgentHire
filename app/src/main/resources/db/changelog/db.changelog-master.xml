@@ -23,4 +23,9 @@
     <changeSet id="250820_00000001" author="YiHui">
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_250820.sql"/>
     </changeSet>
+
+    <!-- 用户订阅偏好 -->
+    <changeSet id="250822_00000001" author="YiHui">
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_250822.sql"/>
+    </changeSet>
 </databaseChangeLog>

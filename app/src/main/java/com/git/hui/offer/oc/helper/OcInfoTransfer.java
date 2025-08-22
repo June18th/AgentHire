@@ -90,7 +90,7 @@ public class OcInfoTransfer {
                 for (String type : types) {
                     for (DictItemVo item : vo.items()) {
                         if (type.equals(item.value()) || type.equals(item.intro())) {
-                            builder.append(item.value()).append(",");
+                            builder.append(type).append(",");
                         }
                     }
                 }
@@ -104,14 +104,18 @@ public class OcInfoTransfer {
 
         // 2. 招聘类型
         if (StringUtils.isNotBlank(entity.getRecruitmentType())) {
-            String[] types = entity.getCompanyType().split(",");
+            String[] types  = entity.getRecruitmentType().split(",");
             CommonDictVo vo = commonDictService.queryDict(OcConstants.APP, OcConstants.RECRUITMENT_TYPE_KEY);
             if (vo != null) {
+                boolean internship = "实习".equals(entity.getRecruitmentType());
                 StringBuilder builder = new StringBuilder();
                 for (String type : types) {
                     for (DictItemVo item : vo.items()) {
                         if (type.equals(item.value()) || type.equals(item.intro())) {
                             builder.append(item.value()).append(",");
+                        } else if (internship && item.intro().contains("实习")) {
+                            // 针对实习进行特殊处理
+                            builder.append(item.intro()).append(",");
                         }
                     }
                 }
