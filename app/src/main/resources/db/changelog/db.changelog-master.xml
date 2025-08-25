@@ -28,4 +28,9 @@
     <changeSet id="250822_00000001" author="YiHui">
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_250822.sql"/>
     </changeSet>
+
+    <!--   添加阿里百炼模型 -->
+    <changeSet id="250822_00000001" author="YiHui">
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_data_250825.sql"/>
+    </changeSet>
 </databaseChangeLog>
