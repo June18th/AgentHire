@@ -6,9 +6,11 @@ import com.git.hui.offer.constants.gather.GatherModelEnum;
 import com.git.hui.offer.constants.gather.GatherModelTypeEnum;
 import com.git.hui.offer.gather.model.ModelSelectReq;
 import com.git.hui.offer.gather.service.ai.impl.AbsOcChatModelApi;
+import com.git.hui.offer.util.json.StringBaseEnum;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Component;
 
@@ -55,6 +57,13 @@ public class OcAiModelContext {
         throw new BizException(StatusEnum.MODEL_MISMATCH_SUPPORT);
     }
 
+
+    /**
+     * 默认使用的大模型
+     */
+    @Value("${oc.mainModel:ZhiPu}")
+    private String mainModel;
+
     /**
      * 获取默认的聊天模型
      *
@@ -62,7 +71,7 @@ public class OcAiModelContext {
      */
     public ChatClient getMainChatClient() {
         try {
-            return chatClient(new ModelSelectReq(GatherModelEnum.ZHIPU, GatherModelTypeEnum.CHAT_MODEL));
+            return chatClient(new ModelSelectReq(StringBaseEnum.getEnumByCode(GatherModelEnum.class, mainModel), GatherModelTypeEnum.CHAT_MODEL));
         } catch (Exception e) {
             return ((AbsOcChatModelApi) list.get(0)).chatClient();
         }

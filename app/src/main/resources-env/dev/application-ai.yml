@@ -4,6 +4,7 @@ spring:
       # https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys
       # api-key 使用你自己申请的进行替换；如果为了安全考虑，可以通过启动参数进行设置
       api-key: ${zhipuai-api-key}
+      multi-model: GLM-4V-Flash
       chat:
         options:
           model: GLM-4-Flash
@@ -15,13 +16,22 @@ spring:
       chat:
         options:
           model: lite
+    dashscope:
+      # 阿里的百炼大模型
+      # https://bailian.console.aliyun.com/tab=model#/api-key
+      api-key: ${dashscope-api-key}
+      # 多模态的图片推理模型
+      multi-model: qwen-omni-turbo
+      chat:
+        options:
+          model: qwen-plus
     mcp:
       client:
         #  使用本地的mcp server，通过进程通信，我们这里演示的是使用 selenium 来实现网页数据抓取
         stdio:
           servers-configuration: classpath:mcp-servers.json
         # 如果想要体验 MCP Server，请将下面的 false 改成 true
-        enabled: false
+        enabled: true
         name: 校招派MCP
         version: 1.0.0
         request-timeout: 30s

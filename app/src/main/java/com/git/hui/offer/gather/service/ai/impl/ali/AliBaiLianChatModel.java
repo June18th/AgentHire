@@ -1,5 +1,6 @@
-package com.git.hui.offer.gather.service.ai.impl.zhipu;
+package com.git.hui.offer.gather.service.ai.impl.ali;
 
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
 import com.git.hui.offer.constants.gather.GatherModelEnum;
 import com.git.hui.offer.gather.service.ai.impl.AbsOcChatModelApi;
 import io.modelcontextprotocol.client.McpAsyncClient;
@@ -9,7 +10,6 @@ import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.mcp.AsyncMcpToolCallbackProvider;
-import org.springframework.ai.zhipuai.ZhiPuAiChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -17,52 +17,52 @@ import java.util.Collections;
 import java.util.List;
 
 /**
+ * 阿里云百炼模型
+ *
  * @author YiHui
- * @date 2025/7/30
+ * @date 2025/8/25
  */
 @Component
-public class ZhiPuOcChatModel extends AbsOcChatModelApi {
-    // 默认的智谱的图片模型
-    private final ZhiPuAiChatModel zhiPuAiChatModel;
+public class AliBaiLianChatModel extends AbsOcChatModelApi {
+    private final ChatModel chatModel;
 
     private final ChatClient chatClient;
     private ChatClient imgClient;
 
-    @Value("${spring.ai.zhipuai.multi-mode:GLM-4V-Flash}")
-    private String imgSigModel;
+    /**
+     * 多模态的图片理解模型
+     */
+    @Value("${spring.ai.dashscope.multi-model:qwen-omni-turbo}")
+    private String sigImgModel;
 
-    public ZhiPuOcChatModel(ZhiPuAiChatModel zhiPuAiChatModel, List<McpAsyncClient> mcpClients) {
-        this.zhiPuAiChatModel = zhiPuAiChatModel;
+    public AliBaiLianChatModel(DashScopeChatModel chatModel, List<McpAsyncClient> mcpClients) {
+        this.chatModel = chatModel;
 
-        chatClient = ChatClient.builder(zhiPuAiChatModel)
+        chatClient = ChatClient.builder(chatModel)
                 .defaultSystem(GATHER_SYSTEM_PROMPT)
-                .defaultOptions(ChatOptions.builder().stopSequences(Collections.emptyList()).build()) // 取消默认停止符
                 .defaultAdvisors(new SimpleLoggerAdvisor())
                 // 将MCP Client 注册为工具
                 .defaultToolCallbacks(new AsyncMcpToolCallbackProvider(mcpClients))
                 .build();
     }
 
-    /**
-     * 初始化多模态的图片理解模型
-     */
     @PostConstruct
     public void postInitImgClint() {
         // 图片理解
-        imgClient = ChatClient.builder(zhiPuAiChatModel)
+        imgClient = ChatClient.builder(chatModel)
                 .defaultSystem(GATHER_SYSTEM_PROMPT)
                 .defaultOptions(ChatOptions.builder()
-                        .model(imgSigModel)
+                        .model(sigImgModel)
                         .stopSequences(Collections.emptyList()).build())
                 .defaultAdvisors(new SimpleLoggerAdvisor())
                 .build();
     }
 
-
     @Override
     public GatherModelEnum modelEnum() {
-        return GatherModelEnum.ZHIPU;
+        return GatherModelEnum.ALI_BAILIAN;
     }
+
 
     @Override
     public ChatClient chatClient() {
@@ -76,16 +76,16 @@ public class ZhiPuOcChatModel extends AbsOcChatModelApi {
 
     @Override
     public ChatModel chatModel() {
-        return zhiPuAiChatModel;
+        return chatModel;
     }
 
     @Override
     public String chatModelName() {
-        return zhiPuAiChatModel.getDefaultOptions().getModel();
+        return chatModel.getDefaultOptions().getModel();
     }
 
     @Override
     public String imgModelName() {
-        return imgSigModel;
+        return sigImgModel;
     }
 }

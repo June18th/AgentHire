@@ -4,10 +4,8 @@ import com.git.hui.offer.gather.service.ai.OcAiModelContext;
 import com.git.hui.offer.oc.service.OcService;
 import com.git.hui.offer.util.DateUtil;
 import com.git.hui.offer.web.model.res.OcVo;
-import io.modelcontextprotocol.client.McpAsyncClient;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.prompt.PromptTemplate;
-import org.springframework.ai.mcp.AsyncMcpToolCallbackProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -26,26 +24,23 @@ public class WechatBlogPublishService {
 
     private final OcService ocService;
 
-    @Autowired
-    private List<McpAsyncClient> mcpClients;
-
     private static final String companyTemplate = """
             ### {companyName}
 
             公司类型：{companyType}
-            
+                        
             行业属性：{companyIndustry}
-            
+                        
             工作地点：{jobLocation}
-            
+                        
             职位类型：{position}
-            
+                        
             招聘对象：{recruitmentTarget}
-            
+                        
             目标职位：{recruitmentType}
                             
             访问链接: <a href="{relatedLink}">{relatedLink}</a>
-            
+                        
             """;
 
     private static final String blogs = """
@@ -54,7 +49,8 @@ public class WechatBlogPublishService {
             ```markdown
             ---
             title: {title}
-            cover: ![https://gips0.baidu.com/it/u=1453504171,3846524544&fm=3042&app=3042&f=JPEG&wm=1,baiduai,0,0,13,9&wmo=0,0&w=640&h=360](https://gips0.baidu.com/it/u=1453504171,3846524544&fm=3042&app=3042&f=JPEG&wm=1,baiduai,0,0,13,9&wmo=0,0&w=640&h=360)
+            author: 一灰灰
+            cover: https://spring.hhui.top/spring-blog/imgs/231026/logo.jpg
             ---
                             
             校招派今日上新校招岗位{ocCnt}条、实习岗位{internshipCnt}条，找工作的小伙伴重点关注一波哦
@@ -125,9 +121,8 @@ public class WechatBlogPublishService {
         return this.ocAiModelContext
                 .getMainChatClient()
                 .prompt()
-                .system("你现在是一个善于发布公众号的专家，善于使用各种工具。我会给你提供发布公众号的工具调用，请你基于这些工具调用来实现发布公众号")
+                .system("你现在是一个善于发布公众号的专家，善于使用各种工具。我会给你提供发布公众号的工具调用，请你基于这些工具调用来实现发布公众号。不需要二次确认，直接生成微信公众号文章并自动发布")
                 .user(promp)
-                .toolCallbacks(new AsyncMcpToolCallbackProvider(mcpClients))
                 .call().content();
     }
 

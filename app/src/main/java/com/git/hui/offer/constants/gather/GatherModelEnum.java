@@ -15,6 +15,7 @@ public enum GatherModelEnum implements StringBaseEnum {
     SPARK_LITE("SparkLite", "讯飞星火"),
     CHAT_GPT("ChatGPT", "ChatGPT"),
     DEEPSEEK("DeepSeek", "DeepSeek"),
+    ALI_BAILIAN("AliBaiLian", "阿里云百炼"),
     ;
     private final String value;
     private final String desc;
