@@ -6,6 +6,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -20,15 +21,14 @@ import java.util.Collections;
 @Component
 public class SparkOcChatModel extends AbsOcChatModelApi {
 
-    private final SparkLiteModel chatModel;
+    private final ChatModel chatModel;
 
     private final ChatClient chatClient;
 
-    public SparkOcChatModel(SparkLiteModel chatModel) {
+    public SparkOcChatModel(@Qualifier("sparkLiteModel") ChatModel chatModel) {
         this.chatModel = chatModel;
 
-        // 图片理解
-        chatClient = ChatClient.builder(chatModel)
+        this.chatClient = ChatClient.builder(this.chatModel)
                 .defaultSystem(GATHER_SYSTEM_PROMPT)
                 .defaultOptions(ChatOptions.builder()
                         .model(chatModelName())
@@ -54,6 +54,6 @@ public class SparkOcChatModel extends AbsOcChatModelApi {
 
     @Override
     public String chatModelName() {
-        return chatModel.defaultModelName();
+        return chatModel.getDefaultOptions().getModel();
     }
 }

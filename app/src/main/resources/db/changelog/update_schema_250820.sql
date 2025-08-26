@@ -21,7 +21,8 @@ CREATE TABLE `recharge_coupon`
 -- 用户充值记录中，需要新增优惠券字段
 alter table user_recharge
     add column coupon_code varchar(64) COMMENT '优惠券CODE';
-
+alter table user_recharge
+    add column promotion_amount int COMMENT '优惠金额/折扣';
 
 -- 优惠券相关字典
 INSERT INTO common_dict

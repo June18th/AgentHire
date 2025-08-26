@@ -28,6 +28,12 @@
             <artifactId>spring-ai-starter-model-zhipuai</artifactId>
         </dependency>
 
+        <!--  openai大模型     -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+
         <!--  阿里的大模型      -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>

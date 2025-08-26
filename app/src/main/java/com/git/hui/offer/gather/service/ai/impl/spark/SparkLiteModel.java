@@ -11,10 +11,8 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
@@ -29,10 +27,8 @@ import java.util.function.Consumer;
  * @date 2025/7/21
  */
 @Slf4j
-@Component
 public class SparkLiteModel implements ChatModel {
     private RestClient restClient;
-    @Autowired
     private final SparkConfig sparkConfig;
 
     public SparkLiteModel(SparkConfig sparkConfig) {
@@ -80,14 +76,5 @@ public class SparkLiteModel implements ChatModel {
         List<Generation> generations = SparkModelConvert.generationList(chatCompletionChunk);
         ChatResponse response = new ChatResponse(generations, SparkModelConvert.from(reqTime, model, chatCompletionChunk));
         return response;
-    }
-
-    /**
-     * 默认的模型名
-     *
-     * @return
-     */
-    public String defaultModelName() {
-        return sparkConfig.getChat().options().model();
     }
 }

@@ -15,4 +15,4 @@ oc:
     cdn-host: http://localhost:8080
   database:
     name: ai-oc
-  mainModel: ZhiPu
+  mainModel: SparkLite
