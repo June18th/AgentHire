@@ -12,6 +12,8 @@
     </changeSet>
 
     <changeSet id="250722_00000002" author="YiHui">
+        <validCheckSum>9:a3c7fd45e22274d40b59a8039a7fe56e</validCheckSum>
+        <validCheckSum>9:13b01e108a96688f360119e7c32ee16f</validCheckSum>
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/init_data_250722.sql"/>
     </changeSet>
 
@@ -33,4 +35,6 @@
     <changeSet id="250825_00000001" author="YiHui">
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_data_250825.sql"/>
     </changeSet>
+    
+    <!-- 修复checksum错误 -->
 </databaseChangeLog>
