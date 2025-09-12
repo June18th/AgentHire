@@ -6,3 +6,4 @@ spring:
     url: jdbc:mysql://localhost:3306/${oc.database.name}?useUnicode=true&allowPublicKeyRetrieval=true&autoReconnect=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
     password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
