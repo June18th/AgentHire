@@ -24,6 +24,8 @@ public interface UserRepository extends JpaRepository<UserEntity, Long>, JpaSpec
 
     List<UserEntity> findByIdIn(List<Long> ids);
 
+    UserEntity findByLoginName(String loginName);
+
     /**
      * 更新用户权限
      *

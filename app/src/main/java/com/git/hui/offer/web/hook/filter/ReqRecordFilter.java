@@ -4,6 +4,7 @@ import com.git.hui.offer.components.context.ReqInfoContext;
 import com.git.hui.offer.components.context.UserBo;
 import com.git.hui.offer.components.env.SpringUtil;
 import com.git.hui.offer.constants.user.LoginConstants;
+import com.git.hui.offer.openapi.PaiCodingLoginHelper;
 import com.git.hui.offer.user.helper.SessionHelper;
 import com.git.hui.offer.user.service.UserService;
 import com.git.hui.offer.util.CrossUtil;
@@ -93,7 +94,7 @@ public class ReqRecordFilter implements Filter {
 
 
             // 注入用户信息
-            initUserInfo(request, reqInfo);
+            initUserInfo(request, response, reqInfo);
             ReqInfoContext.addReqInfo(reqInfo);
         } catch (Exception e) {
             log.error("init reqInfo error!", e);
@@ -102,7 +103,7 @@ public class ReqRecordFilter implements Filter {
         return request;
     }
 
-    private void initUserInfo(HttpServletRequest request, ReqInfoContext.ReqInfo reqInfo) {
+    private void initUserInfo(HttpServletRequest request, HttpServletResponse response, ReqInfoContext.ReqInfo reqInfo) {
         String token = request.getHeader(LoginConstants.TOKEN_KEY);
         if (StringUtils.isBlank(token)) {
             Cookie ck = SessionUtil.findCookieByName(request, LoginConstants.SESSION_KEY);
@@ -112,6 +113,9 @@ public class ReqRecordFilter implements Filter {
         }
 
         if (StringUtils.isBlank(token)) {
+            // ai-oc未登陆时，尝试使用 pai-coding 的登录方式
+            ReqInfoContext.addReqInfo(reqInfo);
+            SpringUtil.getBean(PaiCodingLoginHelper.class).loginByPaiCoding(request, response);
             return;
         }
 

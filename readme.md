@@ -13,28 +13,26 @@ jdk17 + SpringBoot3.5.3 + H2/MySql + SpringJPA + SpringAI
 本地开发时，数据库指向h2，直接启动即可；如果需要体验大模型的数据抓取录入，需要修改启动参数
 
 1. 到智谱清言申请账号，注册一个API Key
-   - api申请地址: [智谱清言API Key](https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys)
+    - api申请地址: [智谱清言API Key](https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys)
 
 2. 传入大模型ApiKey
    a. 命令行传参方式
-      - 编辑启动命令
-      - 点击 Modify options, 在菜单栏中，开启 `Program arguments`
-      - 添加命令行参数 `--zhipuai-api-key=xxx`
+    - 编辑启动命令
+    - 点击 Modify options, 在菜单栏中，开启 `Program arguments`
+    - 添加命令行参数 `--zhipuai-api-key=xxx`
 
    ![命令行配置.webp](docs/imgs/01-1.webp)
 
    b. 直接修改配置参数
-      - 打开文件： [application-ai.yml](app/src/main/resources-env/dev/application-ai.yml)
-      - 修改参数: `api-key:` 
+    - 打开文件： [application-ai.yml](app/src/main/resources-env/dev/application-ai.yml)
+    - 修改参数: `api-key:`
 
 3. 入口类，直接启动
-
 
 说明：
 
 - dev 环境：使用h2数据库, 对应的数据库文件为：[app/src/main/resources/ai-oc.mv.db](app/src/main/resources/ai-oc.mv.db)
 - test/prod 环境：使用MySql数据库
-
 
 ## 前端工程
 
@@ -67,10 +65,11 @@ pnpm run deploy
 - [ ] 消息提醒通知
 - [x] 用户订阅/上新通知 -> 借助大模型进行目标订阅、通知
 - [x] 优惠券减免
-  - 2025/08/21: 完成优惠券系统
+    - 2025/08/21: 完成优惠券系统
 - [x] 自动发送每日上线博文
 - [ ] 添加更多大模型
 - [ ] 支持用户录入内推岗位
-- [ ] 账号与技术派实现打通
+- [x] 账号与技术派实现打通，实现技术派登录之后，校招派自动静默登录
+    - 2025/09/15: 实现校招派的静默登录
 - [x] 前端页面，区分 校招、实习、社招
-  - 2025/08/21: 完成前台页面分区
+    - 2025/08/21: 完成前台页面分区

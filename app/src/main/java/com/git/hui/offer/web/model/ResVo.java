@@ -21,6 +21,9 @@ public class ResVo<T> {
     private int online;
     private T data;
 
+    public ResVo() {
+    }
+
     public ResVo(T t) {
         this.code = SUCCESS_CODE;
         this.msg = SUCCESS_MSG;

@@ -9,11 +9,13 @@ import com.git.hui.offer.components.id.IdUtil;
 import com.git.hui.offer.constants.common.BaseStateEnum;
 import com.git.hui.offer.constants.user.RechargeLevelEnum;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
+import com.git.hui.offer.openapi.model.OpenApiUserDTO;
 import com.git.hui.offer.user.convert.UserConvert;
 import com.git.hui.offer.user.dao.entity.UserEntity;
 import com.git.hui.offer.user.dao.repository.UserRepository;
 import com.git.hui.offer.user.helper.UserRandomGenHelper;
 import com.git.hui.offer.util.DateUtil;
+import com.git.hui.offer.util.RandUtil;
 import com.git.hui.offer.web.model.PageListVo;
 import com.git.hui.offer.web.model.req.UserSaveReq;
 import com.git.hui.offer.web.model.req.UserSearchReq;
@@ -214,6 +216,45 @@ public class UserService {
         userRepository.saveAndFlush(user);
         return user;
     }
+
+
+    /**
+     * 使用技术派用户进行自动免登ai-oc
+     *
+     * @param openUser 技术派用户
+     * @return
+     */
+    @Transactional
+    public UserBo autoRegisterPaiCodingUserInfo(OpenApiUserDTO openUser) {
+        UserEntity user = userRepository.findByLoginName(openUser.getLoginName());
+        if (user == null) {
+            // 自动注册
+            user = registerByOpenUser(openUser);
+        }
+        UserBo bo = UserConvert.toBo(user);
+        ReqInfoContext.getReqInfo().setUserId(user.getId());
+        ReqInfoContext.getReqInfo().setUser(bo);
+        return bo;
+    }
+
+    private UserEntity registerByOpenUser(OpenApiUserDTO openUser) {
+        UserEntity user = new UserEntity()
+                .setId(IdUtil.genId())
+                .setWxId("")
+                .setRole("admin".equals(openUser.getRole()) ? UserRoleEnum.ADMIN.getValue() : UserRoleEnum.NORMAL.getValue())
+                .setCreateTime(new Date())
+                .setUpdateTime(new Date())
+                .setState(BaseStateEnum.NORMAL_STATE.getValue())
+                .setLoginName(openUser.getLoginName())
+                .setPassword(RandUtil.random(8))
+                .setEmail(openUser.getEmail() == null ? "" : openUser.getEmail())
+                .setIntro(openUser.getProfile() == null ? "" : openUser.getProfile())
+                .setDisplayName(openUser.getUserName())
+                .setAvatar(openUser.getPhoto());
+        userRepository.saveAndFlush(user);
+        return user;
+    }
+
 
     /**
      * 获取用户信息
