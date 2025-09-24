@@ -67,21 +67,6 @@ public class WxController {
         return loginService.subscribe();
     }
 
-    @ResponseBody
-    @GetMapping(value = "/subscribeTest")
-    public SseEmitter subscribeTest(HttpServletRequest request) throws IOException {
-        Collections.list(request.getHeaderNames())
-                .forEach(h -> log.info(h + ": " + request.getHeader(h)));
-
-        HttpServletResponse response = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse();
-        if (response != null) {
-            response.setHeader("Content-Type", "text/event-stream");
-            response.setHeader("Cache-Control", "no-cache");
-            response.setHeader("Connection", "keep-alive");
-        }
-        return loginService.subscribe();
-    }
-
     /**
      * 刷新验证码
      *
