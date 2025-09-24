@@ -20,7 +20,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useRouter, usePathname } from "next/navigation";
-import { QRCodeCanvas } from "qrcode.react";
 import { useLoginUser } from "@/hooks/useLoginUser";
 import { useToast } from "@/hooks/use-toast";
 import { getConfigValue } from "@/lib/config";
@@ -303,10 +302,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                           <div className="text-gray text-sm py-1">
                             关注下方二维码，在对话框中输入验证码，既可以实现自动登录哦~
                           </div>
-                          <QRCodeCanvas
+                          <img
                             className="pt-2"
-                            value={qr}
-                            size={180}
+                            src={qr}
+                            alt="登录二维码"
+                            width={180}
+                            height={180}
                           />
                           <div className="mt-2 text-lg font-bold">
                             验证码：{code}

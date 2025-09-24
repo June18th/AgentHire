@@ -6,6 +6,7 @@ import com.git.hui.offer.components.env.SpringUtil;
 import com.git.hui.offer.constants.user.LoginConstants;
 import com.git.hui.offer.user.helper.SessionHelper;
 import com.git.hui.offer.util.CodeGenerateUtil;
+import com.git.hui.offer.util.RandUtil;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -95,6 +96,7 @@ public class LoginService {
         });
         // 若实际的验证码与前端显示的不同，则通知前端更新
         sseEmitter.send("initCode!");
+        sseEmitter.send(RandUtil.random(128));
         sseEmitter.send("qr#" + SpringUtil.getConfig("oc.site.login-qr-img"));
         sseEmitter.send("init#" + realCode);
         log.info("订阅返回!");

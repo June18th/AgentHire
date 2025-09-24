@@ -108,7 +108,7 @@ public class UserController {
     public boolean logout(HttpServletResponse response) {
         // 移除cookie
         response.addCookie(SessionUtil.delCookie(LoginConstants.SESSION_KEY));
-        response.addCookie(SessionUtil.delCookie(PaiCodingLoginHelper.PAI_CODING_TOKEN_NAME));
+        response.addCookie(SessionUtil.delCookie(PaiCodingLoginHelper.PAI_CODING_TOKEN_NAME, "paicoding.com", "/"));
         return true;
     }
 }

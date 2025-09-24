@@ -37,7 +37,14 @@ public class SessionUtil {
     }
 
     public static Cookie delCookie(String key, String path) {
+        return delCookie(key, null, path);
+    }
+
+    public static Cookie delCookie(String key, String domain, String path) {
         Cookie cookie = new Cookie(key, null);
+        if (io.micrometer.common.util.StringUtils.isNotBlank(domain)) {
+            cookie.setDomain(domain);
+        }
         cookie.setPath(path);
         cookie.setMaxAge(0);
         return cookie;
