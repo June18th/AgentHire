@@ -27,6 +27,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.Collections;
 
 /**
  * @author YiHui
@@ -57,6 +58,21 @@ public class WxController {
     @ResponseBody
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(String deviceId) throws IOException {
+        HttpServletResponse response = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse();
+        if (response != null) {
+            response.setHeader("Content-Type", "text/event-stream");
+            response.setHeader("Cache-Control", "no-cache");
+            response.setHeader("Connection", "keep-alive");
+        }
+        return loginService.subscribe();
+    }
+
+    @ResponseBody
+    @GetMapping(value = "/subscribeTest")
+    public SseEmitter subscribeTest(HttpServletRequest request) throws IOException {
+        Collections.list(request.getHeaderNames())
+                .forEach(h -> log.info(h + ": " + request.getHeader(h)));
+
         HttpServletResponse response = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getResponse();
         if (response != null) {
             response.setHeader("Content-Type", "text/event-stream");
