@@ -6,7 +6,7 @@
 
 ### 技术栈
 
-jdk17 + SpringBoot3.5.3 + H2/MySql + SpringJPA + SpringAI
+jdk17 + SpringBoot3.5.3 + H2/MySql + SpringJPA + SpringAI + LangGraph4J
 
 ### 启动
 

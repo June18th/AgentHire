@@ -30,7 +30,7 @@ spring:
       multi-model: qwen-omni-turbo
       chat:
         options:
-          model: qwen-plus
+          model: qwen-plus-2025-09-11
     mcp:
       client:
         #  使用本地的mcp server，通过进程通信，我们这里演示的是使用 selenium 来实现网页数据抓取

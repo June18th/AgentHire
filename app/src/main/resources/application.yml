@@ -39,7 +39,7 @@ logging:
       git:
         hui: info
 server:
-  port: 8080
+  port: 8087
   compression:
     enabled: true # 开启返回结果压缩，减少传输耗时
     min-response-size: 2KB

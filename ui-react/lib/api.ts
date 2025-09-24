@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const BASE_URL = "http://localhost:8080";
+// 根据环境设置BASE_URL， 利用了Next.js在构建时自动设置的环境变量，在执行deploy脚本时，由于会调用 next build ，NODE_ENV会被设置为'production'
+// 本地开发时使用http://localhost:8080
+// 部署时使用空字符串
+const BASE_URL = process.env.NODE_ENV === 'production' ? '' : "http://localhost:8087";
 
 const api = axios.create({
   baseURL: BASE_URL,

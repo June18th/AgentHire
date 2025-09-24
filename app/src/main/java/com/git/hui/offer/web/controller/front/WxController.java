@@ -113,6 +113,17 @@ public class WxController {
         }
     }
 
+    /**
+     * 技术派转发的微信公众号登录回调
+     *
+     * @param msg
+     * @return
+     */
+    @PostMapping(path = "pai/callback")
+    public BaseWxMsgResVo autoLogin(@RequestBody WxTxtMsgReqVo msg) {
+        return callBack(msg);
+    }
+
     private void fillResVo(BaseWxMsgResVo res, WxTxtMsgReqVo msg) {
         res.setFromUserName(msg.getToUserName());
         res.setToUserName(msg.getFromUserName());
