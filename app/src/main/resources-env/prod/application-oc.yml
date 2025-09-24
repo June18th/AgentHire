@@ -4,15 +4,15 @@ oc:
     secret: hello_offer # 签名密钥
     expire: 432000000 # jwt的有效期，默认30天
   site:
-    login-qr-img: https://spring.hhui.top/spring-blog/imgs/info/wx.jpg
+    login-qr-img: https://cdn.tobebetterjavaer.com/paicoding/paicoding-qrcode.png
     website-name: 校招派
-    web-site-logo: https://spring.hhui.top/spring-blog/css/images/avatar.jpg
-    web-site-host: https://laigeoffer.cn
+    web-site-logo: https://oc.paicoding.com/favicon.ico
+    web-site-host: https://oc.paicoding.com
     web-site-url: ${oc.site.web-site-host}
   img:
     abs-tmp-path: /tmp/storage/
     web-img-path: /oc/img/
-    cdn-host: https://laigeoffer.cn
+    cdn-host: https://oc.paicoding.com
   database:
     name: oc
   mainModel: ZhiPu

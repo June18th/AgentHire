@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getUserDetail } from "@/lib/api";
+import { getUserDetail, execLogout } from "@/lib/api";
 
 function parseJwt(token: string) {
     try {
@@ -110,7 +110,14 @@ export function LoginUserProvider({ children }: { children: React.ReactNode }) {
         }
     }, []);
 
-    const logout = () => {
+    const logout = async () => {
+        // 调用后端接口
+        try {
+            await execLogout();
+        } catch (error) {
+            console.error('Failed to logout:', error);
+        }
+
         document.cookie = 'oc-session=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT';
         setUserInfo(null);
         if (typeof window !== 'undefined') {

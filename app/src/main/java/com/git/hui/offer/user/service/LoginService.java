@@ -97,6 +97,7 @@ public class LoginService {
         sseEmitter.send("initCode!");
         sseEmitter.send("qr#" + SpringUtil.getConfig("oc.site.login-qr-img"));
         sseEmitter.send("init#" + realCode);
+        log.info("订阅返回!");
         return sseEmitter;
     }
 

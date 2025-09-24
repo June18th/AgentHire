@@ -66,6 +66,28 @@ public class SessionHelper {
     }
 
     /**
+     * 通过技术派登录的场景，我们将登录的技术派userId记录在jwt中，从而实现账号自动切换和失效
+     *
+     * @param user
+     * @param paiUId
+     * @return
+     */
+    public String genSession(UserBo user, Long paiUId) {
+        // 1.生成jwt格式的会话，内部持有有效期，用户信息
+        String session = JsonUtil.toStr(Map.of("uid", user.userId()
+                , "r", user.role().getValue()
+                , "un", user.nickName()
+                , "av", user.avatar()
+                , "pid", paiUId));
+        String token = JWT.create()
+                .withIssuer(jwtProperties.getIssuer())
+                .withExpiresAt(new Date(System.currentTimeMillis() + jwtProperties.getExpire()))
+                .withPayload(session)
+                .sign(algorithm);
+        return token;
+    }
+
+    /**
      * 根据会话获取用户信息
      *
      * @param session
@@ -81,6 +103,29 @@ public class SessionHelper {
             return Long.valueOf(userId);
         } catch (Exception e) {
             log.info("jwt token校验失败! token: {}, msg: {}", session, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 获取JWT中的payload信息，不进行合法性校验
+     *
+     * @param session JWT token
+     * @return payload信息的Map形式
+     */
+    public Map<String, Object> getPayloadWithoutVerify(String session) {
+        try {
+            // 解码JWT token，直接获取payload部分
+            String[] parts = session.split("\\.");
+            if (parts.length != 3) {
+                return null;
+            }
+
+            // 解码payload部分
+            String payload = Base64Decoder.decodeStr(parts[1]);
+            return JsonUtil.toObj(payload, HashMap.class);
+        } catch (Exception e) {
+            log.info("jwt payload解析失败! token: {}, msg: {}", session, e.getMessage());
             return null;
         }
     }

@@ -1,17 +1,21 @@
 package com.git.hui.offer.web.controller.front;
 
 import com.git.hui.offer.components.context.ReqInfoContext;
+import com.git.hui.offer.constants.user.LoginConstants;
 import com.git.hui.offer.constants.user.permission.Permission;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
 import com.git.hui.offer.oc.service.OcService;
+import com.git.hui.offer.openapi.PaiCodingLoginHelper;
 import com.git.hui.offer.user.service.UserInterestService;
 import com.git.hui.offer.user.service.UserService;
+import com.git.hui.offer.util.SessionUtil;
 import com.git.hui.offer.web.model.PageListVo;
 import com.git.hui.offer.web.model.req.PageReq;
 import com.git.hui.offer.web.model.req.UserInterestRecommendReq;
 import com.git.hui.offer.web.model.req.UserSaveReq;
 import com.git.hui.offer.web.model.res.OcVo;
 import com.git.hui.offer.web.model.res.UserVo;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -92,5 +96,19 @@ public class UserController {
             return PageListVo.emptyVo();
         }
         return ocService.recommendForUser(recommendReq);
+    }
+
+
+    /**
+     * 账号登出
+     *
+     * @return
+     */
+    @RequestMapping(path = "logout")
+    public boolean logout(HttpServletResponse response) {
+        // 移除cookie
+        response.addCookie(SessionUtil.delCookie(LoginConstants.SESSION_KEY));
+        response.addCookie(SessionUtil.delCookie(PaiCodingLoginHelper.PAI_CODING_TOKEN_NAME));
+        return true;
     }
 }

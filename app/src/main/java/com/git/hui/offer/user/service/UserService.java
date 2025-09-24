@@ -217,7 +217,6 @@ public class UserService {
         return user;
     }
 
-
     /**
      * 使用技术派用户进行自动免登ai-oc
      *
@@ -226,10 +225,34 @@ public class UserService {
      */
     @Transactional
     public UserBo autoRegisterPaiCodingUserInfo(OpenApiUserDTO openUser) {
-        UserEntity user = userRepository.findByLoginName(openUser.getLoginName());
+        UserEntity user = StringUtils.isNotBlank(openUser.getWxId()) ?
+                userRepository.findByWxId(openUser.getWxId()) :
+                userRepository.findByLoginName(openUser.getLoginName());
         if (user == null) {
             // 自动注册
             user = registerByOpenUser(openUser);
+        } else {
+            // 自动同步用户昵称、头像等信息
+            boolean toUpdate = false;
+            if (!user.getDisplayName().equals(openUser.getUserName())) {
+                toUpdate = true;
+                user.setDisplayName(openUser.getUserName());
+            }
+            if (!user.getAvatar().equals(openUser.getPhoto())) {
+                toUpdate = true;
+                user.setAvatar(openUser.getPhoto());
+            }
+            if (!user.getEmail().equals(openUser.getEmail())) {
+                toUpdate = true;
+                user.setEmail(openUser.getEmail());
+            }
+            if (!user.getIntro().equals(openUser.getProfile())) {
+                toUpdate = true;
+                user.setIntro(openUser.getProfile());
+            }
+            if (toUpdate) {
+                userRepository.saveAndFlush(user);
+            }
         }
         UserBo bo = UserConvert.toBo(user);
         ReqInfoContext.getReqInfo().setUserId(user.getId());
@@ -240,7 +263,7 @@ public class UserService {
     private UserEntity registerByOpenUser(OpenApiUserDTO openUser) {
         UserEntity user = new UserEntity()
                 .setId(IdUtil.genId())
-                .setWxId("")
+                .setWxId(StringUtils.isBlank(openUser.getWxId()) ? "" : openUser.getWxId())
                 .setRole("admin".equals(openUser.getRole()) ? UserRoleEnum.ADMIN.getValue() : UserRoleEnum.NORMAL.getValue())
                 .setCreateTime(new Date())
                 .setUpdateTime(new Date())

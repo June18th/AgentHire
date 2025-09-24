@@ -4,9 +4,8 @@ oc:
     secret: hello_offer # 签名密钥
     expire: 2592000000 # jwt的有效期，默认30天
   site:
-    login-qr-img: https://spring.hhui.top/spring-blog/imgs/info/wx.jpg
+    login-qr-img: https://cdn.tobebetterjavaer.com/paicoding/paicoding-qrcode.png
     website-name: 校招派
-    web-site-logo: https://spring.hhui.top/spring-blog/css/images/avatar.jpg
     web-site-host: http://localhost
     web-site-url: ${oc.site.web-site-host}:${server.port}
   img:

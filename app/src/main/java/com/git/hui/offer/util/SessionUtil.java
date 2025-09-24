@@ -38,7 +38,7 @@ public class SessionUtil {
 
     public static Cookie delCookie(String key, String path) {
         Cookie cookie = new Cookie(key, null);
-        cookie.setPath("/");
+        cookie.setPath(path);
         cookie.setMaxAge(0);
         return cookie;
     }

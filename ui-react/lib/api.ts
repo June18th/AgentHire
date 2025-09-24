@@ -782,6 +782,14 @@ export interface UserSaveReq {
   intro: string;
 }
 
+export async function execLogout() {
+  const res = await api.get("/api/user/logout");
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "退出登录失败");
+}
+
 export async function getUserDetail() {
   const res = await api.get("/api/user/detail");
   if (res.data && res.data.code === 0) {
