@@ -70,7 +70,12 @@ public class PaiCodingLoginHelper {
             return PaiCodingUserStatus.LOGOUT;
         }
         Map<String, Object> map = sessionHelper.getPayloadWithoutVerify(jwt);
-        Long paiUserId = (Long) map.get("u");
+        Object u = map.get("u");
+        if (u == null) {
+            // 技术派登录信息有误
+            return PaiCodingUserStatus.SAME;
+        }
+        Long paiUserId = Long.valueOf(map.get("u").toString());
         if (lastLoginPaiUserId.equals(paiUserId)) {
             // 账号没有发生变化
             return PaiCodingUserStatus.SAME;
