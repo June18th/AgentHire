@@ -66,20 +66,23 @@ public class LocalStorageHelper {
      * @return
      */
     public InputStream loadFile(String path) {
+        String originalPath = path;
         if (imgConfig.getCdnHost() != null && path.startsWith(imgConfig.getCdnHost())) {
             // 提取本地路径
             path = imgConfig.getAbsTmpPath() + path.substring(imgConfig.getCdnHost().length());
-            if (OSUtil.isWinOS() && !path.toLowerCase().startsWith("d:")) {
-                // window 操作系统，补齐硬盘前缀
-                path = "d:" + path;
-            }
-        } else if (path.startsWith("/") && OSUtil.isWinOS()) {
+        } else if (path.startsWith("/") && !path.startsWith(imgConfig.getAbsTmpPath()) && OSUtil.isWinOS()) {
             // window 操作系统，补齐硬盘前缀
             path = "d:" + imgConfig.getAbsTmpPath() + path;
+        } else if (path.startsWith(imgConfig.getWebImgPath())) {
+            // 如果路径以webImgPath开头，但不以absTmpPath开头，则补全绝对路径
+            path = imgConfig.getAbsTmpPath() + path;
         }
 
         try {
             return FileReadUtil.createByteRead(path);
+        } catch (java.nio.file.NoSuchFileException e) {
+            log.error("文件不存在: {}，原始路径: {}", path, originalPath, e);
+            throw new BizException(StatusEnum.RECORDS_NOT_EXISTS, "文件不存在: " + originalPath);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

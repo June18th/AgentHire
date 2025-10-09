@@ -55,12 +55,17 @@ public class GatherTaskService {
     }
 
     public GatherFileBo loadTmpFile(String path) {
-        InputStream inputStream = localStorageHelper.loadFile(path);
-        byte[] bytes = IoUtil.readBytes(inputStream);
-        String fileType = path.substring(path.lastIndexOf(".") + 1);
-        // 根据文件类型，构建对应的contentType
-        String contentType = FileTypeUtil.getFileType(fileType);
-        return new GatherFileBo(bytes, contentType, path);
+        try {
+            InputStream inputStream = localStorageHelper.loadFile(path);
+            byte[] bytes = IoUtil.readBytes(inputStream);
+            String fileType = path.substring(path.lastIndexOf(".") + 1);
+            // 根据文件类型，构建对应的contentType
+            String contentType = FileTypeUtil.getFileType(fileType);
+            return new GatherFileBo(bytes, contentType, path);
+        } catch (Exception e) {
+            log.error("加载临时文件失败: {}", path, e);
+            throw e;
+        }
     }
 
     /**
