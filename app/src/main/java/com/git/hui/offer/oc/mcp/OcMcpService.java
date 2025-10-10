@@ -46,7 +46,8 @@ public class OcMcpService {
         if (StringUtils.isNotBlank(req.getPosition())) {
             search.setPosition(req.getPosition());
         }
-        if (StringUtils.isNotBlank(req.getJobLocation())) {
+        if (StringUtils.isNotBlank(req.getJobLocation()) && !"全国".equals(req.getJobLocation())) {
+            // 非全国的查询，才进行地址搜索
             search.setJobLocation(req.getJobLocation());
         }
         // 定义最多只返回20条数据
