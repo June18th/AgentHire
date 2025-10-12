@@ -7,6 +7,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { submitAIEntry } from "@/lib/api"
 import { useRef } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { Copy } from "lucide-react"
 import { fetchTaskList, reRunTask } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { getConfigValue } from "@/lib/config";
@@ -21,6 +23,7 @@ function formatDateTimeStr(str?: string) {
 
 export default function EntryPage() {
   const [tab, setTab] = useState("ai")
+  const { toast } = useToast()
   // 表单录入 state
   const [form, setForm] = useState({
     companyName: "",
@@ -479,17 +482,15 @@ export default function EntryPage() {
                       <th className="px-2 py-1 border whitespace-nowrap text-center">状态</th>
                       <th className="px-2 py-1 border whitespace-nowrap text-center">输入</th>
                       <th className="px-2 py-1 border whitespace-nowrap text-center">结果</th>
-                      <th className="px-2 py-1 border whitespace-nowrap text-center">处理时间</th>
-                      <th className="px-2 py-1 border whitespace-nowrap text-center">创建时间</th>
                       <th className="px-2 py-1 border whitespace-nowrap text-center">更新时间</th>
                       <th className="px-2 py-1 border whitespace-nowrap text-center">操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {taskLoading ? (
-                      <tr><td colSpan={10} className="text-center text-gray-400 py-4">加载中...</td></tr>
+                      <tr><td colSpan={8} className="text-center text-gray-400 py-4">加载中...</td></tr>
                     ) : taskList?.length === 0 ? (
-                      <tr><td colSpan={10} className="text-center text-gray-400 py-4">暂无数据</td></tr>
+                      <tr><td colSpan={8} className="text-center text-gray-400 py-4">暂无数据</td></tr>
                     ) : taskList.map(task => (
                       <tr key={task.id} className="hover:bg-gray-50">
                         <td className="border px-2 py-1 whitespace-nowrap text-center">{task.taskId}</td>
@@ -535,17 +536,42 @@ export default function EntryPage() {
                             })()}
                           </Badge>
                         </td>
-                        <td className="border px-2 py-1 whitespace-nowrap max-w-[200px] truncate text-center" title={task.content}>
+                        <td className="border px-2 py-1 max-w-[400px] text-left" title={task.content}>
                           {task.type === 6 && task.content ? (
-                            <a href={task.content} target="_blank" rel="noopener noreferrer">
-                              <img src={task.content} alt="图片" className="max-w-[60px] max-h-[60px] rounded border hover:shadow mx-auto" style={{ objectFit: 'cover' }} />
-                            </a>
+                            <div className="mx-auto" style={{ cursor: 'zoom-in' }} onClick={() => setPreviewImg(task.content)}>
+                              <img src={task.content} alt="图片" className="max-w-[160px] max-h-[100px] rounded border hover:shadow mx-auto" style={{ objectFit: 'contain' }} />
+                            </div>
                           ) : (task.type === 4 || task.type === 5) && task.content ? (
                             <a href={task.content} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">
                               {task.content?.length > 32 ? task.content.slice(0, 32) + '...' : task.content}
                             </a>
                           ) : (
-                            <span className="break-all">{task.content}</span>
+                            (() => {
+                              const fullText = task.content || '';
+                              const displayText = fullText.length > 300 ? fullText.slice(0, 300) + '...' : fullText;
+                              return (
+                                <div className="flex items-start gap-2">
+                                  <span className="break-all whitespace-pre-wrap">{displayText}</span>
+                                  {fullText && (
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      title="复制到剪贴板"
+                                      onClick={async () => {
+                                        try {
+                                          await navigator.clipboard.writeText(fullText)
+                                          toast({ title: "已复制到剪贴板" })
+                                        } catch (e) {
+                                          toast({ title: "复制失败" })
+                                        }
+                                      }}
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })()
                           )}
                         </td>
                         <td className="border px-2 py-1 whitespace-nowrap max-w-[200px] truncate text-center" title={task.result}>
@@ -566,8 +592,6 @@ export default function EntryPage() {
                             return parsed?.msg || task.result;
                           })()}
                         </td>
-                        <td className="border px-2 py-1 whitespace-nowrap text-center">{formatDateTimeStr(task.processTime)}</td>
-                        <td className="border px-2 py-1 whitespace-nowrap text-center">{formatDateTimeStr(task.createTime)}</td>
                         <td className="border px-2 py-1 whitespace-nowrap text-center">{formatDateTimeStr(task.updateTime)}</td>
                         <td className="border px-2 py-1 whitespace-nowrap text-center">
                           <Button
@@ -621,4 +645,4 @@ export default function EntryPage() {
       )}
     </div>
   )
-} 
+}
