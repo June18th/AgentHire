@@ -32,7 +32,7 @@ public class OcMcpService {
 
     @Tool(description = "根据输入的用户求职意愿信息，返回满足条件的职位列表给用户")
     public List<OcVo> queryRecommendOcListForUser(McpReqDto req) {
-        log.info("用户：{} 使用了MCP Server进行校招信息推荐：{}", ReqInfoContext.getReqInfo().getUser().nickName(), JsonUtil.toStr(req));
+        log.info("用户：{} 使用了MCP Server进行校招信息推荐：{}", ReqInfoContext.getReqInfo() == null ? "未登录" : ReqInfoContext.getReqInfo().getUser().nickName(), JsonUtil.toStr(req));
         OcSearchReq search = new OcSearchReq();
         if (StringUtils.isNotBlank(req.getCompanyType())) {
             search.setCompanyType(req.getCompanyType());

@@ -9,11 +9,13 @@ import com.git.hui.offer.constants.user.permission.Permission;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
 import com.git.hui.offer.user.service.UserService;
 import com.git.hui.offer.util.json.JsonUtil;
+import com.git.hui.offer.web.hook.filter.BodyReaderHttpServletRequestWrapper;
 import com.git.hui.offer.web.model.ResVo;
 import io.micrometer.common.util.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.BooleanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -72,6 +74,7 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
                 return false;
             }
         } else if (!checkMcpPermission(request)) {
+            log.info("MCPServer 接口权限校验失败!");
             // mcp 相关校验 - 无权访问
             response.setContentType(MediaType.APPLICATION_JSON_UTF8_VALUE);
             response.getWriter().println(JsonUtil.toStr(ResVo.fail(StatusEnum.FORBID_VIP_INFO)));
@@ -85,6 +88,12 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
         if (!mcpUrl(request)) {
             // 不是mcp的请求，不做拦截
             return true;
+        }
+
+        if (request instanceof BodyReaderHttpServletRequestWrapper) {
+            log.info("进入MCP权限校验: {} - {} - {}", request.getRequestURI(), request.getParameter("sessionId"), ((BodyReaderHttpServletRequestWrapper) request).getBodyString());
+        } else {
+            log.info("进入MCP权限校验: {} - {} - {}", request.getRequestURI(), request.getParameter("sessionId"), request.getQueryString());
         }
         // 表示是mcp的请求，需要进行权限管控
         String auth = request.getHeader("Authorization");
