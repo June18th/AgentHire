@@ -38,7 +38,7 @@
 
     <!--    新增自定义的McpClient会话上下文持久表 -->
     <changeSet id="251014_00000001" author="YiHui">
-        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_data_251014.sql"/>
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_251014.sql"/>
     </changeSet>
 
     <!-- 修复checksum错误 -->
