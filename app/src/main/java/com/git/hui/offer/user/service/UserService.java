@@ -250,6 +250,16 @@ public class UserService {
                 toUpdate = true;
                 user.setIntro(openUser.getProfile());
             }
+            if (!Objects.equals(user.getRole(), UserRoleEnum.ADMIN.getValue())) {
+                if (StringUtils.isNotBlank(openUser.getZsxqId()) && openUser.getZsxqExpireTime() != null && openUser.getZsxqExpireTime() > System.currentTimeMillis() / 1000) {
+                    // 更新会员信息
+                    if (user.getExpireTime().getTime() / 1000 != openUser.getZsxqExpireTime()) {
+                        toUpdate = true;
+                        user.setRole(UserRoleEnum.VIP.getValue());
+                        user.setExpireTime(new Date(openUser.getZsxqExpireTime() * 1000));
+                    }
+                }
+            }
             if (toUpdate) {
                 userRepository.saveAndFlush(user);
             }
@@ -261,10 +271,22 @@ public class UserService {
     }
 
     private UserEntity registerByOpenUser(OpenApiUserDTO openUser) {
+        UserRoleEnum role;
+        if ("admin".equals(openUser.getRole())) {
+            role = UserRoleEnum.ADMIN;
+        } else if (openUser.getZsxqExpireTime() != null && openUser.getZsxqExpireTime() > System.currentTimeMillis() / 1000) {
+            // 会员
+            role = UserRoleEnum.VIP;
+        } else {
+            // 普通用户
+            role = UserRoleEnum.NORMAL;
+        }
+
         UserEntity user = new UserEntity()
                 .setId(IdUtil.genId())
                 .setWxId(StringUtils.isBlank(openUser.getWxId()) ? "" : openUser.getWxId())
-                .setRole("admin".equals(openUser.getRole()) ? UserRoleEnum.ADMIN.getValue() : UserRoleEnum.NORMAL.getValue())
+                .setRole(role.getValue())
+                .setExpireTime(openUser.getZsxqExpireTime() != null ? new Date(openUser.getZsxqExpireTime() * 1000) : null)
                 .setCreateTime(new Date())
                 .setUpdateTime(new Date())
                 .setState(BaseStateEnum.NORMAL_STATE.getValue())

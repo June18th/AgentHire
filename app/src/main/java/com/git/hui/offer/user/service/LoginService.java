@@ -5,6 +5,7 @@ import com.git.hui.offer.components.context.ReqInfoContext;
 import com.git.hui.offer.components.env.SpringUtil;
 import com.git.hui.offer.constants.user.LoginConstants;
 import com.git.hui.offer.user.helper.SessionHelper;
+import com.git.hui.offer.user.helper.WxLoginQrGenIntegration;
 import com.git.hui.offer.util.CodeGenerateUtil;
 import com.git.hui.offer.util.RandUtil;
 import com.google.common.cache.CacheBuilder;
@@ -28,6 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LoginService {
     private final SessionHelper sessionHelper;
 
+    private final WxLoginQrGenIntegration wxLoginQrGenIntegration;
+
     /**
      * 对于单机的场景，可以直接使用本地局部变量来实现计数
      * 对于集群的场景，可考虑借助 redis的zset 来实现集群的在线用户人数统计
@@ -44,8 +47,9 @@ public class LoginService {
     private LoadingCache<String, String> deviceCodeCache;
 
     @Autowired
-    public LoginService(SessionHelper sessionHelper) {
+    public LoginService(SessionHelper sessionHelper, WxLoginQrGenIntegration wxLoginQrGenIntegration) {
         this.sessionHelper = sessionHelper;
+        this.wxLoginQrGenIntegration = wxLoginQrGenIntegration;
         verifyCodeCache = CacheBuilder.newBuilder().maximumSize(300).expireAfterWrite(5, TimeUnit.MINUTES).build(new CacheLoader<String, SseEmitter>() {
             @Override
             public SseEmitter load(String s) throws Exception {
@@ -96,8 +100,7 @@ public class LoginService {
         });
         // 若实际的验证码与前端显示的不同，则通知前端更新
         sseEmitter.send("initCode!");
-        sseEmitter.send(RandUtil.random(128));
-        sseEmitter.send("qr#" + SpringUtil.getConfig("oc.site.login-qr-img"));
+        sseEmitter.send("qr#" +  wxLoginQrGenIntegration.genLoginQrImg(realCode));
         sseEmitter.send("init#" + realCode);
         log.info("订阅返回!");
         return sseEmitter;
@@ -139,6 +142,7 @@ public class LoginService {
         log.info("generate new loginCode! deviceId:{}, oldCode:{}, code:{}", deviceId, oldCode, newCode);
 
         lastSse.send("updateCode!");
+        lastSse.send("qr#" +  wxLoginQrGenIntegration.genLoginQrImg(newCode));
         lastSse.send("refresh#" + newCode);
         verifyCodeCache.invalidate(oldCode);
         verifyCodeCache.put(newCode, lastSse);

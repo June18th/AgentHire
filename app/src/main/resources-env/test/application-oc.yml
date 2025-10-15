@@ -6,7 +6,7 @@ oc:
   site:
     login-qr-img: https://spring.hhui.top/spring-blog/imgs/info/wx.jpg
     website-name: 校招派
-    web-site-logo: https://spring.hhui.top/spring-blog/css/images/avatar.jpg
+    web-site-logo: https://oc.paicoding.com/favicon.png
     web-site-host: http://localhost
     web-site-url: ${oc.site.web-site-host}:${server.port}
   img:
@@ -16,3 +16,10 @@ oc:
   database:
     name: oc
   mainModel: ZhiPu
+  wx:
+    loginQrType: SUBSCRIPTION_ACCOUNT # SUBSCRIPTION_ACCOUNT 表示普通的公众号登录  SERVICE_ACCOUNT 表示服务号关注登录
+    appId: wx59x(使用公众号的appId)ffb8
+    appSecret: a7c4xb(使用公众号的appSecret)68c84
+    qrCodeImg: ${oc.site.login-qr-img}
+    qrCodeLogo: ${oc.site.web-site-logo}
+    securityCheckToken: # 为空，表示不对微信回调的接口进行校验

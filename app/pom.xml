@@ -16,6 +16,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <langgraph4j.version>1.6.0-rc4</langgraph4j.version>
+        <qrcode-plugin.version>3.0.0</qrcode-plugin.version>
     </properties>
 
     <dependencies>
@@ -120,6 +121,13 @@
             <groupId>org.bsc.langgraph4j</groupId>
             <artifactId>langgraph4j-springai-agentexecutor</artifactId>
             <version>${langgraph4j.version}</version>
+        </dependency>
+
+
+        <dependency>
+            <groupId>com.github.liuyueyi.media</groupId>
+            <artifactId>qrcode-plugin</artifactId>
+            <version>${qrcode-plugin.version}</version>
         </dependency>
     </dependencies>
 

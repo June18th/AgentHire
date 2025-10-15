@@ -1,8 +1,10 @@
 package com.git.hui.offer.web.controller.front;
 
 import cn.hutool.core.util.NumberUtil;
+import com.git.hui.offer.components.env.SpringUtil;
 import com.git.hui.offer.constants.user.permission.Permission;
 import com.git.hui.offer.constants.user.permission.UserRoleEnum;
+import com.git.hui.offer.user.helper.WxLoginProperties;
 import com.git.hui.offer.user.service.LoginService;
 import com.git.hui.offer.user.service.RechargeService;
 import com.git.hui.offer.user.service.UserService;
@@ -27,7 +29,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.Collections;
 
 /**
  * @author YiHui
@@ -95,12 +96,23 @@ public class WxController {
         String content = msg.getContent();
         if ("subscribe".equals(msg.getEvent()) || "scan".equalsIgnoreCase(msg.getEvent())) {
             String key = msg.getEventKey();
-            if (StringUtils.isNotBlank(key) && key.startsWith("qrscene_")) {
-                // 带参数的二维码，扫描、关注事件拿到之后，直接登录，省却输入验证码这一步
-                // fixme 带参数二维码需要 微信认证，个人公众号无权限
-                String code = key.substring("qrscene_".length());
+            if (StringUtils.isNotBlank(key)) {
+                // 对于关注事件，key的格式为 qrscene_验证码； 对于扫码事件，key的格式就是 验证码
+                String code;
+                if (key.startsWith("qrscene_")) {
+                    code = key.substring(8);
+                } else {
+                    code = key;
+                }
+
                 userService.autoRegisterWxUserInfo(msg.getFromUserName());
-                String ans = loginService.login(code) ? "登录成功" : "登录失败，请输入验证码";
+                String ans;
+                if (NumberUtil.isNumber(code) && code.length() == 4) {
+                    // 登录的场景
+                    ans = loginService.login(code) ? "登录成功" : "登录失败，请输入验证码";
+                } else {
+                    ans = "subscribe".equals(msg.getEvent()) ? SpringUtil.getBean(WxLoginProperties.class).getSubscribeWelcomeInfo() : "";
+                }
                 WxTxtMsgResVo res = new WxTxtMsgResVo();
                 res.setContent(ans);
                 fillResVo(res, msg);
