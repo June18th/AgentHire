@@ -2,6 +2,7 @@ package com.git.hui.offer.web.hook.extend;
 
 import cn.hutool.core.exceptions.ExceptionUtil;
 import com.git.hui.offer.components.bizexception.BizException;
+import com.git.hui.offer.components.context.ReqInfoContext;
 import com.git.hui.offer.web.model.ResVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,7 +37,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = Exception.class)
     public ResVo<String> handleException(Exception e) {
-        log.warn("非预期异常", e);
+        log.warn("非预期异常 {}", ReqInfoContext.getReqInfo(), e);
         return ResVo.fail(500, "服务器开小差，请稍后再试试吧~", ExceptionUtil.stacktraceToString(e));
     }
 }
