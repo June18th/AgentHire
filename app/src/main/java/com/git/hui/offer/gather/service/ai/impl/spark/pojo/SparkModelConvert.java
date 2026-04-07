@@ -34,7 +34,7 @@ public class SparkModelConvert {
     }
 
     public static Generation buildGeneration(SparkPOJO.Choice choice, Map<String, Object> metadata) {
-        AssistantMessage assistantMessage = new AssistantMessage(choice.message().content(), metadata);
+        AssistantMessage assistantMessage = AssistantMessage.builder().content(choice.message().content()).properties(metadata).build();
         ChatGenerationMetadata generationMetadata = ChatGenerationMetadata.builder().finishReason((String) metadata.get("finishReason")).build();
         return new Generation(assistantMessage, generationMetadata);
     }

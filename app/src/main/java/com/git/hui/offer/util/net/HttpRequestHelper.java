@@ -127,7 +127,7 @@ public class HttpRequestHelper {
                             .uri(url)
                             .headers(httpHeaders -> {
                                 httpHeaders.addAll(headers);
-                                if (!httpHeaders.containsKey("Content-Type")) {
+                                if (!httpHeaders.containsHeader("Content-Type")) {
                                     httpHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
                                 }
                             })

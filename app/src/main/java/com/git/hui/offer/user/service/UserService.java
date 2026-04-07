@@ -22,7 +22,9 @@ import com.git.hui.offer.web.model.req.UserSearchReq;
 import com.git.hui.offer.web.model.res.McpConfigVo;
 import com.git.hui.offer.web.model.res.UserVo;
 import io.micrometer.common.util.StringUtils;
-import org.springframework.ai.mcp.server.autoconfigure.McpServerProperties;
+import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerProperties;
+import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerSseProperties;
+import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerStreamableHttpProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,12 +66,20 @@ public class UserService {
     }
 
     private McpConfigVo buildMcpConfig(UserEntity user) {
-        McpConfigVo configVo = new McpConfigVo("sse",
-                SpringUtil.getSiteConfig().getWebSiteUrl() + mcpServerProperties.getSseEndpoint(),
+        McpConfigVo configVo = new McpConfigVo(mcpServerProperties.getProtocol().name(),
+                SpringUtil.getSiteConfig().getWebSiteUrl() + buildUrl(),
                 mcpServerProperties.getVersion(),
                 Map.of("Authorization", "Bearer " + user.getWxId())
         );
         return configVo;
+    }
+
+    private String buildUrl() {
+        McpServerProperties.ServerProtocol protocol = mcpServerProperties.getProtocol();
+        return switch (protocol) {
+            case SSE -> SpringUtil.getBean(McpServerSseProperties.class).getSseEndpoint();
+            default -> SpringUtil.getBean(McpServerStreamableHttpProperties.class).getMcpEndpoint();
+        };
     }
 
     /**

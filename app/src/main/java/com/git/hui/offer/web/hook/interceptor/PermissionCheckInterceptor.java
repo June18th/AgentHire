@@ -15,7 +15,6 @@ import io.micrometer.common.util.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.BooleanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -37,6 +36,9 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
     @Value("${spring.ai.mcp.server.sse-message-endpoint:/mcp/messages}")
     private String msgUrl;
 
+    @Value("${spring.ai.mcp.server.streamable-http.mcp-endpoint:/api/mcp}")
+    private String mcpUrl;
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         if (handler instanceof HandlerMethod) {
@@ -52,7 +54,7 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
 
 
             if (ReqInfoContext.getReqInfo() == null || ReqInfoContext.getReqInfo().getUserId() == null) {
-                response.setContentType(MediaType.APPLICATION_JSON_UTF8_VALUE);
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().println(JsonUtil.toStr(ResVo.fail(StatusEnum.FORBID_NOTLOGIN)));
                 response.getWriter().flush();
                 return false;
@@ -68,7 +70,7 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
             if (permission.role() == UserRoleEnum.VIP
                     && UserRoleEnum.VIP != ReqInfoContext.getReqInfo().getUser().role()) {
                 // 这里是会员专项的内容，无权访问
-                response.setContentType(MediaType.APPLICATION_JSON_UTF8_VALUE);
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.getWriter().println(JsonUtil.toStr(ResVo.fail(StatusEnum.FORBID_VIP_INFO)));
                 response.getWriter().flush();
                 return false;
@@ -76,7 +78,7 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
         } else if (!checkMcpPermission(request)) {
             log.info("MCPServer 接口权限校验失败!");
             // mcp 相关校验 - 无权访问
-            response.setContentType(MediaType.APPLICATION_JSON_UTF8_VALUE);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().println(JsonUtil.toStr(ResVo.fail(StatusEnum.FORBID_VIP_INFO)));
             response.getWriter().flush();
             return false;
@@ -115,6 +117,6 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
 
     private boolean mcpUrl(HttpServletRequest request) {
         String reqUrl = request.getRequestURI();
-        return reqUrl.equals(sseUrl) || reqUrl.equals(msgUrl);
+        return reqUrl.equals(sseUrl) || reqUrl.equals(msgUrl) || reqUrl.equals(mcpUrl);
     }
 }
