@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.channels.sdk;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 
 /**
  * Complete Weixin ClawBot SDK.
@@ -46,9 +47,12 @@ public class WeixinSdk {
     private final CdnUploader cdnUploader;
     private final MessageSender messageSender;
     private final ContextTokenManager contextTokenManager;
+    private final MediaDownloader mediaDownloader;
     private final String accountId;
     private final String baseUrl;
     private final String cdnBaseUrl;
+
+    private PollingWorker worker;
 
     private WeixinSdk(Builder builder) {
         this.baseUrl = builder.baseUrl;
@@ -59,6 +63,7 @@ public class WeixinSdk {
         this.cdnUploader = new CdnUploader(apiClient, builder.cdnBaseUrl);
         this.messageSender = new MessageSender(apiClient, cdnUploader);
         this.contextTokenManager = new ContextTokenManager(builder.stateDir);
+        this.mediaDownloader = new MediaDownloader(cdnBaseUrl, builder.mediaDir);
 
         // Restore persisted context tokens
         if (accountId != null) {
@@ -120,7 +125,12 @@ public class WeixinSdk {
         thread.setDaemon(true);
         thread.setName("Weixin-Polling-" + (accountId != null ? accountId : "default"));
         thread.start();
+        this.worker = worker;
         return worker;
+    }
+
+    public boolean isRunning() {
+        return worker != null && worker.isRunning();
     }
 
     /**
@@ -128,6 +138,8 @@ public class WeixinSdk {
      */
     public void shutdown() {
         try {
+            this.worker.stop();
+            this.mediaDownloader.close();
             apiClient.close();
             log.info("Weixin SDK shutdown complete");
         } catch (Exception e) {
@@ -152,6 +164,8 @@ public class WeixinSdk {
         private String token;
         private String channelVersion = "1.0.3";
         private String stateDir = "./workspace/weixin-state";
+
+        private String mediaDir = "./workspace/weixin-media";
         private String accountId;
 
         public Builder baseUrl(String baseUrl) {
@@ -176,6 +190,11 @@ public class WeixinSdk {
 
         public Builder stateDir(String stateDir) {
             this.stateDir = stateDir;
+            return this;
+        }
+
+        public Builder mediaDir(String mediaDir) {
+            this.mediaDir = mediaDir;
             return this;
         }
 
@@ -210,7 +229,6 @@ public class WeixinSdk {
         @Override
         public void run() {
             log.info("Weixin polling started for account={}", sdk.getAccountId());
-
             while (running) {
                 try {
                     WeixinTypes.GetUpdatesResp resp = sdk.getApiClient().getUpdates(getUpdatesBuf, timeout * 1000);
@@ -257,6 +275,8 @@ public class WeixinSdk {
                                 );
                             }
 
+                            // 自动下载文件
+                            this.autoDownloadToTempFile(msg);
                             // Call handler
                             messageHandler.onMessage(msg);
                         }
@@ -277,6 +297,41 @@ public class WeixinSdk {
             }
 
             log.info("Weixin polling stopped for account={}", sdk.getAccountId());
+        }
+
+
+        private void autoDownloadToTempFile(WeixinTypes.WeixinMessage msg) {
+            if (CollectionUtils.isEmpty(msg.getItemList())) {
+                return;
+            }
+            for (WeixinTypes.MessageItem item : msg.getItemList()) {
+                if (item.getType() == null) {
+                    continue;
+                }
+                try {
+                    switch (item.getType()) {
+                        case WeixinTypes.MessageItemType.IMAGE -> {
+                            var path = sdk.mediaDownloader.downloadImage(item.getImageItem(), null);
+                            item.getImageItem().setLocalPath(path);
+                        }
+                        case WeixinTypes.MessageItemType.VIDEO -> {
+                            var path = sdk.mediaDownloader.downloadVideo(item.getVideoItem(), null);
+                            item.getVideoItem().setLocalPath(path);
+                        }
+                        case WeixinTypes.MessageItemType.FILE -> {
+                            var path = sdk.mediaDownloader.downloadFile(item.getFileItem(), null);
+                            item.getFileItem().setLocalPath(path);
+                        }
+                        case WeixinTypes.MessageItemType.VOICE -> {
+                            var path = sdk.mediaDownloader.downloadVoice(item.getVoiceItem(), true);
+                            item.getVoiceItem().setLocalPath(path);
+                        }
+                        default -> log.debug("Unsupported message type: {}", item.getType());
+                    }
+                } catch (Exception e) {
+                    log.error("Error handling media message type={}", item.getType(), e);
+                }
+            }
         }
 
         public void stop() {

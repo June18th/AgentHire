@@ -11,58 +11,27 @@ public interface Channel {
     }
 
     /**
-     * 启动通道，用于轮询获取消息
+     * 通道接收到消息，并向外发送
+     *
+     * @return
      */
-    void start();
+    void report(ChannelReceiveMessage msg);
 
     /**
-     * 停止通道
-     */
-    void stop();
-
-    /**
-     * 通道是否运行中
-     */
-    boolean isRunning();
-
-    /**
-     * 发送消息
+     * 向通道发送消息
      *
      * @param msg
      * @return
      */
     boolean send(ChannelResponseMessage msg);
 
+
     /**
-     * 是否支持流式输出
+     * 新增一个用户，即 一个通道，支持多个用户进行沟通对话
      *
-     * @return
+     * @param channelConfig
      */
-    default boolean supportsStreaming() {
-        return false;
+    default <T extends ChannelConfig> void addAccount(T channelConfig) {
+        throw new UnsupportedOperationException("不支持添加用户");
     }
-
-    /**
-     * 获取流式输出回调接口
-     *
-     * @param chatId
-     * @return
-     */
-    default StreamCallback streamingCallback(String chatId) {
-        return null;
-    }
-
-    /**
-     * 流式输出回调接口（基础版本，仅支持文本内容）
-     */
-    @FunctionalInterface
-    interface StreamCallback {
-        /**
-         * 当接收到流式内容块时调用
-         *
-         * @param content 内容块
-         */
-        void onChunk(String content);
-    }
-
 }

@@ -1,21 +1,17 @@
 package com.git.hui.jobclaw.core.channel;
 
-import org.springframework.stereotype.Service;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
-@Service
 public class ChannelRegistry {
 
     private final Map<String, Channel> channels;
-    private final AtomicReference<ChannelReceiveMessage> lastChannelMessage;
     private String defaultChannelName;
 
     public ChannelRegistry() {
         this.channels = new HashMap<>();
-        this.lastChannelMessage = new AtomicReference<>();
     }
 
     public void registerChannel(Channel channel) {
@@ -25,18 +21,10 @@ public class ChannelRegistry {
         }
     }
 
-    public void unregisterChannel(Channel channel) {
-        channels.remove(channel.name());
-    }
-
-    public Channel getLatestChannel() {
-        if (lastChannelMessage.get() != null) {
-            return channels.get(lastChannelMessage.get().getChannel());
+    public Channel getChannel(String channelName) {
+        if (StringUtils.isBlank(channelName)) {
+            return channels.get(defaultChannelName);
         }
-        return channels.get(defaultChannelName);
-    }
-
-    public void publishMessageReceivedEvent(ChannelReceiveMessage event) {
-        lastChannelMessage.set(event);
+        return channels.get(channelName);
     }
 }

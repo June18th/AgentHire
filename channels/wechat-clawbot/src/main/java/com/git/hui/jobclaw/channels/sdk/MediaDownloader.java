@@ -24,27 +24,30 @@ public class MediaDownloader {
     private static final Logger log = LoggerFactory.getLogger(MediaDownloader.class);
 
     private final String cdnBaseUrl;
+
+    private final String mediaDir;
     private final CloseableHttpClient httpClient;
 
-    public MediaDownloader(String cdnBaseUrl) {
+    public MediaDownloader(String cdnBaseUrl, String mediaDir) {
         this.cdnBaseUrl = cdnBaseUrl;
+        this.mediaDir = mediaDir;
         this.httpClient = HttpClients.createDefault();
     }
 
     /**
      * Download and decrypt media from CDN.
-     * 
+     *
      * @param encryptQueryParam CDN encryption query parameter
      * @param aesKeyBase64 AES key in base64 format
      * @param fullUrl Optional full download URL (preferred if available)
      * @param label Label for logging
      * @return Decrypted media bytes
      */
-    public byte[] downloadAndDecrypt(String encryptQueryParam, String aesKeyBase64, 
+    public byte[] downloadAndDecrypt(String encryptQueryParam, String aesKeyBase64,
                                      String fullUrl, String label) throws Exception {
         // Parse AES key (handles both raw 16 bytes and hex-encoded formats)
         byte[] aesKey = parseAesKey(aesKeyBase64, label);
-        
+
         // Build download URL
         String url;
         if (fullUrl != null && !fullUrl.isEmpty()) {
@@ -52,17 +55,17 @@ public class MediaDownloader {
         } else {
             url = buildCdnDownloadUrl(encryptQueryParam);
         }
-        
+
         log.debug("{}: downloading from {}", label, url);
-        
+
         // Download encrypted data
         byte[] encrypted = downloadBytes(url, label);
         log.debug("{}: downloaded {} bytes, decrypting", label, encrypted.length);
-        
+
         // Decrypt using AES-128-ECB
         byte[] decrypted = decryptAesEcb(encrypted, aesKey);
         log.debug("{}: decrypted {} bytes", label, decrypted.length);
-        
+
         return decrypted;
     }
 
@@ -76,44 +79,43 @@ public class MediaDownloader {
         } else {
             url = buildCdnDownloadUrl(encryptQueryParam);
         }
-        
+
         log.debug("{}: downloading plain from {}", label, url);
         return downloadBytes(url, label);
     }
 
     /**
      * Download image and save to file.
-     * 
+     *
      * @param imageItem Image item from message
-     * @param destDir Destination directory
      * @param fileName Output file name (null for auto-generated)
      * @return Path to saved file
      */
-    public Path downloadImage(WeixinTypes.ImageItem imageItem, String destDir, String fileName) throws Exception {
+    public Path downloadImage(WeixinTypes.ImageItem imageItem, String fileName) throws Exception {
         if (imageItem == null || imageItem.getMedia() == null) {
             throw new IllegalArgumentException("Invalid image item");
         }
-        
+
         WeixinTypes.CDNMedia media = imageItem.getMedia();
-        String aesKey = imageItem.getAeskey() != null ? 
-            Base64.getEncoder().encodeToString(hexStringToByteArray(imageItem.getAeskey())) :
-            media.getAesKey();
-        
+        String aesKey = imageItem.getAeskey() != null ?
+                Base64.getEncoder().encodeToString(hexStringToByteArray(imageItem.getAeskey())) :
+                media.getAesKey();
+
         byte[] decrypted = downloadAndDecrypt(
-            media.getEncryptQueryParam(),
-            aesKey,
-            media.getFullUrl(),
-            "downloadImage"
+                media.getEncryptQueryParam(),
+                aesKey,
+                media.getFullUrl(),
+                "downloadImage"
         );
-        
+
         if (fileName == null) {
             fileName = "image_" + System.currentTimeMillis() + ".jpg";
         }
-        
-        Path filePath = Paths.get(destDir, fileName);
+
+        Path filePath = Paths.get(mediaDir, fileName);
         Files.createDirectories(filePath.getParent());
         Files.write(filePath, decrypted);
-        
+
         log.info("Image saved to: {}", filePath);
         return filePath;
     }
@@ -121,28 +123,28 @@ public class MediaDownloader {
     /**
      * Download video and save to file.
      */
-    public Path downloadVideo(WeixinTypes.VideoItem videoItem, String destDir, String fileName) throws Exception {
+    public Path downloadVideo(WeixinTypes.VideoItem videoItem, String fileName) throws Exception {
         if (videoItem == null || videoItem.getMedia() == null) {
             throw new IllegalArgumentException("Invalid video item");
         }
-        
+
         WeixinTypes.CDNMedia media = videoItem.getMedia();
-        
+
         byte[] decrypted = downloadAndDecrypt(
-            media.getEncryptQueryParam(),
-            media.getAesKey(),
-            media.getFullUrl(),
-            "downloadVideo"
+                media.getEncryptQueryParam(),
+                media.getAesKey(),
+                media.getFullUrl(),
+                "downloadVideo"
         );
-        
+
         if (fileName == null) {
             fileName = "video_" + System.currentTimeMillis() + ".mp4";
         }
-        
-        Path filePath = Paths.get(destDir, fileName);
+
+        Path filePath = Paths.get(mediaDir, fileName);
         Files.createDirectories(filePath.getParent());
         Files.write(filePath, decrypted);
-        
+
         log.info("Video saved to: {}", filePath);
         return filePath;
     }
@@ -150,58 +152,57 @@ public class MediaDownloader {
     /**
      * Download file attachment and save to file.
      */
-    public Path downloadFile(WeixinTypes.FileItem fileItem, String destDir, String fileName) throws Exception {
+    public Path downloadFile(WeixinTypes.FileItem fileItem, String fileName) throws Exception {
         if (fileItem == null || fileItem.getMedia() == null) {
             throw new IllegalArgumentException("Invalid file item");
         }
-        
+
         WeixinTypes.CDNMedia media = fileItem.getMedia();
-        
+
         byte[] decrypted = downloadAndDecrypt(
-            media.getEncryptQueryParam(),
-            media.getAesKey(),
-            media.getFullUrl(),
-            "downloadFile"
+                media.getEncryptQueryParam(),
+                media.getAesKey(),
+                media.getFullUrl(),
+                "downloadFile"
         );
-        
+
         if (fileName == null) {
-            fileName = fileItem.getFileName() != null ? fileItem.getFileName() : 
-                      "file_" + System.currentTimeMillis();
+            fileName = fileItem.getFileName() != null ? fileItem.getFileName() :
+                    "file_" + System.currentTimeMillis();
         }
-        
-        Path filePath = Paths.get(destDir, fileName);
+
+        Path filePath = Paths.get(mediaDir, fileName);
         Files.createDirectories(filePath.getParent());
         Files.write(filePath, decrypted);
-        
+
         log.info("File saved to: {}", filePath);
         return filePath;
     }
 
     /**
      * Download voice message and optionally transcode from SILK to WAV.
-     * 
+     *
      * @param voiceItem Voice item from message
-     * @param destDir Destination directory
      * @param transcodeToWav Whether to transcode SILK to WAV
      * @return Path to saved audio file
      */
-    public Path downloadVoice(WeixinTypes.VoiceItem voiceItem, String destDir, boolean transcodeToWav) throws Exception {
+    public Path downloadVoice(WeixinTypes.VoiceItem voiceItem, boolean transcodeToWav) throws Exception {
         if (voiceItem == null || voiceItem.getMedia() == null) {
             throw new IllegalArgumentException("Invalid voice item");
         }
-        
+
         WeixinTypes.CDNMedia media = voiceItem.getMedia();
-        
+
         byte[] decrypted = downloadAndDecrypt(
-            media.getEncryptQueryParam(),
-            media.getAesKey(),
-            media.getFullUrl(),
-            "downloadVoice"
+                media.getEncryptQueryParam(),
+                media.getAesKey(),
+                media.getFullUrl(),
+                "downloadVoice"
         );
-        
+
         String fileName;
         byte[] audioData = decrypted;
-        
+
         // Transcode SILK to WAV if requested
         if (transcodeToWav) {
             try {
@@ -215,11 +216,11 @@ public class MediaDownloader {
         } else {
             fileName = "voice_" + System.currentTimeMillis() + ".silk";
         }
-        
-        Path filePath = Paths.get(destDir, fileName);
+
+        Path filePath = Paths.get(mediaDir, fileName);
         Files.createDirectories(filePath.getParent());
         Files.write(filePath, audioData);
-        
+
         log.info("Voice saved to: {}", filePath);
         return filePath;
     }
@@ -232,12 +233,12 @@ public class MediaDownloader {
      */
     private byte[] parseAesKey(String aesKeyBase64, String label) throws Exception {
         byte[] decoded = Base64.getDecoder().decode(aesKeyBase64);
-        
+
         if (decoded.length == 16) {
             // Direct 16-byte key
             return decoded;
         }
-        
+
         if (decoded.length == 32) {
             // Hex-encoded key: base64 → hex string → raw bytes
             String hexString = new String(decoded, "ASCII");
@@ -245,10 +246,10 @@ public class MediaDownloader {
                 return hexStringToByteArray(hexString);
             }
         }
-        
+
         throw new IllegalArgumentException(String.format(
-            "%s: aes_key must decode to 16 raw bytes or 32-char hex string, got %d bytes",
-            label, decoded.length
+                "%s: aes_key must decode to 16 raw bytes or 32-char hex string, got %d bytes",
+                label, decoded.length
         ));
     }
 
@@ -264,15 +265,15 @@ public class MediaDownloader {
      */
     private byte[] downloadBytes(String url, String label) throws IOException {
         HttpGet request = new HttpGet(url);
-        
+
         return httpClient.execute(request, response -> {
             int statusCode = response.getCode();
             if (statusCode < 200 || statusCode >= 300) {
                 String body = EntityUtils.toString(response.getEntity());
-                throw new IOException(String.format("%s: CDN download %d %s body=%s", 
-                    label, statusCode, response.getReasonPhrase(), body));
+                throw new IOException(String.format("%s: CDN download %d %s body=%s",
+                        label, statusCode, response.getReasonPhrase(), body));
             }
-            
+
             return EntityUtils.toByteArray(response.getEntity());
         });
     }
@@ -295,7 +296,7 @@ public class MediaDownloader {
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
             data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                                + Character.digit(s.charAt(i+1), 16));
+                    + Character.digit(s.charAt(i + 1), 16));
         }
         return data;
     }
@@ -303,7 +304,7 @@ public class MediaDownloader {
     /**
      * Simple SILK to WAV transcoder.
      * Note: This is a placeholder. For production, use a proper SILK decoder library.
-     * 
+     *
      * @param silkBuf SILK encoded audio data
      * @return WAV formatted audio data
      */
@@ -313,11 +314,11 @@ public class MediaDownloader {
         // 1. Use JNI to call libsilk
         // 2. Use a Java SILK decoder library
         // 3. Call external silk decoder binary
-        
+
         log.warn("SILK to WAV transcode not fully implemented. Returning raw SILK data.");
         // For now, just wrap in a basic WAV header (won't actually play)
         // In production, integrate with silk-wasm or libsilk
-        
+
         return silkBuf; // Placeholder - return as-is
     }
 

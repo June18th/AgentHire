@@ -4,6 +4,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+
 /**
  * 接收消息
  * @author YiHui
@@ -13,6 +17,35 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder(toBuilder = true)
 @NoArgsConstructor
 public class ChannelReceiveMessage {
+    private String msgId;
     private String channel;
     private String message;
+    private String fromUserId;
+
+    private List<MediaMsg> medias;
+    private List<FileMsg> files;
+
+    /**
+     * 透传参数，channel上报的接收消息，当JobClaw处理之后，会生成一个/多个响应消息，每个响应消息都会携带这个参数；用于解决不同渠道的传参个性化
+     */
+    private Map<String, Object> passThrough;
+
+
+    @Data
+    @SuperBuilder(toBuilder = true)
+    @NoArgsConstructor
+    public static class MediaMsg {
+        private Path filePath;
+        private String mimeType;
+        private byte[] data; // Optional: inline image data
+    }
+
+    @Data
+    @SuperBuilder(toBuilder = true)
+    @NoArgsConstructor
+    public static class FileMsg {
+        private Path filePath;
+        private String fileName;
+        private String mimeType;
+    }
 }
