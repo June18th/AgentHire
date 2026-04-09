@@ -4,7 +4,7 @@ import com.git.hui.jobclaw.components.context.UserBo;
 import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
 import com.git.hui.jobclaw.user.dao.entity.UserEntity;
 import com.git.hui.jobclaw.user.dao.entity.UserInterestEntity;
-import com.git.hui.jobclaw.util.json.IntBaseEnum;
+import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
 import com.git.hui.jobclaw.web.model.res.UserInterestVo;
 import com.git.hui.jobclaw.web.model.res.UserVo;
 

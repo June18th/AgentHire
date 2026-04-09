@@ -3,7 +3,7 @@ package com.git.hui.jobclaw.oc.mcp;
 import com.git.hui.jobclaw.components.context.ReqInfoContext;
 import com.git.hui.jobclaw.oc.mcp.model.McpReqDto;
 import com.git.hui.jobclaw.oc.service.OcService;
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.web.model.PageListVo;
 import com.git.hui.jobclaw.web.model.req.OcSearchReq;
 import com.git.hui.jobclaw.web.model.res.OcVo;
@@ -12,7 +12,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.RequestContextHolder;
 
 import java.util.List;
 

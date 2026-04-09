@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.gather.service.ai.impl.spark.pojo;
 
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;

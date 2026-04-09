@@ -132,6 +132,10 @@ public class ReqRecordFilter implements Filter {
         }
 
         Long userId = SpringUtil.getBean(SessionHelper.class).getUserIdBySession(token);
+        if (userId == null) {
+            // 未登录
+            return;
+        }
         UserBo userBo = SpringUtil.getBean(UserService.class).getUserBo(userId);
         if (userBo == null) {
             return;

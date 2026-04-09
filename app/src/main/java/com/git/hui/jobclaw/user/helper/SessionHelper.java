@@ -6,7 +6,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.git.hui.jobclaw.components.context.UserBo;
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -429,4 +429,38 @@ public class WeixinTypes {
         @JsonProperty("typing_ticket")
         private String typingTicket;
     }
+
+    // ==================== Bot Binding Types ====================
+
+    /** Bind QR code response (get_bot_qrcode) */
+    @Data
+    public static class BindQrCodeResp {
+        private String qrcode;
+
+        @JsonProperty("qrcode_img_content")
+        private String qrcodeImgContent;
+
+        private Integer ret;
+        private String errmsg;
+    }
+
+    /** QR code status response (get_qrcode_status) */
+    @Data
+    public static class QrCodeStatusResp {
+        private String status; // wait, scaned, expired, confirmed
+
+        @JsonProperty("bot_token")
+        private String botToken;
+
+        @JsonProperty("ilink_bot_id")
+        private String ilinkBotId;
+
+        @JsonProperty("ilink_user_id")
+        private String ilinkUserId;
+
+        private String baseurl;
+
+        private Integer ret;
+        private String errmsg;
+    }
 }

@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.oc.mcp.server.session;
 
 import com.git.hui.jobclaw.components.context.ReqInfoContext;
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerSession;
 import lombok.extern.slf4j.Slf4j;

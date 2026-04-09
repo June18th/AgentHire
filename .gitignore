@@ -49,10 +49,10 @@ logs/
 
 docs/back
 
-workspace/datas/ai-oc.trace.db
-workspace/datas/ai-oc-my.mv.db
-workspace/datas/ai-oc-my.trace.db
-workspace/datas/ai-oc.mv.db
+workspace/datas/jobclaw.trace.db
+workspace/datas/jobclaw.mv.db
+workspace/datas/jobclaw-my.trace.db
+workspace/datas/jobclaw-my.mv.db
 workspace/channel
 workspace/conversations
 workspace/AGENT.private.md

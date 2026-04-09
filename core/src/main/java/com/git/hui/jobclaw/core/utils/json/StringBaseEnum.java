@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.util.json;
+package com.git.hui.jobclaw.core.utils.json;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;

@@ -41,5 +41,10 @@
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_251014.sql"/>
     </changeSet>
 
+    <!-- 全局环境配置表 -->
+    <changeSet id="260409_00000001" author="YiHui">
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/global_env_config_260409.sql"/>
+    </changeSet>
+
     <!-- 修复checksum错误 -->
 </databaseChangeLog>

@@ -5,7 +5,7 @@ import com.git.hui.jobclaw.constants.user.permission.Permission;
 import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
 import com.git.hui.jobclaw.oc.mcp.WechatBlogPublishService;
 import com.git.hui.jobclaw.oc.service.OcService;
-import com.git.hui.jobclaw.util.json.IntBaseEnum;
+import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
 import com.git.hui.jobclaw.web.model.PageListVo;
 import com.git.hui.jobclaw.web.model.req.OcSaveReq;
 import com.git.hui.jobclaw.web.model.req.OcSearchReq;

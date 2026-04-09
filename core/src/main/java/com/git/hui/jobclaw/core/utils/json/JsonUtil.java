@@ -1,10 +1,9 @@
-package com.git.hui.jobclaw.util.json;
+package com.git.hui.jobclaw.core.utils.json;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.git.hui.jobclaw.constants.gather.GatherTargetTypeEnum;
 import org.hibernate.Hibernate;
 
 import java.io.IOException;
@@ -26,15 +25,6 @@ public class JsonUtil {
 
     }
 
-    public static void main(String[] args) {
-        // 使用 @JsonValue 和 @JsonCreator 实现枚举的自定义序列化
-        GatherTargetTypeEnum type = GatherTargetTypeEnum.TEXT;
-        String text = JsonUtil.toStr(type);
-        System.out.println("当前的内容为:" + text);
-
-        GatherTargetTypeEnum out = JsonUtil.toObj(text, GatherTargetTypeEnum.class);
-        System.out.println(out);
-    }
 
     /**
      * 对象转字符串

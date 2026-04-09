@@ -6,7 +6,7 @@ import com.git.hui.jobclaw.constants.common.BaseStateEnum;
 import com.git.hui.jobclaw.constants.user.coupon.CouponTypeEnum;
 import com.git.hui.jobclaw.user.dao.entity.CouponEntity;
 import com.git.hui.jobclaw.util.PriceUtil;
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.web.model.req.CouponSaveReq;
 import com.git.hui.jobclaw.web.model.res.CouponVo;
 import org.springframework.util.CollectionUtils;

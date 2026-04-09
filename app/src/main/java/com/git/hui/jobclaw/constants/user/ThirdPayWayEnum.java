@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.constants.user;
 
-import com.git.hui.jobclaw.util.json.StringBaseEnum;
+import com.git.hui.jobclaw.core.utils.json.StringBaseEnum;
 import lombok.Getter;
 
 import java.util.Objects;

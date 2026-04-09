@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
-public class DotenvEnvironmentPostProcessor implements ApplicationContextInitializer<ConfigurableApplicationContext>, Ordered {
+public class DotenvEnvironmentProcessor implements ApplicationContextInitializer<ConfigurableApplicationContext>, Ordered {
 
     private static final String PROPERTY_SOURCE_NAME = "JobClawDotenv";
     private static final String DOTENV_FILE = ".env";

@@ -3,7 +3,7 @@ package com.git.hui.jobclaw.gather.service.ai.impl.spark;
 import com.git.hui.jobclaw.gather.service.ai.impl.spark.config.SparkConfig;
 import com.git.hui.jobclaw.gather.service.ai.impl.spark.pojo.SparkModelConvert;
 import com.git.hui.jobclaw.gather.service.ai.impl.spark.pojo.SparkPOJO;
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;

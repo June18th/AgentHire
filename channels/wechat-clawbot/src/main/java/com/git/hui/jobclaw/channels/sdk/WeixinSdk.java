@@ -114,6 +114,25 @@ public class WeixinSdk {
     }
 
     /**
+     * Generate QR code for bot binding (ClawBot).
+     *
+     * @return QR code information
+     */
+    public WeixinTypes.BindQrCodeResp generateBindQrCode() throws Exception {
+        return apiClient.getBotQrCode();
+    }
+
+    /**
+     * Check QR code binding status.
+     *
+     * @param qrCode The QR code string
+     * @return QR code status response
+     */
+    public WeixinTypes.QrCodeStatusResp checkQrCodeStatus(String qrCode) throws Exception {
+        return apiClient.checkQrCodeStatus(qrCode);
+    }
+
+    /**
      * Start polling for messages in background thread.
      *
      * @param messageHandler Callback to handle received messages
@@ -207,6 +226,10 @@ public class WeixinSdk {
             if (token == null || token.trim().isEmpty()) {
                 throw new IllegalArgumentException("Bot token is required");
             }
+            return new WeixinSdk(this);
+        }
+
+        public WeixinSdk loginBuild() {
             return new WeixinSdk(this);
         }
     }

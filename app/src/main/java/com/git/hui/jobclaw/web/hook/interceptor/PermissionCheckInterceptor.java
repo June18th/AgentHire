@@ -8,7 +8,7 @@ import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.constants.user.permission.Permission;
 import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.UserService;
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.web.hook.filter.BodyReaderHttpServletRequestWrapper;
 import com.git.hui.jobclaw.web.model.ResVo;
 import io.micrometer.common.util.StringUtils;

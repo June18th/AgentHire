@@ -9,7 +9,7 @@ import com.git.hui.jobclaw.user.model.PrePayInfoResBo;
 import com.git.hui.jobclaw.user.model.ThirdPayOrderReqBo;
 import com.git.hui.jobclaw.user.service.pay.ThirdPayIntegrationApi;
 import com.git.hui.jobclaw.util.DateUtil;
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.util.net.HttpRequestHelper;
 import com.git.hui.jobclaw.web.config.WxPayConfig;
 import com.wechat.pay.java.core.RSAAutoCertificateConfig;

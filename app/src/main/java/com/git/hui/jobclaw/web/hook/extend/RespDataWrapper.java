@@ -2,7 +2,7 @@ package com.git.hui.jobclaw.web.hook.extend;
 
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.user.service.LoginService;
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.web.model.ResVo;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;

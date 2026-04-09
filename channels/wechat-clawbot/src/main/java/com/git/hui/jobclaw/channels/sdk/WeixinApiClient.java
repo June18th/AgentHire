@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.channels.sdk;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -38,7 +39,11 @@ public class WeixinApiClient {
         this.baseUrl = ensureTrailingSlash(baseUrl);
         this.token = token;
         this.channelVersion = channelVersion != null ? channelVersion : "unknown";
+        
+        // 配置 ObjectMapper
         this.objectMapper = new ObjectMapper();
+        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        
         this.httpClient = HttpClients.createDefault();
     }
 
@@ -195,6 +200,62 @@ public class WeixinApiClient {
 
         // sendTyping may return binary/empty response
         executeRequest(request, DEFAULT_CONFIG_TIMEOUT_MS, true);
+    }
+
+    /**
+     * Generate QR code for bot binding (bot_type=3 for ClawBot).
+     *
+     * @return QR code information including qrcode string and image content
+     */
+    public WeixinTypes.BindQrCodeResp getBotQrCode() throws Exception {
+        org.apache.hc.client5.http.classic.methods.HttpGet request = 
+                new org.apache.hc.client5.http.classic.methods.HttpGet(baseUrl + "ilink/bot/get_bot_qrcode?bot_type=3");
+        request.setHeader("Content-Type", "application/json");
+        request.setHeader("AuthorizationType", "ilink_bot_token");
+        request.setHeader("X-WECHAT-UIN", generateWechatUin());
+        request.setHeader("iLink-App-ClientVersion", channelVersion);
+
+        String rawText = httpClient.execute(request, response -> {
+            int statusCode = response.getCode();
+            String text = EntityUtils.toString(response.getEntity());
+            if (statusCode < 200 || statusCode >= 300) {
+                throw new IOException("HTTP error " + statusCode + ": " + text);
+            }
+            return text;
+        });
+
+        return objectMapper.readValue(rawText, WeixinTypes.BindQrCodeResp.class);
+    }
+
+    /**
+     * Check QR code binding status.
+     *
+     * @param qrCode The QR code string returned by getBotQrCode
+     * @return QR code status response
+     */
+    public WeixinTypes.QrCodeStatusResp checkQrCodeStatus(String qrCode) throws Exception {
+        if (qrCode == null || qrCode.isBlank()) {
+            throw new IllegalArgumentException("QR code cannot be null or empty");
+        }
+
+        org.apache.hc.client5.http.classic.methods.HttpGet request = 
+                new org.apache.hc.client5.http.classic.methods.HttpGet(
+                        baseUrl + "ilink/bot/get_qrcode_status?qrcode=" + qrCode);
+        request.setHeader("Content-Type", "application/json");
+        request.setHeader("AuthorizationType", "ilink_bot_token");
+        request.setHeader("iLink-App-ClientVersion", channelVersion);
+        request.setHeader("X-WECHAT-UIN", generateWechatUin());
+
+        String rawText = httpClient.execute(request, response -> {
+            int statusCode = response.getCode();
+            String text = EntityUtils.toString(response.getEntity());
+            if (statusCode < 200 || statusCode >= 300) {
+                throw new IOException("HTTP error " + statusCode + ": " + text);
+            }
+            return text;
+        });
+
+        return objectMapper.readValue(rawText, WeixinTypes.QrCodeStatusResp.class);
     }
 
     /**

@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.agents.serializer;
 
-import com.git.hui.jobclaw.util.json.JsonUtil;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import org.bsc.langgraph4j.serializer.Serializer;
 
 import java.io.IOException;

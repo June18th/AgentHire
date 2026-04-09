@@ -6,7 +6,7 @@ import com.git.hui.jobclaw.constants.gather.GatherModelEnum;
 import com.git.hui.jobclaw.constants.gather.GatherModelTypeEnum;
 import com.git.hui.jobclaw.gather.model.ModelSelectReq;
 import com.git.hui.jobclaw.gather.service.ai.impl.AbsOcChatModelApi;
-import com.git.hui.jobclaw.util.json.StringBaseEnum;
+import com.git.hui.jobclaw.core.utils.json.StringBaseEnum;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
