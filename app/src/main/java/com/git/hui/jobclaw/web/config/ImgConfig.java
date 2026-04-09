@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 @Data
 @Component
-@ConfigurationProperties(prefix = "oc.img")
+@ConfigurationProperties(prefix = "jobclaw.img")
 public class ImgConfig {
 
     /**

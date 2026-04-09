@@ -1,10 +1,10 @@
 spring:
   datasource:
     # 本地开发环境，使用h2数据库，减少外部依赖项
-    url: jdbc:h2:file:${user.dir}/workspace/datas/${oc.database.name};DB_CLOSE_DELAY=-1
+    url: jdbc:h2:${AGENT_WORKSPACE:file:./workspace/}datas/${jobclaw.database.name};DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    username: ${DATABASE_USERNAME:sa}
+    password: ${DATABASE_PASSWORD:}
   h2:
     console:
       enabled: true

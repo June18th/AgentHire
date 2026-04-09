@@ -25,7 +25,7 @@ import java.util.Map;
 public class SessionHelper {
     @Component
     @Data
-    @ConfigurationProperties("oc.jwt")
+    @ConfigurationProperties("jobclaw.jwt")
     public static class JwtProperties {
         /**
          * 签发人

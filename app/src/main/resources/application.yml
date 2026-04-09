@@ -2,14 +2,14 @@ spring:
   application:
     name: ai-oc
   config:
-    import: application-oc.yml,application-ai.yml,application-dal.yml,application-pay.yml,optional:classpath:application.private.yaml
+    import: application-ai.yaml,application-dal.yaml,optional:classpath:application-private.yaml
   web:
     resources:
       # 支持本地图片上传之后的链接，其中 file:///d的用于win系统，后面的file: 适用于mac/linux系统
       static-locations:
         - classpath:/static/
-        - file:///d:${oc.img.abs-tmp-path}
-        - file:${oc.img.abs-tmp-path}
+        - file:///d:${jobclaw.img.abs-tmp-path}
+        - file:${jobclaw.img.abs-tmp-path}
   servlet:
     multipart:
       enabled: true
@@ -34,9 +34,57 @@ spring:
           prompt: true # 是否支持提示词
           completion: true # 是否支持补全
 
+jobclaw:
+  jwt:
+    issuer: ${JOBCLAW_JWT_ISSUER:jobclaw} # 签发者
+    secret: ${JOBCLAW_JWT_SECRET:jobclaw} # 签名密钥
+    expire: ${JOBCLAW_JOB_CLAW_JWT_EXPIRE:2592000} # jwt的有效期，默认30天
+  site:
+    login-qr-img: ${JOBCLAW_SITE_LOGIN_QR_IMG:https://cdn.tobebetterjavaer.com/paicoding/paicoding-qrcode.png}
+    website-name: ${JOBCLAW_SITE_WEBSITE_NAME:求职派}
+    web-site-logo: ${JOBCLAW_SITE_WEBSITE_LOGO:https://oc.paicoding.com/favicon.icon}
+    web-site-host: ${JOBCLAW_SITE_WEBSITE_HOST:http://localhost}
+    web-site-url: ${oc.site.web-site-host}:${server.port}
+  img:
+    abs-tmp-path: ${JOBCLAW_IMG_ABS_TMP_PATH:/tmp/storage/}
+    web-img-path: ${JOBCLAW_IMG_WEB_IMG_PATH:/oc/img/}
+    cdn-host: ${JOBCLAW_IMG_CDN_HOST:http://localhost:8087}
+  database:
+    name: ${JOBCLAW_DATABASE_NAME:jobclaw}
+  mainModel: ${JOBCLAW_MAIN_MODEL:zhipu}
+  login:
+    wx:
+      loginQrType: ${WX_LOGIN_QR_TYPE:SUBSCRIPTION_ACCOUNT} # SUBSCRIPTION_ACCOUNT 表示普通的公众号登录  SERVICE_ACCOUNT 表示服务号关注登录
+      appId: ${WX_LOGIN_APP_ID:}
+      appSecret: ${WX_LOGIN_APP_SECRET:a7c4xb(使用公众号的appSecret)68c84}
+      qrCodeImg: ${WX_LOGIN_QR_IMG:${jobclaw.site.login-qr-img}}
+      qrCodeLogo: ${WX_LOGIN_QR_LOGO:${jobclaw.site.web-site-logo}}
+      securityCheckToken: ${WX_SECURITY_CHECK_TOKEN:} # 为空，表示不对微信回调的接口进行校验
+      subscribeWelcomeInfo: ${WX_LOGIN_SUBSCRIBE_WELCOME_INFO:欢迎来到求职派，请关注公众号，获取更多信息}
 
+pay:
+  wx: # 微信支付相关配置
+    # true 表示开启微信支付
+    enabled: ${WX_PAY_ENABLE:false}
+    #应用id（小程序id）
+    appId: ${WX_PAY_APP_ID:ww1****3e3}
+    #商户号
+    merchantId: ${WX_PAY_MERCHANT_ID:162****72}
+    #商户API私钥
+    privateKey: ${WX_PAY_PRIVATE_KEY:cert/apiclient_key.pem}
+    #商户证书序列号
+    # openssl x509 -in apiclient_cert.pem -noout -serial
+    merchantSerialNumber: ${WX_PAY_MERCHANT_SERIAL_NUMBER:228065B**********F17C37A}
+    #商户APIv3密钥
+    apiV3Key: ${WX_PAY_API_V3_KEY:Pai******1}
+    #支付通知地址
+    payNotifyUrl: ${WX_PAY_NOTIFY_URL:https://job.paicoding.cn/api/wx/payNotify}
+    #退款通知地址
+    refundNotifyUrl: ${WX_PAY_NOTIFY_URL:https://job.paicoding.cn/api/wx/refundNotify}
+
+# agent 的相关配置，通过页面的设置进行引导配置
 agent:
-  workspace: file:./workspace/
+  workspace: ${AGENT_WORKSPACE:file:./workspace/}
   channels:
     wechat:
       clawbot: # 微信的ClawBot Channel配置
@@ -137,8 +185,8 @@ logging:
       git:
         hui: info
 server:
-  port: 8087
+  port: ${JOBCLAW_SERVER_PORT:8087}
   compression:
-    enabled: true # 开启返回结果压缩，减少传输耗时
-    min-response-size: 2KB
+    enabled: ${JOBCLAW_SERVER_COMPRESSION_ENABLED:true} # 开启返回结果压缩，减少传输耗时
+    min-response-size: ${JOBCLAW_SERVER_COMPRESSION_MIN_RESPONSE_SIZE:2KB}
 

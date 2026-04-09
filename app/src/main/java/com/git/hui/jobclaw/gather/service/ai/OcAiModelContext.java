@@ -61,7 +61,7 @@ public class OcAiModelContext {
     /**
      * 默认使用的大模型
      */
-    @Value("${oc.mainModel:ZhiPu}")
+    @Value("${jobclaw.mainModel:ZhiPu}")
     private String mainModel;
 
     /**

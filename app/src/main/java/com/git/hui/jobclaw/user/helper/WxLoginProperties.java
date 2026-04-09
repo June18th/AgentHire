@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Data
-@ConfigurationProperties("oc.wx")
+@ConfigurationProperties("jobclaw.login.wx")
 public class WxLoginProperties {
     /**
      * 登录二维码的类型：微信公众号、服务号

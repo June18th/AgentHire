@@ -52,7 +52,7 @@ public class OcDataSourceInitializer implements BeanDefinitionRegistryPostProces
     private Environment environment;
 
     public String getDatabase() {
-        database = database != null ? database : environment.getProperty("oc.database.name");
+        database = database != null ? database : environment.getProperty("jobclaw.database.name");
         return database;
     }
 

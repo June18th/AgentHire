@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
  * @date 2025/7/17
  */
 @Data
-@ConfigurationProperties(prefix = "oc.site")
+@ConfigurationProperties(prefix = "jobclaw.site")
 @Component
 public class SiteConfig {
     /**
