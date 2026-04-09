@@ -2,12 +2,11 @@ package com.git.hui.jobclaw.user.service;
 
 import com.git.hui.jobclaw.components.bizexception.NoVlaInGuavaException;
 import com.git.hui.jobclaw.components.context.ReqInfoContext;
-import com.git.hui.jobclaw.components.env.SpringUtil;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.constants.user.LoginConstants;
 import com.git.hui.jobclaw.user.helper.SessionHelper;
 import com.git.hui.jobclaw.user.helper.WxLoginQrGenIntegration;
 import com.git.hui.jobclaw.util.CodeGenerateUtil;
-import com.git.hui.jobclaw.util.RandUtil;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;

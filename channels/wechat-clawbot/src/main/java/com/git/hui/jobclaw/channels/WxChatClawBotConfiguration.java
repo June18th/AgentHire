@@ -21,7 +21,7 @@ public class WxChatClawBotConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = "agent.channels.wechat.clawbot.enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(name = "agent.channels.wechat.clawbot.enabled", havingValue = "true", matchIfMissing = true)
     public WeChatClawBotChannel weClawBotChannel(
             @Value("${agent.workspace}") Resource agentWorkspace,
             WxChatClawBotProperties wxBotProperties,

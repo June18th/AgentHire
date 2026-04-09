@@ -1,8 +1,12 @@
 package com.git.hui.jobclaw.core.bus.listener;
 
+import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
+import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
+import com.git.hui.jobclaw.core.utils.ThrowableUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -22,6 +26,11 @@ public class MessageEventListener {
 
     private final ChannelRegistry channelRegistry;
 
+    private final ChannelEventPublisher channelEventPublisher;
+
+    private final Agent agent;
+
+
     /**
      * 处理消息接收事件
      * 根据用户角色路由到不同的处理器
@@ -31,6 +40,37 @@ public class MessageEventListener {
     public void onMessageReceived(MessageReceivedEvent event) {
         // 由 RoutingAgent 来统一接收消息，然后根据意图识别，分配到不同的具体执行单元
         // 然后具体执行单元执行完毕之后，会发送一个 MessageResponseEvent 消息，然后触发下面的监听
+        var msg = event.getOriginalMessage();
+        try {
+            String response = agent.respondToMultiModal(msg.getFromUserId(), msg);
+            ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
+                    .toUserId(msg.getFromUserId())
+                    .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                    .content(response)
+                    .passThrough(msg.getPassThrough())
+                    .build();
+
+            // 返回大模型的响应给用户
+            channelEventPublisher.publishMessageResponse(
+                    "RSP_" + System.currentTimeMillis(),
+                    msg.getMsgId(),
+                    msg.getChannel(),
+                    responseMessage
+            );
+        } catch (Exception e) {
+            ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
+                    .toUserId(msg.getFromUserId())
+                    .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                    .content(ThrowableUtil.getStackTrace("糟糕，JobClaw出现故障啦~", e))
+                    .passThrough(msg.getPassThrough())
+                    .build();
+            channelEventPublisher.publishMessageResponse("RSP_ERR_" + System.currentTimeMillis(),
+                    msg.getMsgId(),
+                    msg.getChannel(),
+                    responseMessage
+            );
+            log.error("JobClaw出现故障啦~", e);
+        }
     }
 
     /**
@@ -44,5 +84,4 @@ public class MessageEventListener {
         var channel = channelRegistry.getChannel(event.getChannel());
         channel.send(event.getResponseMessage());
     }
-
 }

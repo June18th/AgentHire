@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.user.service.pay;
 
-import com.git.hui.jobclaw.components.env.SpringUtil;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.constants.user.ThirdPayWayEnum;
 import com.git.hui.jobclaw.user.model.PayCallbackBo;
 import com.git.hui.jobclaw.user.model.PrePayInfoResBo;

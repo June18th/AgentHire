@@ -1,7 +1,9 @@
 package com.git.hui.jobclaw.core.channel;
 
-import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 /**
  * 通道集成的配置信息
@@ -9,7 +11,9 @@ import lombok.Data;
  * @date 2026/4/8
  */
 @Data
-@Builder
+@SuperBuilder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChannelConfig {
     private String appId;
     private String appSecret;

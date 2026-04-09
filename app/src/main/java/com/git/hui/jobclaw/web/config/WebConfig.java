@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.web.config;
 
-import com.git.hui.jobclaw.components.env.SpringUtil;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.web.hook.interceptor.PermissionCheckInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;

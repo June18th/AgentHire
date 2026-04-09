@@ -46,3 +46,12 @@ datas/ai-oc.mv.db
 logs/
 
 docs/back
+
+workspace/datas/ai-oc.trace.db
+workspace/datas/ai-oc-my.mv.db
+workspace/datas/ai-oc-my.trace.db
+workspace/datas/ai-oc.mv.db
+workspace/channel
+workspace/conversations
+workspace/AGENT.private.md
+workspace/tasks

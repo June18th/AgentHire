@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.web.controller.front;
 
 import cn.hutool.core.util.NumberUtil;
-import com.git.hui.jobclaw.components.env.SpringUtil;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.constants.user.permission.Permission;
 import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
 import com.git.hui.jobclaw.user.helper.WxLoginProperties;

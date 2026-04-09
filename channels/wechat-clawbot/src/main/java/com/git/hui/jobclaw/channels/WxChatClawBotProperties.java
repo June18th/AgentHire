@@ -17,5 +17,5 @@ public class WxChatClawBotProperties {
     private String baseUrl;
     private String cdnBaseUrl;
 
-    private List<WeChatClawBotChannel.WxClawBotAccount> accounts;
+    private List<WxClawBotAccount> accounts;
 }

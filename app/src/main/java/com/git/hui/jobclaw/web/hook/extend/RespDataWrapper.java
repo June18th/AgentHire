@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.web.hook.extend;
 
-import com.git.hui.jobclaw.components.env.SpringUtil;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.user.service.LoginService;
 import com.git.hui.jobclaw.util.json.JsonUtil;
 import com.git.hui.jobclaw.web.model.ResVo;

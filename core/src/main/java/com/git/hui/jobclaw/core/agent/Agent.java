@@ -1,14 +1,7 @@
 package com.git.hui.jobclaw.core.agent;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import reactor.core.publisher.Flux;
-
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 public interface Agent {
 
@@ -40,83 +33,5 @@ public interface Agent {
      * @param message the multi-modal message containing text and media
      * @return the agent's text response
      */
-    String respondToMultiModal(String conversationId, MultiModalMessage message);
-
-    /**
-     * Represents a multi-modal message that can contain text and various media types.
-     */
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    class MultiModalMessage {
-        private String text;
-        @Builder.Default
-        private List<ImageContent> images = new ArrayList<>();
-        @Builder.Default
-        private List<FileContent> files = new ArrayList<>();
-
-        /**
-         * Check if this message contains any media (images or files)
-         */
-        public boolean hasMedia() {
-            return !images.isEmpty() || !files.isEmpty();
-        }
-
-        /**
-         * Build a simple text representation for logging/debugging
-         */
-        @Override
-        public String toString() {
-            StringBuilder sb = new StringBuilder();
-            if (text != null && !text.isEmpty()) {
-                sb.append(text);
-            }
-            if (!images.isEmpty()) {
-                sb.append(" [Images: ").append(images.size()).append("]");
-            }
-            if (!files.isEmpty()) {
-                sb.append(" [Files: ").append(files.size()).append("]");
-            }
-            return sb.toString();
-        }
-    }
-
-    /**
-     * Represents an image in a multi-modal message.
-     */
-    @Data
-    @AllArgsConstructor
-    class ImageContent {
-        private Path filePath;
-        private String mimeType;
-        private byte[] data; // Optional: inline image data
-
-        public ImageContent(Path filePath, String mimeType) {
-            this.filePath = filePath;
-            this.mimeType = mimeType;
-            this.data = null;
-        }
-
-        public ImageContent(byte[] data, String mimeType) {
-            this.filePath = null;
-            this.mimeType = mimeType;
-            this.data = data;
-        }
-
-        public boolean isInline() {
-            return data != null;
-        }
-    }
-
-    /**
-     * Represents a file attachment in a multi-modal message.
-     */
-    @Data
-    @AllArgsConstructor
-    class FileContent {
-        private Path filePath;
-        private String fileName;
-        private String mimeType;
-    }
+    String respondToMultiModal(String conversationId, ChannelReceiveMessage message);
 }

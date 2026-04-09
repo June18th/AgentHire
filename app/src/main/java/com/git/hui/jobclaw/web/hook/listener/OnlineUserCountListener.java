@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.web.hook.listener;
 
 
-import com.git.hui.jobclaw.components.env.SpringUtil;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.user.service.LoginService;
 import jakarta.servlet.annotation.WebListener;
 import jakarta.servlet.http.HttpSessionEvent;

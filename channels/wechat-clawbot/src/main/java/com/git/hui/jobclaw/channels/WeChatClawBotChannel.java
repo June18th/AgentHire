@@ -208,11 +208,4 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
             return false;
         }
     }
-
-    @Data
-    @SuperBuilder(toBuilder = true)
-    @EqualsAndHashCode(callSuper = true)
-    public static class WxClawBotAccount extends ChannelConfig {
-        private String userId;
-    }
 }

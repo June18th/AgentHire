@@ -4,11 +4,11 @@ import com.git.hui.jobclaw.components.bizexception.BizException;
 import com.git.hui.jobclaw.components.bizexception.StatusEnum;
 import com.git.hui.jobclaw.components.context.ReqInfoContext;
 import com.git.hui.jobclaw.components.context.UserBo;
-import com.git.hui.jobclaw.components.env.SpringUtil;
 import com.git.hui.jobclaw.components.id.IdUtil;
 import com.git.hui.jobclaw.constants.common.BaseStateEnum;
 import com.git.hui.jobclaw.constants.user.RechargeLevelEnum;
 import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.openapi.model.OpenApiUserDTO;
 import com.git.hui.jobclaw.user.convert.UserConvert;
 import com.git.hui.jobclaw.user.dao.entity.UserEntity;
@@ -16,6 +16,7 @@ import com.git.hui.jobclaw.user.dao.repository.UserRepository;
 import com.git.hui.jobclaw.user.helper.UserRandomGenHelper;
 import com.git.hui.jobclaw.util.DateUtil;
 import com.git.hui.jobclaw.util.RandUtil;
+import com.git.hui.jobclaw.web.config.SiteConfig;
 import com.git.hui.jobclaw.web.model.PageListVo;
 import com.git.hui.jobclaw.web.model.req.UserSaveReq;
 import com.git.hui.jobclaw.web.model.req.UserSearchReq;
@@ -67,7 +68,7 @@ public class UserService {
 
     private McpConfigVo buildMcpConfig(UserEntity user) {
         McpConfigVo configVo = new McpConfigVo(mcpServerProperties.getProtocol().name(),
-                SpringUtil.getSiteConfig().getWebSiteUrl() + buildUrl(),
+                SpringUtil.getBean(SiteConfig.class).getWebSiteUrl() + buildUrl(),
                 mcpServerProperties.getVersion(),
                 Map.of("Authorization", "Bearer " + user.getWxId())
         );

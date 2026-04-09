@@ -4,7 +4,7 @@ import com.git.hui.jobclaw.components.bizexception.BizException;
 import com.git.hui.jobclaw.components.bizexception.StatusEnum;
 import com.git.hui.jobclaw.components.context.ReqInfoContext;
 import com.git.hui.jobclaw.components.context.UserBo;
-import com.git.hui.jobclaw.components.env.SpringUtil;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.components.id.IdUtil;
 import com.git.hui.jobclaw.configs.service.CommonDictService;
 import com.git.hui.jobclaw.constants.user.RechargeConstants;

@@ -2,7 +2,7 @@ spring:
   application:
     name: ai-oc
   config:
-    import: application-oc.yml,application-ai.yml,application-dal.yml,application-pay.yml
+    import: application-oc.yml,application-ai.yml,application-dal.yml,application-pay.yml,optional:classpath:application.private.yaml
   web:
     resources:
       # 支持本地图片上传之后的链接，其中 file:///d的用于win系统，后面的file: 适用于mac/linux系统
@@ -33,6 +33,101 @@ spring:
           resource: true # 是否支持资源
           prompt: true # 是否支持提示词
           completion: true # 是否支持补全
+
+
+agent:
+  workspace: file:./workspace/
+  channels:
+    wechat:
+      clawbot: # 微信的ClawBot Channel配置
+        enabled: false
+        accounts:
+        cdn-base-url: https://novac2c.cdn.weixin.qq.com/c2c
+        base-url: https://ilinkai.weixin.qq.com
+  ai:
+    model:
+      - user-id: o9cq807KL9SgEouT2mDo1h0kw6LY@im.wechat
+        preference:
+          vision: silicon#PaddlePaddle/PaddleOCR-VL-1.5
+          text: silicon#Qwen/Qwen2.5-7B-Instruct
+          providers:
+            zhipu:
+              api-key: ${ZHIPU_API_KEY:}
+              models:
+                - GLM-4V-Flash: ${ZHIPU_API_KEY:}
+                - GLM-4.7-Flash: ${ZHIPU_API_KEY:}
+            silicon:
+              api-key: ${SILICON_API_KEY:}
+
+    providers:
+      zhipu:
+        api-style: openai
+        base-url: https://open.bigmodel.cn/api/coding/paas/v4
+        completions-path: /chat/completions
+        embeddings-path: /embeddings
+        images-path: /images/embeddings
+        models:
+          - name: GLM-4-Flash
+            type: TEXT
+            multimodal: false
+          - name: GLM-4.5-Flash
+            type: TEXT
+            multimodal: false
+          - name: GLM-4.6-Flash
+            type: TEXT
+            multimodal: false
+          - name: GLM-4.7-Flash
+            type: TEXT
+            multimodal: false
+          - name: GLM-4V-Flash
+            type: VISION
+            multimodal: true
+          - name: CogView-3-Flash
+            type: IMAGE
+            multimodal: false
+          - name: CogVideoX-Flash
+            type: VIDEO
+            multimodal: false
+      silicon:
+        api-style: openai
+        base-url: https://api.siliconflow.cn
+        completions-path: /v1/chat/completions
+        embeddings-path: /v1/embeddings
+        images-path: /v1/images/embeddings
+        models:
+          - name: Qwen/Qwen2.5-7B-Instruct
+            type: TEXT
+            multimodal: false
+          - name: Qwen/Qwen3.5-4B # 默认开启思考模式
+            type: TEXT
+            multimodal: false
+          - name: Qwen/Qwen3-8B
+            type: TEXT
+            multimodal: false
+          - name: PaddlePaddle/PaddleOCR-VL-1.5
+            type: VISION
+            multimodal: true
+          - name: deepseek-ai/DeepSeek-OCR
+            type: VISION
+            multimodal: true
+          - name: Kwai-Kolors/Kolors
+            type: IMAGE
+            multimodal: false
+          - name: TeleAI/TeleSpeechASR # 语音识别
+            type: ASR
+            multimodal: false
+          - name: FunAudioLLM/SenseVoiceSmall
+            type: ASR
+            multimodal: false
+          - name: BAAI/bge-m3 # 文本向量模型
+            type: EMBEDDING
+            multimodal: false
+          - name: netease-youdao/bce-embedding-base_v1 # 文本向量模型
+            type: EMBEDDING
+            multimodal: false
+          - name: BAAI/bge-large-zh-v1.5
+            type: EMBEDDING
+            multimodal: false
 
 
 # 修改日志级别
