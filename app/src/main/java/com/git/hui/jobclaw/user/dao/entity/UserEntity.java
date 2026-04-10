@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.user.dao.entity;
 
-import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
+import com.git.hui.jobclaw.core.context.UserRoleEnum;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

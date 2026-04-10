@@ -2,11 +2,11 @@ package com.git.hui.jobclaw.web.hook.interceptor;
 
 
 import com.git.hui.jobclaw.components.bizexception.StatusEnum;
-import com.git.hui.jobclaw.components.context.ReqInfoContext;
-import com.git.hui.jobclaw.components.context.UserBo;
+import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.context.UserBo;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
-import com.git.hui.jobclaw.constants.user.permission.Permission;
-import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
+import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.UserService;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.web.hook.filter.BodyReaderHttpServletRequestWrapper;

@@ -29,14 +29,22 @@ public class DotenvEnvironmentProcessor implements ApplicationContextInitializer
 
     @Override
     public void initialize(ConfigurableApplicationContext applicationContext) {
+        log.info("[Dotenv] DotenvEnvironmentProcessor.initialize() called");
+        
         ConfigurableEnvironment environment = applicationContext.getEnvironment();
         Path dotenvPath = Path.of(System.getProperty("user.dir"), DOTENV_FILE);
+        
+        log.info("[Dotenv] Looking for .env file at: {}", dotenvPath.toAbsolutePath());
+        
         if (!Files.isRegularFile(dotenvPath)) {
+            log.warn("[Dotenv] .env file not found at: {}, skipping", dotenvPath.toAbsolutePath());
             return;
         }
 
+        log.info("[Dotenv] .env file found, loading properties...");
         Map<String, Object> properties = loadDotenv(dotenvPath);
         if (properties.isEmpty()) {
+            log.warn("[Dotenv] No properties loaded from .env file");
             return;
         }
 
@@ -45,11 +53,12 @@ public class DotenvEnvironmentProcessor implements ApplicationContextInitializer
         if (environment.getPropertySources().contains(PROPERTY_SOURCE_NAME)) {
             environment.getPropertySources().replace(PROPERTY_SOURCE_NAME,
                     new SystemEnvironmentPropertySource(PROPERTY_SOURCE_NAME, properties));
-            return;
+            log.info("[Dotenv] Replaced existing property source with {} properties", properties.size());
+        } else {
+            environment.getPropertySources().addFirst(new SystemEnvironmentPropertySource(PROPERTY_SOURCE_NAME,
+                    properties));
+            log.info("[Dotenv] Added property source with {} properties", properties.size());
         }
-
-        environment.getPropertySources().addFirst(new SystemEnvironmentPropertySource(PROPERTY_SOURCE_NAME,
-                properties));
     }
 
     @Override

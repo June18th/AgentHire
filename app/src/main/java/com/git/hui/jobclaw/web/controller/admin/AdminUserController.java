@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.web.controller.admin;
 
-import com.git.hui.jobclaw.constants.user.permission.Permission;
-import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
+import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.UserService;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
 import com.git.hui.jobclaw.web.model.PageListVo;

@@ -1,8 +1,11 @@
 package com.git.hui.jobclaw.channels.sdk;
 
+import org.apache.commons.lang3.ThreadUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
+
+import java.time.Duration;
 
 /**
  * Complete Weixin ClawBot SDK.
@@ -42,6 +45,9 @@ import org.springframework.util.CollectionUtils;
 public class WeixinSdk {
 
     private static final Logger log = LoggerFactory.getLogger(WeixinSdk.class);
+    private static final int RUNNING = 1;
+    private static final int STOPPING = 2;
+    private static final int STOPPED = 3;
 
     private final WeixinApiClient apiClient;
     private final CdnUploader cdnUploader;
@@ -152,12 +158,25 @@ public class WeixinSdk {
         return worker != null && worker.isRunning();
     }
 
+    public void stop() {
+        if (worker != null) {
+            worker.stop();
+            while (!worker.stopped()) {
+                try {
+                    ThreadUtils.sleep(Duration.ofMillis(10));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
     /**
      * Stop polling and clean up resources.
      */
     public void shutdown() {
         try {
-            this.worker.stop();
+            this.stop();
             this.mediaDownloader.close();
             apiClient.close();
             log.info("Weixin SDK shutdown complete");
@@ -169,9 +188,10 @@ public class WeixinSdk {
     /**
      * Functional interface for handling received messages.
      */
-    @FunctionalInterface
     public interface MessageHandler {
         void onMessage(WeixinTypes.WeixinMessage message);
+
+        void onDisconnect();
     }
 
     /**
@@ -240,7 +260,7 @@ public class WeixinSdk {
     public static class PollingWorker implements Runnable {
         private final WeixinSdk sdk;
         private final MessageHandler messageHandler;
-        private volatile boolean running = true;
+        private volatile int running = STOPPED;
         private String getUpdatesBuf = "";
         private int timeout = 35;
 
@@ -252,7 +272,8 @@ public class WeixinSdk {
         @Override
         public void run() {
             log.info("Weixin polling started for account={}", sdk.getAccountId());
-            while (running) {
+            running = RUNNING;
+            while (isRunning()) {
                 try {
                     WeixinTypes.GetUpdatesResp resp = sdk.getApiClient().getUpdates(getUpdatesBuf, timeout * 1000);
                     if (log.isDebugEnabled()) {
@@ -271,6 +292,13 @@ public class WeixinSdk {
                             Thread.sleep(5000);
                         }
                         continue;
+                    }
+
+                    if (resp.getErrcode() != null && resp.getErrcode() == -14) {
+                        // session timeout
+                        messageHandler.onDisconnect();
+                        running = STOPPED;
+                        break;
                     }
 
                     // Update timeout
@@ -319,6 +347,7 @@ public class WeixinSdk {
                 }
             }
 
+            this.running = STOPPED;
             log.info("Weixin polling stopped for account={}", sdk.getAccountId());
         }
 
@@ -358,11 +387,17 @@ public class WeixinSdk {
         }
 
         public void stop() {
-            running = false;
+            if (running == RUNNING) {
+                running = STOPPING;
+            }
         }
 
         public boolean isRunning() {
-            return running;
+            return running == RUNNING;
+        }
+
+        public boolean stopped() {
+            return running == STOPPED;
         }
     }
 }

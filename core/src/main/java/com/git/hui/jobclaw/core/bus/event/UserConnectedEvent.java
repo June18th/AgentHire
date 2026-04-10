@@ -16,6 +16,11 @@ import java.time.Instant;
 @Getter
 public class UserConnectedEvent extends ApplicationEvent {
 
+    private final String channel;
+    /**
+     * 三方外部userId，用于推送通道消息时，指定接收人
+     */
+    private final String userId;
     /**
      * 通道用户信息
      */
@@ -36,8 +41,10 @@ public class UserConnectedEvent extends ApplicationEvent {
      */
     private final String sourceIp;
 
-    public UserConnectedEvent(Object source, ChannelConfig channelUser, boolean isNewUser, String sourceIp) {
+    public UserConnectedEvent(Object source, String channel, String fromUserId, ChannelConfig channelUser, boolean isNewUser, String sourceIp) {
         super(source);
+        this.channel = channel;
+        this.userId = fromUserId;
         this.channelUser = channelUser;
         this.connectedAt = Instant.now();
         this.isNewUser = isNewUser;

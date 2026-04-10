@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.core.agent.Agent;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
+import com.git.hui.jobclaw.core.bus.event.UserConnectedEvent;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
 import com.git.hui.jobclaw.core.utils.ThrowableUtil;
@@ -12,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
 
 /**
  * 消息事件监听器 - 处理消息接收和响应事件
@@ -83,5 +86,33 @@ public class MessageEventListener {
         // 这里需要通过 ChannelRegistry 找到对应的通道，然后执行消息响应
         var channel = channelRegistry.getChannel(event.getChannel());
         channel.send(event.getResponseMessage());
+    }
+
+
+    /**
+     * 接收到用户连接事件
+     *
+     * @param event
+     */
+    @Async
+    @EventListener
+    public void onImBotConnected(UserConnectedEvent event) {
+        // 给用户发送一个欢迎的消息
+        String template = """
+                您已经成功联通求职派啦，现在您可以直接通过对话和求职派进行沟通了~
+                """;
+
+        ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
+                .toUserId(event.getUserId())
+                .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                .content(template)
+                .passThrough(Map.of())
+                .build();
+
+        // 发送一条欢迎语句给连接用户
+        channelEventPublisher.publishProactiveMessage("HI_" + System.currentTimeMillis(),
+                event.getChannel(),
+                responseMessage,
+                0);
     }
 }

@@ -1,6 +1,5 @@
-package com.git.hui.jobclaw.components.context;
+package com.git.hui.jobclaw.core.context;
 
-import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
 
 /**
  * 用户业务对象

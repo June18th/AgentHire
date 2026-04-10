@@ -14,6 +14,7 @@ import java.time.Instant;
  */
 @Getter
 public class UserDisconnectedEvent extends ApplicationEvent {
+    private final String channel;
 
     /**
      * 通道用户信息
@@ -27,8 +28,9 @@ public class UserDisconnectedEvent extends ApplicationEvent {
 
     private final String reason;
 
-    public UserDisconnectedEvent(Object source, ChannelConfig channelUser, String reason) {
+    public UserDisconnectedEvent(Object source, String channel, ChannelConfig channelUser, String reason) {
         super(source);
+        this.channel = channel;
         this.channelUser = channelUser;
         this.disconnectedAt = Instant.now();
         this.reason = reason;

@@ -1,8 +1,8 @@
 package com.git.hui.jobclaw.core.channel;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
 /**
@@ -18,11 +18,18 @@ public class ChannelConfig {
     private String appId;
     private String appSecret;
     private ConnectionMode mode;
+    private ChannelState state;
 
     public enum ConnectionMode {
         WEBSOCKET,
         WEBHOOK,
         LOOP,
+        ;
+    }
+
+    public enum ChannelState {
+        NORMAL,
+        ERROR,
         ;
     }
 }

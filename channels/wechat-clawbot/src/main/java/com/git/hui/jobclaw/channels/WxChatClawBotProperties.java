@@ -3,7 +3,7 @@ package com.git.hui.jobclaw.channels;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-import java.util.List;
+import java.util.Map;
 
 /**
  * 微信ClawBot相关的配置
@@ -17,5 +17,5 @@ public class WxChatClawBotProperties {
     private String baseUrl;
     private String cdnBaseUrl;
 
-    private List<WxClawBotAccount> accounts;
+    private Map<String, WxClawBotAccount> accounts;
 }

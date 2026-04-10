@@ -1,9 +1,9 @@
 package com.git.hui.jobclaw.web.controller.front;
 
-import com.git.hui.jobclaw.components.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.context.ReqInfoContext;
 import com.git.hui.jobclaw.constants.oc.OcStateEnum;
-import com.git.hui.jobclaw.constants.user.permission.Permission;
-import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
+import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.context.UserRoleEnum;
 import com.git.hui.jobclaw.oc.service.OcService;
 import com.git.hui.jobclaw.web.model.PageListVo;
 import com.git.hui.jobclaw.web.model.req.OcSearchReq;

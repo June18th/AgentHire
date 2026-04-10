@@ -58,7 +58,11 @@ public class DefaultChannelEventPublisher implements ChannelEventPublisher {
     @Override
     public void publishProactiveMessage(String responseId, String channel, ChannelResponseMessage responseMessage, int priority) {
         try {
-            MessageResponseEvent event = MessageResponseEvent.proactive(this, responseId, channel, responseMessage, priority
+            MessageResponseEvent event = MessageResponseEvent.proactive(this,
+                    responseId,
+                    channel,
+                    responseMessage,
+                    priority
             );
 
             eventPublisher.publishEvent(event);
@@ -70,24 +74,22 @@ public class DefaultChannelEventPublisher implements ChannelEventPublisher {
     }
 
     @Override
-    public void publishUserConnected(ChannelConfig channelUser, boolean isNewUser, String sourceIp) {
+    public void publishUserConnected(String channel, String userId, ChannelConfig channelConfig, boolean isNewUser, String sourceIp) {
         try {
-            UserConnectedEvent event = new UserConnectedEvent(
-                    this, channelUser, isNewUser, sourceIp
-            );
-
+            UserConnectedEvent event = new UserConnectedEvent(this, channel,
+                    userId, channelConfig, isNewUser, sourceIp);
             eventPublisher.publishEvent(event);
-            log.info("Published UserConnectedEvent: channel={}, isNew={}", channelUser, isNewUser);
+            log.info("Published UserConnectedEvent: channel={}, isNew={}", channelConfig, isNewUser);
         } catch (Exception e) {
-            log.error("Failed to publish UserConnectedEvent: channel={}", channelUser, e);
+            log.error("Failed to publish UserConnectedEvent: channel={}", channelConfig, e);
         }
     }
 
     @Override
-    public void publishUserDisconnected(ChannelConfig channelUser, String reason) {
+    public void publishUserDisconnected(String channel, ChannelConfig channelUser, String reason) {
         try {
             UserDisconnectedEvent event = new UserDisconnectedEvent(
-                    this, channelUser, reason
+                    this, channel, channelUser, reason
             );
 
             eventPublisher.publishEvent(event);

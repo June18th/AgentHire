@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.web.controller.admin;
 
-import com.git.hui.jobclaw.constants.user.permission.Permission;
-import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
+import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.context.UserRoleEnum;
 import com.git.hui.jobclaw.oc.dao.entity.OcDraftEntity;
 import com.git.hui.jobclaw.oc.dao.entity.OcInfoEntity;
 import com.git.hui.jobclaw.oc.service.GatherService;

@@ -19,7 +19,7 @@ public interface ChannelEventPublisher {
 
     void publishProactiveMessage(String responseId, String channelName, ChannelResponseMessage responseMessage, int priority);
 
-    void publishUserConnected(ChannelConfig channelUser, boolean isNewUser, String sourceIp);
+    void publishUserConnected(String channel, String userId, ChannelConfig channelUser, boolean isNewUser, String sourceIp);
 
-    void publishUserDisconnected(ChannelConfig channelUser, String reason);
+    void publishUserDisconnected(String channel, ChannelConfig channelUser, String reason);
 }

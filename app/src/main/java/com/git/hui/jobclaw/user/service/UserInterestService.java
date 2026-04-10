@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.user.service;
 
-import com.git.hui.jobclaw.components.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.context.ReqInfoContext;
 import com.git.hui.jobclaw.gather.service.ai.OcAiModelContext;
 import com.git.hui.jobclaw.oc.helper.OcInfoTransfer;
 import com.git.hui.jobclaw.user.convert.UserConvert;

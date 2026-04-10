@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.components.context;
+package com.git.hui.jobclaw.core.context;
 
 import com.alibaba.ttl.TransmittableThreadLocal;
 import lombok.Data;

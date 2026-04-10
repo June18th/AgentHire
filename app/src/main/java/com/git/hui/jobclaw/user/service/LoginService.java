@@ -1,8 +1,7 @@
 package com.git.hui.jobclaw.user.service;
 
 import com.git.hui.jobclaw.components.bizexception.NoVlaInGuavaException;
-import com.git.hui.jobclaw.components.context.ReqInfoContext;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
+import com.git.hui.jobclaw.core.context.ReqInfoContext;
 import com.git.hui.jobclaw.constants.user.LoginConstants;
 import com.git.hui.jobclaw.user.helper.SessionHelper;
 import com.git.hui.jobclaw.user.helper.WxLoginQrGenIntegration;

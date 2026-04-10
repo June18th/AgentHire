@@ -2,8 +2,8 @@ package com.git.hui.jobclaw.user.service;
 
 import com.git.hui.jobclaw.components.bizexception.BizException;
 import com.git.hui.jobclaw.components.bizexception.StatusEnum;
-import com.git.hui.jobclaw.components.context.ReqInfoContext;
-import com.git.hui.jobclaw.components.context.UserBo;
+import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.context.UserBo;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.components.id.IdUtil;
 import com.git.hui.jobclaw.configs.service.CommonDictService;

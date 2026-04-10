@@ -2,8 +2,8 @@ package com.git.hui.jobclaw.web.controller.admin;
 
 import com.git.hui.jobclaw.components.bizexception.BizException;
 import com.git.hui.jobclaw.components.bizexception.StatusEnum;
-import com.git.hui.jobclaw.constants.user.permission.Permission;
-import com.git.hui.jobclaw.constants.user.permission.UserRoleEnum;
+import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.CouponService;
 import com.git.hui.jobclaw.user.service.RechargeService;
 import com.git.hui.jobclaw.web.model.PageListVo;

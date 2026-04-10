@@ -9,9 +9,6 @@ import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.experimental.SuperBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,19 +59,27 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
         }
 
         this.accountMap = new ConcurrentHashMap<>();
-
-        if (!CollectionUtils.isEmpty(wxBotProperties.getAccounts())) {
-            wxBotProperties.getAccounts()
-                    .stream().filter(s -> StringUtils.isNotBlank(s.getAppSecret()))
-                    .forEach(this::addAccount);
-        } else {
-            log.warn("WeChat ClawBot not configured (missing bot-token). Please complete the onboarding process and restart the application.");
-        }
+        this.loadAllAccounts();
     }
 
     @Override
     public String name() {
         return "wechat-clawbot";
+    }
+
+    /**
+     * 加载所有用户，并启动轮询的消息侦听
+     */
+    public void loadAllAccounts() {
+        if (!CollectionUtils.isEmpty(this.wxChatClawBotProperties.getAccounts())) {
+            this.channelRegistry.registerChannel(this);
+            this.wxChatClawBotProperties.getAccounts().values()
+                    .stream().filter(s -> StringUtils.isNotBlank(s.getAppSecret()))
+                    .forEach(this::addAccount);
+        } else {
+            log.warn(
+                    "WeChat ClawBot not configured (missing bot-token). Please complete the onboarding process and restart the application.");
+        }
     }
 
     @Override
@@ -92,24 +97,31 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
                 .mediaDir(mediaDir.resolve(userId).toString())
                 .accountId(userId)
                 .build();
-        this.accountMap.put(userId, sdk);
-        this.channelRegistry.registerChannel(this);
-        this.start();
-        log.info("Started WeChat ClawBot integration with bot token: {}...", botToken.substring(0, Math.min(8, botToken.length())));
-    }
+        var lastSdk = this.accountMap.put(userId, sdk);
+        if (lastSdk != null) {
+            // 账号更新的场景，停止旧的账号；启动新的账号
+            log.info("account updated, stop last sdk, userId: {}, lastSdk: {}", userId, lastSdk);
+            lastSdk.shutdown();
+            log.info("account updated, start new sdk, userId: {}, sdk: {}", userId, sdk);
+        }
+        // 轮询监听新的账号消息
+        sdk.startPolling(new WeixinSdk.MessageHandler() {
+            @Override
+            public void onMessage(WeixinTypes.WeixinMessage message) {
+                try {
+                    processMessage(message);
+                } catch (Exception e) {
+                    log.error("Error processing message", e);
+                }
+            }
 
-    public void start() {
-        this.accountMap.values().forEach(sdk -> {
-            if (!sdk.isRunning()) {
-                sdk.startPolling(message -> {
-                    try {
-                        processMessage(message);
-                    } catch (Exception e) {
-                        log.error("Error processing message", e);
-                    }
-                });
+            @Override
+            public void onDisconnect() {
+                account.setState(ChannelConfig.ChannelState.ERROR);
             }
         });
+        log.info("Started WeChat ClawBot integration with bot token: {}...",
+                botToken.substring(0, Math.min(8, botToken.length())));
     }
 
     /**
@@ -191,16 +203,18 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
     @Override
     public boolean send(ChannelResponseMessage message) {
         var weixinSdk = this.accountMap.get(message.getToUserId());
-        log.warn("sendMessage(String) called without user ID. Use sendMessage(String userId, String message) instead.");
         if (weixinSdk == null) {
             log.error("WeixinSdk not initialized");
             return false;
         }
 
         try {
+            // 微信的ClawBot不支持主动发送消息，需要通过问询中的 contextToken 来回复
             // Get context token from manager
-            String contextToken = (String) message.getPassThrough().get("contextToken");
-            weixinSdk.getMessageSender().sendTextMessage(message.getToUserId(), message.getContent(), contextToken);
+            String contextToken = (String) message.getPassThrough().get("msgContentToken");
+            if (contextToken != null) {
+                weixinSdk.getMessageSender().sendTextMessage(message.getToUserId(), message.getContent(), contextToken);
+            }
             log.debug("Message send: {}", message);
             return true;
         } catch (Exception e) {

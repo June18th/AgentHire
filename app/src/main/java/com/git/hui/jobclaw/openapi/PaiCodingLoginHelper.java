@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.openapi;
 
-import com.git.hui.jobclaw.components.context.ReqInfoContext;
-import com.git.hui.jobclaw.components.context.UserBo;
+import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.context.UserBo;
 import com.git.hui.jobclaw.constants.user.LoginConstants;
 import com.git.hui.jobclaw.openapi.client.OpenApiSilentLoginClient;
 import com.git.hui.jobclaw.openapi.model.OpenApiUserDTO;

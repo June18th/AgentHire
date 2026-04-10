@@ -1,4 +1,6 @@
-package com.git.hui.jobclaw.constants.user.permission;
+package com.git.hui.jobclaw.core.permission;
+
+import com.git.hui.jobclaw.core.context.UserRoleEnum;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

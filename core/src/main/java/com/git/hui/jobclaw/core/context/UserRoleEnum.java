@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.constants.user.permission;
+package com.git.hui.jobclaw.core.context;
 
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
 import lombok.Getter;

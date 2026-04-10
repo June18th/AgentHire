@@ -2,9 +2,15 @@ package com.git.hui.jobclaw.channels;
 
 import com.git.hui.jobclaw.channels.sdk.WeixinSdk;
 import com.git.hui.jobclaw.channels.sdk.WeixinTypes;
+import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
+import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.permission.Permission;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,18 +27,26 @@ import java.util.Map;
  * @date 2026/4/8
  */
 @Slf4j
+@Permission(role = UserRoleEnum.NORMAL)
 @RestController
 @RequestMapping("/api/wechat/clawbot")
 public class WeChatClawBotBinder {
-    private static final String ACCOUNT_PREFIX = "agent.channels.wechat.clawbot.accounts";
+    private static final String WX_CLAW_BOT_PREFIX = "agent.channels.wechat.clawbot";
+    private static final String WX_CLAW_BOT_ACCOUNT_PREFIX = WX_CLAW_BOT_PREFIX + ".accounts";
 
     private final ConfigurationManager configurationManager;
     private final WxChatClawBotProperties wxChatClawBotProperties;
     private final WeixinSdk weixinSdk;
 
-    public WeChatClawBotBinder(ConfigurationManager configurationManager, WxChatClawBotProperties wxChatClawBotProperties) {
+    private final ChannelEventPublisher channelEventPublisher;
+
+    @Autowired(required = false)
+    private WeChatClawBotChannel weChatClawBotChannel;
+
+    public WeChatClawBotBinder(ConfigurationManager configurationManager, WxChatClawBotProperties wxChatClawBotProperties, ChannelEventPublisher channelEventPublisher) {
         this.configurationManager = configurationManager;
         this.wxChatClawBotProperties = wxChatClawBotProperties;
+        this.channelEventPublisher = channelEventPublisher;
 
         // 初始化 WeixinSdk (用于生成二维码和检查状态)
         this.weixinSdk = new WeixinSdk.Builder()
@@ -41,6 +55,17 @@ public class WeChatClawBotBinder {
                 .token("")
                 .channelVersion("1.0.3")
                 .loginBuild();
+
+        this.configurationManager.registerCallback(wxChatClawBotProperties, new Runnable() {
+            @Override
+            public void run() {
+                if (weChatClawBotChannel != null) {
+                    // 账号配置发生变更，重新加载所有的账号
+                    log.info("微信ClawBot账号变更，重新加载~");
+                    weChatClawBotChannel.loadAllAccounts();
+                }
+            }
+        });
     }
 
     /**
@@ -78,6 +103,7 @@ public class WeChatClawBotBinder {
             return new LoginStatus(false, "No QR code available", null);
         }
 
+        long userId = ReqInfoContext.getReqInfo().getUserId();
         try {
             WeixinTypes.QrCodeStatusResp resp = weixinSdk.checkQrCodeStatus(qrCode);
             String status = resp.getStatus();
@@ -102,13 +128,31 @@ public class WeChatClawBotBinder {
                             botId,
                             ilinkUserId);
 
+                    // 只要有一个账号，就设置为这个通道启用
                     Map<String, Object> obj = new HashMap<>();
-                    obj.put(ACCOUNT_PREFIX + "[0].app-id", botId);
-                    obj.put(ACCOUNT_PREFIX + "[0].app-secret", botToken);
-                    obj.put(ACCOUNT_PREFIX + "[0].user-id", ilinkUserId);
-                    obj.put(ACCOUNT_PREFIX + "[0].mode", "LOOP");
+                    obj.put(WX_CLAW_BOT_ACCOUNT_PREFIX + "." + userId + ".app-id", botId);
+                    obj.put(WX_CLAW_BOT_ACCOUNT_PREFIX + "." + userId + ".app-secret", botToken);
+                    obj.put(WX_CLAW_BOT_ACCOUNT_PREFIX + "." + userId + ".user-id", ilinkUserId);
+                    obj.put(WX_CLAW_BOT_ACCOUNT_PREFIX + "." + userId + ".mode",
+                            ChannelConfig.ConnectionMode.LOOP.name());
+                    obj.put(WX_CLAW_BOT_ACCOUNT_PREFIX + "." + userId + ".state",
+                            ChannelConfig.ChannelState.NORMAL.name());
+                    obj.put(WX_CLAW_BOT_PREFIX + ".enabled", true);
                     configurationManager.updateProperties(obj);
 
+                    var account = WxClawBotAccount.builder().userId(ilinkUserId).appId(botId).appSecret(
+                            botToken).build();
+                    if (weChatClawBotChannel != null) {
+                        // 启用账号
+                        weChatClawBotChannel.addAccount(account);
+                        // 发送用户连接消息
+                        // fixme 是否为新用户的判断，应该判断之前是否已经录入相同的 ilinkUserId，而不是这里的直接写true
+                        channelEventPublisher.publishUserConnected(weChatClawBotChannel.name(),
+                                account.getUserId(),
+                                account,
+                                true,
+                                ReqInfoContext.getReqInfo().getClientIp());
+                    }
                     return new LoginStatus(true, botId, ilinkUserId);
 
                 default:

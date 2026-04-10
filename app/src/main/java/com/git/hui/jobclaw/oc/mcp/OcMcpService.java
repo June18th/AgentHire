@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.oc.mcp;
 
-import com.git.hui.jobclaw.components.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.context.ReqInfoContext;
 import com.git.hui.jobclaw.oc.mcp.model.McpReqDto;
 import com.git.hui.jobclaw.oc.service.OcService;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
