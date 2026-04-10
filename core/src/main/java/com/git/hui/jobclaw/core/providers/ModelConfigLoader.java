@@ -147,7 +147,7 @@ public class ModelConfigLoader {
         }
 
         return config.getModels().stream()
-                .filter(m -> modelName.equals(m.getName()))
+                .filter(m -> modelName.equals(m.getModelName()))
                 .findFirst()
                 .orElse(null);
     }
@@ -162,7 +162,7 @@ public class ModelConfigLoader {
         if (providerConfig.getModels() != null) {
             for (AiModelProperties.ModelDefinition modelDef : providerConfig.getModels()) {
                 ModelConfig.ModelInfo modelInfo = ModelConfig.ModelInfo.builder()
-                        .name(modelDef.getName())
+                        .modelName(modelDef.getName())
                         .type(modelDef.getType())
                         .multimodal(modelDef.getMultimodal())
                         .maxTokens(modelDef.getMaxTokens() != null ? modelDef.getMaxTokens() : 1280)
@@ -198,13 +198,13 @@ public class ModelConfigLoader {
             for (ModelConfig.ModelInfo baseModel : baseConfig.getModels()) {
                 ModelConfig.ModelInfo updatedModel = ModelConfig.ModelInfo.builder()
                         .provider(baseConfig.getProvider())
-                        .name(baseModel.getName())
+                        .modelName(baseModel.getModelName())
                         .type(baseModel.getType())
                         .multimodal(baseModel.getMultimodal())
                         .maxTokens(baseModel.getMaxTokens())
                         .baseUrl(baseModel.getBaseUrl())
                         .path(baseModel.getPath())
-                        .apiKey(resolveApiKey(userConfig, baseModel.getName(), userConfig.getApiKey()))
+                        .apiKey(resolveApiKey(userConfig, baseModel.getModelName(), userConfig.getApiKey()))
                         .build();
                 updatedModels.add(updatedModel);
             }

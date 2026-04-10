@@ -2,7 +2,11 @@ package com.git.hui.jobclaw.provider.openai;
 
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProvider;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
+import org.springframework.ai.chat.observation.ChatModelObservationConvention;
 import org.springframework.ai.document.MetadataMode;
+import org.springframework.ai.embedding.observation.EmbeddingModelObservationConvention;
+import org.springframework.ai.image.observation.ImageModelObservationConvention;
 import org.springframework.ai.model.Model;
 import org.springframework.ai.model.SimpleApiKey;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -18,8 +22,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.client.ResponseErrorHandler;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import java.util.Objects;
 
 /**
  *
@@ -52,7 +54,6 @@ public class OpenAiModelProvider implements ModelProvider {
             case VIDEO -> throw new IllegalArgumentException("unsupported model type: " + info.getType());
             case ASR -> throw new IllegalArgumentException("unsupported model type: " + info.getType());
             case TTS -> throw new IllegalArgumentException("unsupported model type: " + info.getType());
-            default -> throw new IllegalArgumentException("unsupported model type: " + info.getType());
         };
     }
 
@@ -61,14 +62,18 @@ public class OpenAiModelProvider implements ModelProvider {
                 .baseUrl(info.getBaseUrl())
                 .completionsPath(info.getPath())
                 .apiKey(info.getApiKey())
-                .restClientBuilder((RestClient.Builder) restClientBuilderProvider.getIfAvailable(RestClient::builder)).webClientBuilder((WebClient.Builder) webClientBuilderProvider.getIfAvailable(WebClient::builder)).responseErrorHandler((ResponseErrorHandler) responseErrorHandler.getIfAvailable(() -> {
-                    return RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER;
-                })).build();
+                .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
+                .webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))
+                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER))
+                .build();
 
         OpenAiChatModel chatModel = OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
-                .defaultOptions(OpenAiChatOptions.builder().model(info.getName()).maxTokens(info.getMaxTokens()).build())
+                .defaultOptions(OpenAiChatOptions.builder().model(info.getModelName()).maxTokens(info.getMaxTokens()).build())
                 .build();
+        if (SpringUtil.getBeanOrNull(ChatModelObservationConvention.class) != null) {
+            chatModel.setObservationConvention(SpringUtil.getBean(ChatModelObservationConvention.class));
+        }
         return chatModel;
     }
 
@@ -77,12 +82,16 @@ public class OpenAiModelProvider implements ModelProvider {
                 .apiKey(info.getApiKey())
                 .baseUrl(info.getBaseUrl())
                 .embeddingsPath(info.getPath())
-                .restClientBuilder((RestClient.Builder) restClientBuilderProvider.getIfAvailable(RestClient::builder)).webClientBuilder((WebClient.Builder) webClientBuilderProvider.getIfAvailable(WebClient::builder)).responseErrorHandler((ResponseErrorHandler) responseErrorHandler.getIfAvailable(() -> {
-                    return RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER;
-                })).build();
+                .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
+                .webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))
+                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER))
+                .build();
         OpenAiEmbeddingModel embeddingModel = new OpenAiEmbeddingModel(openAiApi,
                 MetadataMode.EMBED,
-                OpenAiEmbeddingOptions.builder().model(info.getName()).build());
+                OpenAiEmbeddingOptions.builder().model(info.getModelName()).build());
+        if (SpringUtil.getBeanOrNull(EmbeddingModelObservationConvention.class) != null) {
+            embeddingModel.setObservationConvention(SpringUtil.getBean(EmbeddingModelObservationConvention.class));
+        }
         return embeddingModel;
     }
 
@@ -90,14 +99,16 @@ public class OpenAiModelProvider implements ModelProvider {
         OpenAiImageApi openAiImageApi = OpenAiImageApi.builder().baseUrl(info.getBaseUrl())
                 .apiKey(new SimpleApiKey(info.getApiKey()))
                 .imagesPath(info.getPath())
-                .restClientBuilder((RestClient.Builder) restClientBuilderProvider.getIfAvailable(RestClient::builder)).responseErrorHandler((ResponseErrorHandler) responseErrorHandler.getIfAvailable(() -> {
-                    return RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER;
-                })).build();
+                .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
+                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER)).build();
 
 
-        OpenAiImageModel imageModel = new OpenAiImageModel(openAiImageApi, OpenAiImageOptions.builder().model(info.getName()).build(), RetryUtils.DEFAULT_RETRY_TEMPLATE);
-        Objects.requireNonNull(imageModel);
+        OpenAiImageModel imageModel = new OpenAiImageModel(openAiImageApi,
+                OpenAiImageOptions.builder().model(info.getModelName()).build(),
+                RetryUtils.DEFAULT_RETRY_TEMPLATE);
+        if (SpringUtil.getBeanOrNull(ImageModelObservationConvention.class) != null) {
+            imageModel.setObservationConvention(SpringUtil.getBean(ImageModelObservationConvention.class));
+        }
         return imageModel;
     }
-
 }

@@ -63,7 +63,7 @@ public class ModelConfig {
         private String apiKey;
         private String baseUrl;
         private String path;
-        private String name;
+        private String modelName;
         private ModelType type;
         private Boolean multimodal;
         @Builder.Default

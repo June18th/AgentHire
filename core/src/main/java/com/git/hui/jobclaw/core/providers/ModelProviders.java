@@ -67,13 +67,13 @@ public class ModelProviders {
         }
 
         var defaultProviderModelInfo = config.getModels().stream()
-                .filter(it -> it.getName().equals(modelName))
+                .filter(it -> it.getModelName().equals(modelName))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("未找到模型: " + modelName + " 在提供商: " + provider));
 
         ModelConfig.ModelInfo personModelInfo = ModelConfig.ModelInfo.builder()
                 .provider(provider)
-                .name(modelName)
+                .modelName(modelName)
                 .apiKey(apiKey)
                 .baseUrl(defaultProviderModelInfo.getBaseUrl())
                 .path(defaultProviderModelInfo.getPath())

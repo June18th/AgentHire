@@ -84,7 +84,7 @@ public class ClientSelector {
                 // todo 用户必须有一个默认的模型配置，否则应该自动设置一个，这里先直接抛异常
                 throw new RuntimeException("用户没有配置模型，请先配置模型");
             }
-            var model = modelProviders.getModel(prefer.getProvider(), prefer.getName(), prefer.getApiKey());
+            var model = modelProviders.getModel(prefer.getProvider(), prefer.getModelName(), prefer.getApiKey());
 
             var chatClientBuilder = ChatClient.builder((ChatModel) model);
 

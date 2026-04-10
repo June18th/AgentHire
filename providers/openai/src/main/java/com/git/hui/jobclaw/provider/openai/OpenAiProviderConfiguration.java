@@ -17,7 +17,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class OpenAiProviderConfiguration {
 
     @Bean
-    public ModelProvider openAiModelProvider(ObjectProvider<RestClient.Builder> restClientBuilderProvider, ObjectProvider<WebClient.Builder> webClientBuilderProvider, ObjectProvider<ResponseErrorHandler> responseErrorHandler) {
+    public ModelProvider openAiModelProvider(ObjectProvider<RestClient.Builder> restClientBuilderProvider,
+                                             ObjectProvider<WebClient.Builder> webClientBuilderProvider,
+                                             ObjectProvider<ResponseErrorHandler> responseErrorHandler) {
         return new OpenAiModelProvider(restClientBuilderProvider, webClientBuilderProvider, responseErrorHandler);
     }
 }
