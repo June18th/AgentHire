@@ -89,7 +89,7 @@ agent:
     wechat:
       clawbot: # 微信的ClawBot Channel配置
         enabled: false
-        accounts:
+        accounts: {}  # 账号配置，通过页面绑定后自动填充
         cdn-base-url: https://novac2c.cdn.weixin.qq.com/c2c
         base-url: https://ilinkai.weixin.qq.com
   ai:
