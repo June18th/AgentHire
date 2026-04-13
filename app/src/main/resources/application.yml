@@ -89,9 +89,13 @@ agent:
     wechat:
       clawbot: # 微信的ClawBot Channel配置
         enabled: false
-        accounts: {}  # 账号配置，通过页面绑定后自动填充
+        accounts: { }  # 账号配置，通过页面绑定后自动填充
         cdn-base-url: https://novac2c.cdn.weixin.qq.com/c2c
         base-url: https://ilinkai.weixin.qq.com
+    dingding:
+      enabled: false
+      accounts:
+        2: !!seq [ ] # 一个用户支持配置多个机器人
   ai:
     model:
       - user-id: o9cq807KL9SgEouT2mDo1h0kw6LY@im.wechat
@@ -176,6 +180,15 @@ agent:
           - name: BAAI/bge-large-zh-v1.5
             type: EMBEDDING
             multimodal: false
+
+
+jobrunr:
+  background-job-server:
+    enabled: true
+    worker-count: 1
+  dashboard:
+    enabled: true
+    port: 8099
 
 
 # 修改日志级别

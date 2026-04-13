@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.providers;
 
+import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -19,11 +20,11 @@ import java.util.Map;
 @Component
 public class ModelConfigLoader {
     
-    private final AiModelProperties aiModelProperties;
+    private final AiUserPreferenceProperties aiUserPreferenceProperties;
     
     @Autowired
-    public ModelConfigLoader(AiModelProperties aiModelProperties) {
-        this.aiModelProperties = aiModelProperties;
+    public ModelConfigLoader(AiUserPreferenceProperties aiModelProperties) {
+        this.aiUserPreferenceProperties = aiModelProperties;
     }
     
     /**
@@ -31,17 +32,17 @@ public class ModelConfigLoader {
      * @return Map<provider, ModelConfig>
      */
     public Map<String, ModelConfig> loadAllProviderConfigs() {
-        if (aiModelProperties.getProviders() == null || aiModelProperties.getProviders().isEmpty()) {
+        if (aiUserPreferenceProperties.getProviders() == null || aiUserPreferenceProperties.getProviders().isEmpty()) {
             log.warn("No AI model providers configured");
             return new HashMap<>();
         }
         
         Map<String, ModelConfig> configs = new HashMap<>();
         
-        for (Map.Entry<String, AiModelProperties.ProviderConfig> entry : 
-                aiModelProperties.getProviders().entrySet()) {
+        for (Map.Entry<String, AiUserPreferenceProperties.ProviderConfig> entry :
+                aiUserPreferenceProperties.getProviders().entrySet()) {
             String providerName = entry.getKey();
-            AiModelProperties.ProviderConfig providerConfig = entry.getValue();
+            AiUserPreferenceProperties.ProviderConfig providerConfig = entry.getValue();
             
             ModelConfig modelConfig = buildModelConfig(providerName, providerConfig);
             configs.put(providerName, modelConfig);
@@ -61,15 +62,15 @@ public class ModelConfigLoader {
         Map<String, ModelConfig> baseConfigs = loadAllProviderConfigs();
 
         // 检查是否有用户级别的配置
-        if (aiModelProperties.getModel() == null || aiModelProperties.getModel().isEmpty()) {
+        if (aiUserPreferenceProperties.getPreference() == null || aiUserPreferenceProperties.getPreference().isEmpty()) {
             log.debug("No user-specific model config found for user: {}", userId);
             return baseConfigs;
         }
 
         // 查找对应用户的配置
-        AiModelProperties.UserModelPreference userPreference = aiModelProperties.getModel().stream()
+        AiUserPreferenceProperties.UserModelPreference userPreference = aiUserPreferenceProperties.getPreference().stream()
                 .filter(entry -> userId.equals(entry.getUserId()))
-                .map(AiModelProperties.UserModelEntry::getPreference)
+                .map(AiUserPreferenceProperties.UserPreferenceEntry::getModels)
                 .findFirst()
                 .orElse(null);
 
@@ -85,10 +86,10 @@ public class ModelConfigLoader {
         // 应用用户级别的 API Key 覆盖
         Map<String, ModelConfig> userConfigs = new HashMap<>(baseConfigs);
 
-        for (Map.Entry<String, AiModelProperties.UserProviderConfig> entry :
+        for (Map.Entry<String, AiUserPreferenceProperties.UserProviderConfig> entry :
                 userPreference.getProviders().entrySet()) {
             String providerName = entry.getKey();
-            AiModelProperties.UserProviderConfig userProviderConfig = entry.getValue();
+            AiUserPreferenceProperties.UserProviderConfig userProviderConfig = entry.getValue();
 
             if (userConfigs.containsKey(providerName)) {
                 ModelConfig baseConfig = userConfigs.get(providerName);
@@ -108,14 +109,14 @@ public class ModelConfigLoader {
      * @return ModelInfo 或 null
      */
     public ModelConfig.ModelInfo getUserPreferredModel(String userId, ModelConfig.ModelType modelType) {
-        if (aiModelProperties.getModel() == null || aiModelProperties.getModel().isEmpty()) {
+        if (aiUserPreferenceProperties.getPreference() == null || aiUserPreferenceProperties.getPreference().isEmpty()) {
             return null;
         }
 
         // 查找对应用户的配置
-        AiModelProperties.UserModelPreference preference = aiModelProperties.getModel().stream()
+        AiUserPreferenceProperties.UserModelPreference preference = aiUserPreferenceProperties.getPreference().stream()
                 .filter(entry -> userId.equals(entry.getUserId()))
-                .map(AiModelProperties.UserModelEntry::getPreference)
+                .map(AiUserPreferenceProperties.UserPreferenceEntry::getModels)
                 .findFirst()
                 .orElse(null);
 
@@ -156,11 +157,11 @@ public class ModelConfigLoader {
      * 构建 ModelConfig
      */
     private ModelConfig buildModelConfig(String providerName, 
-                                         AiModelProperties.ProviderConfig providerConfig) {
+                                         AiUserPreferenceProperties.ProviderConfig providerConfig) {
         List<ModelConfig.ModelInfo> modelInfos = new ArrayList<>();
         
         if (providerConfig.getModels() != null) {
-            for (AiModelProperties.ModelDefinition modelDef : providerConfig.getModels()) {
+            for (AiUserPreferenceProperties.ModelDefinition modelDef : providerConfig.getModels()) {
                 ModelConfig.ModelInfo modelInfo = ModelConfig.ModelInfo.builder()
                         .modelName(modelDef.getName())
                         .type(modelDef.getType())
@@ -190,7 +191,7 @@ public class ModelConfigLoader {
      * 应用用户级别的覆盖配置
      */
     private ModelConfig applyUserOverrides(ModelConfig baseConfig, 
-                                           AiModelProperties.UserProviderConfig userConfig) {
+                                           AiUserPreferenceProperties.UserProviderConfig userConfig) {
         // 复制基础配置
         List<ModelConfig.ModelInfo> updatedModels = new ArrayList<>();
         
@@ -226,7 +227,7 @@ public class ModelConfigLoader {
     /**
      * 解析 API Key（支持模型级别的覆盖）
      */
-    private String resolveApiKey(AiModelProperties.UserProviderConfig userConfig, 
+    private String resolveApiKey(AiUserPreferenceProperties.UserProviderConfig userConfig,
                                  String modelName, String defaultApiKey) {
         if (userConfig.getModels() != null) {
             for (Map<String, String> modelEntry : userConfig.getModels()) {
@@ -245,7 +246,7 @@ public class ModelConfigLoader {
      * 根据模型类型解析路径
      */
     private String resolvePath(ModelConfig.ModelType type, 
-                               AiModelProperties.ProviderConfig providerConfig) {
+                               AiUserPreferenceProperties.ProviderConfig providerConfig) {
         return switch (type) {
             case TEXT, VISION -> providerConfig.getCompletionsPath();
             case EMBEDDING -> providerConfig.getEmbeddingsPath();

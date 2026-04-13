@@ -1,5 +1,6 @@
-package com.git.hui.jobclaw.core.providers;
+package com.git.hui.jobclaw.core.preference;
 
+import com.git.hui.jobclaw.core.providers.ModelConfig;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -13,37 +14,42 @@ import java.util.Map;
  */
 @Data
 @ConfigurationProperties(prefix = "agent.ai")
-public class AiModelProperties {
-    
+public class AiUserPreferenceProperties {
+
     /**
-     * 用户级别的模型配置（按用户ID分组）
+     * 用户级别的偏好配置（按用户ID分组）
      * 注意：由于用户ID可能包含特殊字符，使用 List 而非 Map
      */
-    private List<UserModelEntry> model;
-    
+    private List<UserPreferenceEntry> preference;
+
     /**
      * 用户模型配置条目
      */
     @Data
-    public static class UserModelEntry {
+    public static class UserPreferenceEntry {
         /**
          * 用户ID
          */
         private String userId;
-        
+
+        /**
+         * 用户配置的优先接受后台推送消息的通道
+         */
+        private List<String> channels;
+
         /**
          * 用户的模型偏好配置
          */
-        private UserModelPreference preference;
+        private UserModelPreference models;
     }
-    
+
     /**
      * 模型提供商配置
      * key: 提供商名称 (如: zhipu, silicon)
      * value: 提供商的配置信息
      */
     private Map<String, ProviderConfig> providers;
-    
+
     /**
      * 用户模型偏好配置
      */
@@ -53,18 +59,18 @@ public class AiModelProperties {
          * 视觉模型配置，格式: provider#modelName (如: zhipu#GLM-4V-Flash)
          */
         private String vision;
-        
+
         /**
          * 文本模型配置，格式: provider#modelName (如: zhipu#GLM-4.7-Flash)
          */
         private String text;
-        
+
         /**
          * 用户级别的提供商 API Key 覆盖配置
          */
         private Map<String, UserProviderConfig> providers;
     }
-    
+
     /**
      * 用户级别的提供商配置
      */
@@ -74,7 +80,7 @@ public class AiModelProperties {
          * API Key
          */
         private String apiKey;
-        
+
         /**
          * 模型级别的 API Key 覆盖
          * key: 模型名称
@@ -82,7 +88,7 @@ public class AiModelProperties {
          */
         private List<Map<String, String>> models;
     }
-    
+
     /**
      * 提供商配置
      */
@@ -92,43 +98,43 @@ public class AiModelProperties {
          * API 风格 (如: openai)
          */
         private String apiStyle;
-        
+
         /**
          * 基础 URL
          */
         private String baseUrl;
-        
+
         /**
          * 对话完成路径
          */
         private String completionsPath;
-        
+
         /**
          * 嵌入模型路径
          */
         private String embeddingsPath;
-        
+
         /**
          * 图片生成路径
          */
         private String imagesPath;
-        
+
         /**
          * 语音合成路径
          */
         private String speechPath;
-        
+
         /**
          * 语音识别路径
          */
         private String transcriptionPath;
-        
+
         /**
          * 模型列表
          */
         private List<ModelDefinition> models;
     }
-    
+
     /**
      * 模型定义
      */
@@ -138,17 +144,17 @@ public class AiModelProperties {
          * 模型名称
          */
         private String name;
-        
+
         /**
          * 模型类型 (TEXT, VISION, IMAGE, VIDEO, EMBEDDING, ASR, TTS)
          */
         private ModelConfig.ModelType type;
-        
+
         /**
          * 是否支持多模态
          */
         private Boolean multimodal;
-        
+
         /**
          * 最大 token 数
          */

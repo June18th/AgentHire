@@ -5,6 +5,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 
+import java.util.function.Function;
+
 /**
  * 抽象通道
  * @author YiHui
@@ -26,6 +28,10 @@ public abstract class AbsChannel<T> implements Channel, ChannelMsgAdapter<T> {
 
     public void processMessage(MsgWrapper<T> msg) {
         var r = adaptToReceive(msg);
+        var func = this.updatePersonalActiveChannel(msg);
+        if (func != null) {
+            channelRegistry.refreshBackendReceivedChannel(msg.getJobClawUserId(), r.getChannel(), func);
+        }
         report(r);
     }
 
@@ -37,4 +43,8 @@ public abstract class AbsChannel<T> implements Channel, ChannelMsgAdapter<T> {
         channelEventPublisher.publishMessageReceived(msg.getChannel(), msg, true);
     }
 
+    /**
+     * 用于更新用户的激活通道，方便异步task，主动推送信息给用户
+     */
+    public abstract Function<Object, ChannelResponseMessage> updatePersonalActiveChannel(MsgWrapper<T> msg);
 }

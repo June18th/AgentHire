@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,7 +20,7 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "agent.channels.dingding")
 public class DingDingBotProperties {
     private boolean enabled;
-    private Map<String, ChannelConfig> accounts;
+    private Map<String, List<ChannelConfig>> accounts;
 
 
     @Data

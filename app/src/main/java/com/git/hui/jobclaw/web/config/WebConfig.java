@@ -2,9 +2,12 @@ package com.git.hui.jobclaw.web.config;
 
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.web.hook.interceptor.PermissionCheckInterceptor;
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -49,6 +52,10 @@ public class WebConfig implements WebMvcConfigurer {
             configs = staticConfigs();
         }
 
+        // 排除 H2 Console 路径，让 Spring Boot 自动处理
+        registry.addResourceHandler("/h2-console/**")
+                .addResourceLocations("classpath:/META-INF/resources/");
+        
         registry.addResourceHandler("/**")
                 .addResourceLocations(configs)
                 .setCachePeriod(0).resourceChain(true)

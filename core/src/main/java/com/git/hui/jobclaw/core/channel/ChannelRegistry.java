@@ -2,16 +2,23 @@ package com.git.hui.jobclaw.core.channel;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public class ChannelRegistry {
 
     private final Map<String, Channel> channels;
     private String defaultChannelName;
 
+    /**
+     * 适配器，用于将后端返回的消息适配成前端的消息（通常会包含channel需要定位消息接收人的必要信息），主要用于后台任务主动给用户推送消息的场景
+     */
+    private final Map<String, Function<Object, ChannelResponseMessage>> channelResponseAdapters;
+
     public ChannelRegistry() {
-        this.channels = new HashMap<>();
+        this.channels = new ConcurrentHashMap<>();
+        this.channelResponseAdapters = new ConcurrentHashMap<>();
     }
 
     public void registerChannel(Channel channel) {
@@ -26,5 +33,16 @@ public class ChannelRegistry {
             return channels.get(defaultChannelName);
         }
         return channels.get(channelName);
+    }
+
+    public void refreshBackendReceivedChannel(String jobClawUserId, String channelName, Function<Object, ChannelResponseMessage> adapter) {
+        String key = jobClawUserId + ":" + channelName;
+        channelResponseAdapters.put(key, adapter);
+    }
+
+
+    public Function<Object, ChannelResponseMessage> getBackendReceivedChannelAdapter(String jobClawUserId, String channelName) {
+        String key = jobClawUserId + ":" + channelName;
+        return channelResponseAdapters.get(key);
     }
 }

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * WeChat channel using ClawBot API with WeixinSdk.
@@ -119,8 +120,8 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
             @Override
             public void onMessage(WeixinTypes.WeixinMessage message) {
                 try {
-                    processMessage(MsgWrapper.<WeixinTypes.WeixinMessage>builder().msg(message)
-                            .jobClawUserId(jobClawUserId).build());
+                    processMessage(MsgWrapper.<WeixinTypes.WeixinMessage>builder().msg(message).jobClawUserId(
+                            jobClawUserId).build());
                 } catch (Exception e) {
                     log.error("Error processing message", e);
                 }
@@ -202,6 +203,23 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
             }
         }
         return builder.build();
+    }
+
+
+    /**
+     * 刷新与微信ClawBot的通话状态，方便后台任务主动给用户推送消息
+     * - 关键点就是维护 msgContentToken 字段，这个用于响应消息回复
+     */
+    @Override
+    public Function<Object, ChannelResponseMessage> updatePersonalActiveChannel(MsgWrapper<WeixinTypes.WeixinMessage> msg) {
+        var wxMsg = msg.getMsg();
+        return input -> ChannelResponseMessage.builder()
+                .jobClawUserId(msg.getJobClawUserId())
+                .toUserId(wxMsg.getFromUserId())
+                .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                .content(String.valueOf(input))
+                .passThrough(Map.of("msgContentToken", wxMsg.getContextToken()))
+                .build();
     }
 
     /**

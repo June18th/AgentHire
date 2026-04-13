@@ -15,6 +15,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jobrunr.version>8.5.1</jobrunr.version>
     </properties>
 
 
@@ -64,11 +65,17 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
-
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>transmittable-thread-local</artifactId>
             <version>2.14.5</version>
+        </dependency>
+
+        <!-- JobRunr -->
+        <dependency>
+            <groupId>org.jobrunr</groupId>
+            <artifactId>jobrunr-spring-boot-4-starter</artifactId>
+            <version>${jobrunr.version}</version>
         </dependency>
 
         <!-- H2 Database -->

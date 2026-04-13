@@ -7,7 +7,10 @@ spring:
     password: ${DATABASE_PASSWORD:}
   h2:
     console:
-      enabled: true
+      enabled: true      # 启用控制台
+      path: /h2-console  # 访问路径
+      settings:
+        web-allow-others: true
 
   # jap配置
   jpa:

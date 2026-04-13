@@ -22,6 +22,7 @@ import reactor.core.publisher.Sinks;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * 钉钉机器人通道
@@ -39,16 +40,30 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
      * msgId -> Sink<ChannelResponseMessage>
      * 用于异步等待消息响应的回调机制
      */
-    private final Map<String, Sinks.One<String>> responseSinks = new ConcurrentHashMap<>();
+    private final Map<String, RspEmitter> responseSinks = new ConcurrentHashMap<>();
+
+    public record RspEmitter(Sinks.Many<String> sink, Long expireTime) {
+    }
 
     public DingDingBotChannel(Resource agentWorkspace, ChannelRegistry channelRegistry, ChannelEventPublisher channelEventPublisher, DingDingBotProperties dingDingBotProperties) {
         super(agentWorkspace, channelRegistry, channelEventPublisher);
         this.dingDingBotProperties = dingDingBotProperties;
         if (dingDingBotProperties.isEnabled() && !CollectionUtils.isEmpty(dingDingBotProperties.getAccounts())) {
-            this.dingDingBotProperties.getAccounts().forEach(this::registerMsgListenerCallback);
+            this.dingDingBotProperties.getAccounts().forEach((k, v) -> {
+                if (!CollectionUtils.isEmpty(v)) {
+                    v.forEach(tmp -> registerMsgListenerCallback(k, tmp));
+                }
+            });
             channelRegistry.registerChannel(this);
         }
     }
+
+
+    @Override
+    public String name() {
+        return "dingding";
+    }
+
 
     /**
      * 注册钉钉消息监听器
@@ -70,29 +85,26 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
                                 log.info("Received message from DingDing msg={}", JsonUtil.toStr(chatbotMessage));
                                 processMessage(MsgWrapper.<ChatbotMessage>builder().msg(chatbotMessage).jobClawUserId(
                                         config.getJobClawUserId()).build());
-                                Sinks.One<String> sink = Sinks.one();
                                 final String sessionId = chatbotMessage.getSessionWebhook();
-                                responseSinks.put(sessionId, sink);
+                                Sinks.Many<String> sinks = Sinks.many().multicast().onBackpressureBuffer();
+                                RspEmitter emitter = new RspEmitter(sinks,
+                                        chatbotMessage.getSessionWebhookExpiredTime());
+                                var old = responseSinks.put(sessionId, emitter);
+                                if (old != null) {
+                                    // 直接结束之前的监听
+                                    old.sink.emitComplete(Sinks.EmitFailureHandler.FAIL_FAST);
+                                }
 
-                                // fixme 现在的方式为一问一答、对于一问多答，或者主动推送消息，这种方式则有限制；后续进行扩展
-                                sink.asMono().doOnSuccess(response -> {
-                                            log.info("Received response for sessionId: {}", sessionId);
-                                            try {
-                                                BotReplier.fromWebhook(sessionId).replyText(response);
-                                            } catch (IOException e) {
-                                                log.error("Failed to reply to DingDing", e);
-                                                throw new RuntimeException(e);
-                                            }
-                                            responseSinks.remove(sessionId);
-                                        })
-                                        .doOnError(error -> {
-                                            log.error("Timeout or error waiting for response for sessionId: {}",
-                                                    sessionId,
-                                                    error);
-                                            responseSinks.remove(sessionId);
-                                        })
-                                        .subscribe();
-
+                                sinks.asFlux().subscribe(response -> {
+                                    log.info("Received response: {} sessionId: {}", response, sessionId);
+                                    try {
+                                        if (StringUtils.isNotBlank(response)) {
+                                            BotReplier.fromWebhook(sessionId).replyText(response);
+                                        }
+                                    } catch (IOException e) {
+                                        log.error("Failed to reply to DingDing: {}", response, e);
+                                    }
+                                });
                                 return null;
                             })
                     .build();
@@ -114,11 +126,6 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
 
         ChatbotMessage msg = msgWrapper.getMsg();
 
-        // type == 1 表示个人对话
-        // type == 2表示群聊, 可以通过 msg.getConversationTitle() 获取群聊名称
-        String type = msg.getConversationType();
-
-
 
         return ChannelReceiveMessage.builder()
                 .msgId(msg.getMsgId())
@@ -130,9 +137,26 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
                 .build();
     }
 
+
     @Override
-    public String name() {
-        return "dingding";
+    public Function<Object, ChannelResponseMessage> updatePersonalActiveChannel(MsgWrapper<ChatbotMessage> wrapper) {
+        // fixme 需要注意，一个用户有多个机器人的场景，始终会以最后一个交互的机器人作为回复方; 这里应该优化为，每个机器人都维护一个最新的交互状态，方便后台主动推送消息
+        var msg = wrapper.getMsg();
+
+        // type == 1 表示个人对话
+        // type == 2表示群聊, 可以通过 msg.getConversationTitle() 获取群聊名称
+        String type = msg.getConversationType();
+        if ("1".equals(type)) {
+            // 私人与机器人的聊天
+            return input -> ChannelResponseMessage.builder()
+                    .jobClawUserId(wrapper.getJobClawUserId())
+                    .toUserId(msg.getConversationId())
+                    .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                    .content(String.valueOf(input))
+                    .passThrough(Map.of("input", msg))
+                    .build();
+        }
+        return null;
     }
 
     /**
@@ -150,12 +174,13 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
         }
 
         ChatbotMessage originalMsg = (ChatbotMessage) msg.getPassThrough().get("input");
-        Sinks.One<String> sink = responseSinks.get(originalMsg.getSessionWebhook());
-        if (sink != null) {
-            sink.tryEmitValue(msg.getContent());
-        } else {
-            log.warn("No pending response sink found for msgId: {}", originalMsg.getSessionWebhook());
+        var emitter = responseSinks.get(originalMsg.getSessionWebhook());
+        if (emitter == null || emitter.expireTime <= System.currentTimeMillis()) {
+            log.error("Response timeout for msgId: {}", originalMsg.getSessionWebhook());
+            return false;
         }
+        Sinks.Many<String> sink = emitter.sink();
+        sink.emitNext(msg.getContent(), Sinks.EmitFailureHandler.FAIL_FAST);
         return true;
     }
 

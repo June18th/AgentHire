@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
+import com.git.hui.jobclaw.core.utils.MD5Utils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
 import org.springframework.ai.chat.memory.AppendableChatMemoryRepository;
@@ -91,7 +92,8 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
             try {
                 Map<String, String> existing = YamlParser.parse(Files.readString(file)).frontmatter();
                 if (existing.containsKey("createdAt")) createdAt = existing.get("createdAt");
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            }
         }
 
         Map<String, String> frontmatter = new LinkedHashMap<>();
@@ -121,7 +123,9 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
      * {@code conversations/chat-{channel}.yaml}.
      */
     private Path resolveFile(String conversationId) {
-        return conversationsDir.resolve("chat-" + conversationId + ".yaml");
+        // 为了避免会话的字符串格式异常，我们统一进行md5操作
+        String md5 = MD5Utils.md5(conversationId);
+        return conversationsDir.resolve("chat-" + md5 + ".yaml");
     }
 
     private static Path ensureDirectory(Path dir) {

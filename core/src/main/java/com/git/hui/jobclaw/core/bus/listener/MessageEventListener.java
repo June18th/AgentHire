@@ -47,6 +47,7 @@ public class MessageEventListener {
         try {
             String response = agent.respondToMultiModal(msg.getJobClawUserId(), msg.getFromUserId(), msg);
             ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
+                    .jobClawUserId(msg.getJobClawUserId())
                     .toUserId(msg.getFromUserId())
                     .type(ChannelResponseMessage.ResponseMessageType.TEXT)
                     .content(response)
@@ -62,6 +63,7 @@ public class MessageEventListener {
             );
         } catch (Exception e) {
             ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
+                    .jobClawUserId(msg.getJobClawUserId())
                     .toUserId(msg.getFromUserId())
                     .type(ChannelResponseMessage.ResponseMessageType.TEXT)
                     .content(ThrowableUtil.getStackTrace("糟糕，JobClaw出现故障啦~", e))

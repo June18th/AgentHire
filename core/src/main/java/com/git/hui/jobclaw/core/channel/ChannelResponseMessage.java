@@ -13,6 +13,7 @@ import java.util.Map;
 @Data
 @Builder
 public class ChannelResponseMessage {
+    private String jobClawUserId;
     private String toUserId;
     private ResponseMessageType type;
     private String content;

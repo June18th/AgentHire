@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -34,23 +35,31 @@ public class DefaultAgent implements Agent {
 
     @Override
     public String respondTo(String jobClawUserId, String conversationId, String question) {
-        return clientSelector.getClient(jobClawUserId, conversationId, false).prompt(buildPrompt(question)).advisors(a -> a.param(
-                ChatMemory.CONVERSATION_ID,
-                conversationId)).call().content();
+        return clientSelector.getClient(jobClawUserId, conversationId, false)
+                .prompt(buildPrompt(question))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .toolContext(Map.of("jobClawUserId", jobClawUserId))
+                .call()
+                .content();
     }
 
     @Override
     public <T> T prompt(String jobClawUserId, String conversationId, String input, Class<T> result) {
-        return clientSelector.getClient(jobClawUserId, conversationId, false).prompt(buildPrompt(input)).advisors(a -> a.param(
-                ChatMemory.CONVERSATION_ID,
-                conversationId)).call().entity(result);
+        return clientSelector.getClient(jobClawUserId, conversationId, false)
+                .prompt(buildPrompt(input))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .toolContext(Map.of("jobClawUserId", jobClawUserId))
+                .call()
+                .entity(result);
     }
 
     @Override
     public Flux<String> streamResponse(String jobClawUserId, String conversationId, String question) {
-        return clientSelector.getClient(jobClawUserId, conversationId, false).prompt(buildPrompt(question)).advisors(a -> a.param(
-                ChatMemory.CONVERSATION_ID,
-                conversationId)).stream().content();
+        return clientSelector.getClient(jobClawUserId, conversationId, false)
+                .prompt(buildPrompt(question))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .toolContext(Map.of("jobClawUserId", jobClawUserId))
+                .stream().content();
     }
 
     @Override
@@ -59,6 +68,7 @@ public class DefaultAgent implements Agent {
         return clientSelector.getClient(jobClawUserId, conversationId, hasMedia(message))
                 .prompt(buildPrompt(message))
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .toolContext(Map.of("jobClawUserId", jobClawUserId))
                 .call()
                 .content();
     }

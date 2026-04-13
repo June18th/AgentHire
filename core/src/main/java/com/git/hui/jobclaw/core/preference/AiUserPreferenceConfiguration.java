@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.providers;
+package com.git.hui.jobclaw.core.preference;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
@@ -11,6 +11,6 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ComponentScan("com.git.hui.jobclaw.core.providers")
-@EnableConfigurationProperties(AiModelProperties.class)
-public class AiModelConfiguration {
+@EnableConfigurationProperties(AiUserPreferenceProperties.class)
+public class AiUserPreferenceConfiguration {
 }

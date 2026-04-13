@@ -3,8 +3,10 @@ package com.git.hui.jobclaw.core.agent;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
+import com.git.hui.jobclaw.core.tasks.TaskManager;
 import com.git.hui.jobclaw.core.tools.CheckListTool;
 import com.git.hui.jobclaw.core.tools.McpTool;
+import com.git.hui.jobclaw.core.tools.TaskTool;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.springaicommunity.agent.tools.FileSystemTools;
 import org.springaicommunity.agent.tools.SkillsTool;
@@ -38,6 +40,8 @@ public class ClientSelector {
 
     private final ChatMemory chatMemory;
 
+    private final TaskManager taskManager;
+
     /**
      * todo: 这里需要监听用户的模型偏好变更事件，然后需要重新初始化对应的Client
      *
@@ -50,9 +54,11 @@ public class ClientSelector {
     public static final String AGENT_MD = "AGENT.private.md";
 
     public ClientSelector(ModelProviders modelProviders,
-                          ChatMemory chatMemory) {
+                          ChatMemory chatMemory,
+                          TaskManager taskManager) {
         this.modelProviders = modelProviders;
         this.chatMemory = chatMemory;
+        this.taskManager = taskManager;
         this.userCacheClient = new ConcurrentHashMap<>();
     }
 
@@ -104,6 +110,7 @@ public class ClientSelector {
                     .defaultToolCallbacks(SkillsTool.builder().addSkillsDirectory(skillsDir(workspace).toString()).build())
                     .defaultTools(
                             CheckListTool.builder().build(),
+                            TaskTool.builder().taskManager(taskManager).build(),
                             McpTool.builder().configurationManager(SpringUtil.getBean(ConfigurationManager.class)).build(),
                             //Bash execution tool
                             //ShellTools.builder().build(),// built-in shell tools
