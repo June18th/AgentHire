@@ -113,6 +113,13 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
         }
 
         ChatbotMessage msg = msgWrapper.getMsg();
+
+        // type == 1 表示个人对话
+        // type == 2表示群聊, 可以通过 msg.getConversationTitle() 获取群聊名称
+        String type = msg.getConversationType();
+
+
+
         return ChannelReceiveMessage.builder()
                 .msgId(msg.getMsgId())
                 .message(msg.getText().getContent())
