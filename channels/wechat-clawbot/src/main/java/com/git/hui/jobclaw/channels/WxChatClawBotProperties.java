@@ -17,5 +17,8 @@ public class WxChatClawBotProperties {
     private String baseUrl;
     private String cdnBaseUrl;
 
+    /**
+     * key = JobClaw 账号的 userId
+     */
     private Map<String, WxClawBotAccount> accounts;
 }

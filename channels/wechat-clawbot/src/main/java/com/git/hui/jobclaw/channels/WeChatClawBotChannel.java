@@ -39,15 +39,13 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
 
     private final WxChatClawBotProperties wxChatClawBotProperties;
 
-    private final ChannelRegistry channelRegistry;
 
     public WeChatClawBotChannel(Resource agentWorkspace,
                                 WxChatClawBotProperties wxBotProperties,
                                 ChannelRegistry channelRegistry,
                                 ChannelEventPublisher channelEventPublisher) {
-        super(channelEventPublisher);
+        super(agentWorkspace, channelRegistry, channelEventPublisher);
         this.wxChatClawBotProperties = wxBotProperties;
-        this.channelRegistry = channelRegistry;
 
         // Resolve media directory under workspace
         try {
@@ -73,9 +71,20 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
     public void loadAllAccounts() {
         if (!CollectionUtils.isEmpty(this.wxChatClawBotProperties.getAccounts())) {
             this.channelRegistry.registerChannel(this);
-            this.wxChatClawBotProperties.getAccounts().values()
-                    .stream().filter(s -> StringUtils.isNotBlank(s.getAppSecret()))
-                    .forEach(this::addAccount);
+            this.wxChatClawBotProperties.getAccounts().forEach((k, v) -> {
+                WxClawBotAccount account = (WxClawBotAccount) v;
+                if (account.getState() != ChannelConfig.ChannelState.NORMAL || StringUtils.isBlank(account.getAppSecret())) {
+                    log.warn("[WeChatClaw] 账号异常，已回略! appId={}, state={}",
+                            account.getAppId(),
+                            account.getState());
+                    return;
+                }
+
+                if (StringUtils.isBlank(account.getJobClawUserId())) {
+                    account.setJobClawUserId(k);
+                }
+                this.addAccount(account);
+            });
         } else {
             log.warn(
                     "WeChat ClawBot not configured (missing bot-token). Please complete the onboarding process and restart the application.");
@@ -86,30 +95,32 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
     public <T extends ChannelConfig> void addAccount(T account) {
         WxClawBotAccount botAccount = (WxClawBotAccount) account;
         // Initialize WeiXinSdk
-        String botToken = account.getAppSecret();
-        String userId = botAccount.getUserId();
+        final String botToken = account.getAppSecret();
+        final String wxUserId = botAccount.getUserId();
+        final String jobClawUserId = botAccount.getJobClawUserId();
         var sdk = new WeixinSdk.Builder()
                 .baseUrl(this.wxChatClawBotProperties.getBaseUrl())
                 .cdnBaseUrl(this.wxChatClawBotProperties.getCdnBaseUrl())
                 .token(botToken)
                 .channelVersion("1.0.3")
                 .stateDir(stateDir)
-                .mediaDir(mediaDir.resolve(userId).toString())
-                .accountId(userId)
+                .mediaDir(mediaDir.resolve(jobClawUserId).toString())
+                .accountId(wxUserId)
                 .build();
-        var lastSdk = this.accountMap.put(userId, sdk);
+        var lastSdk = this.accountMap.put(wxUserId, sdk);
         if (lastSdk != null) {
             // 账号更新的场景，停止旧的账号；启动新的账号
-            log.info("account updated, stop last sdk, userId: {}, lastSdk: {}", userId, lastSdk);
+            log.info("account updated, stop last sdk, userId: {}, lastSdk: {}", wxUserId, lastSdk);
             lastSdk.shutdown();
-            log.info("account updated, start new sdk, userId: {}, sdk: {}", userId, sdk);
+            log.info("account updated, start new sdk, userId: {}, sdk: {}", wxUserId, sdk);
         }
         // 轮询监听新的账号消息
         sdk.startPolling(new WeixinSdk.MessageHandler() {
             @Override
             public void onMessage(WeixinTypes.WeixinMessage message) {
                 try {
-                    processMessage(message);
+                    processMessage(MsgWrapper.<WeixinTypes.WeixinMessage>builder().msg(message)
+                            .jobClawUserId(jobClawUserId).build());
                 } catch (Exception e) {
                     log.error("Error processing message", e);
                 }
@@ -128,7 +139,8 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
      * Process incoming message using WeixinSdk types
      */
     @Override
-    public ChannelReceiveMessage adaptToReceive(WeixinTypes.WeixinMessage message) {
+    public ChannelReceiveMessage adaptToReceive(MsgWrapper<WeixinTypes.WeixinMessage> msgWrapper) {
+        WeixinTypes.WeixinMessage message = msgWrapper.getMsg();
         String fromUser = message.getFromUserId();
         String msgContextToken = message.getContextToken();
 
@@ -148,6 +160,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
                 .msgId("WX_" + message.getMessageId())
                 .channel(name())
                 .fromUserId(message.getFromUserId())
+                .jobClawUserId(msgWrapper.getJobClawUserId())
                 .passThrough(Map.of("msgContentToken", msgContextToken))
                 .message(messageText)
                 .files(files)

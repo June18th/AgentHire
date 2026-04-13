@@ -2,25 +2,32 @@ package com.git.hui.jobclaw.core.channel;
 
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 
 /**
  * 抽象通道
  * @author YiHui
  * @date 2026/4/8
  */
-public abstract class AbsChannel<T> implements Channel {
+public abstract class AbsChannel<T> implements Channel, ChannelMsgAdapter<T> {
     protected final ChannelEventPublisher channelEventPublisher;
+    protected final ChannelRegistry channelRegistry;
 
-    public AbsChannel(ChannelEventPublisher channelEventPublisher) {
+    protected final Resource agentWorkspace;
+
+    public AbsChannel(@Value("${agent.workspace}") Resource agentWorkspace,
+                      ChannelRegistry channelRegistry,
+                      ChannelEventPublisher channelEventPublisher) {
+        this.agentWorkspace = agentWorkspace;
         this.channelEventPublisher = channelEventPublisher;
+        this.channelRegistry = channelRegistry;
     }
 
-    public void processMessage(T msg) {
+    public void processMessage(MsgWrapper<T> msg) {
         var r = adaptToReceive(msg);
         report(r);
     }
-
-    protected abstract ChannelReceiveMessage adaptToReceive(T msg);
 
     @Override
     public void report(ChannelReceiveMessage msg) {

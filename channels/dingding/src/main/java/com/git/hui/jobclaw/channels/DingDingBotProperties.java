@@ -1,0 +1,33 @@
+package com.git.hui.jobclaw.channels;
+
+import com.git.hui.jobclaw.core.channel.ChannelConfig;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import java.util.Map;
+
+/**
+ *
+ * @author YiHui
+ * @date 2026/4/13
+ */
+@Data
+@ConfigurationProperties(prefix = "agent.channels.dingding")
+public class DingDingBotProperties {
+    private boolean enabled;
+    private Map<String, ChannelConfig> accounts;
+
+
+    @Data
+    @SuperBuilder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @EqualsAndHashCode(callSuper = true)
+    public static class DingDingBotAccount extends ChannelConfig {
+        private String userId;
+    }
+}

@@ -20,6 +20,11 @@ public class ChannelConfig {
     private ConnectionMode mode;
     private ChannelState state;
 
+    /**
+     *  JobClaw 的账号
+     */
+    private String jobClawUserId;
+
     public enum ConnectionMode {
         WEBSOCKET,
         WEBHOOK,

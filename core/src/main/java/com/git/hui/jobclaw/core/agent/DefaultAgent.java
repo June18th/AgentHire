@@ -33,32 +33,34 @@ public class DefaultAgent implements Agent {
     }
 
     @Override
-    public String respondTo(String conversationId, String question) {
-        return clientSelector.getClient(conversationId, false).prompt(buildPrompt(question)).advisors(a -> a.param(
+    public String respondTo(String jobClawUserId, String conversationId, String question) {
+        return clientSelector.getClient(jobClawUserId, conversationId, false).prompt(buildPrompt(question)).advisors(a -> a.param(
                 ChatMemory.CONVERSATION_ID,
                 conversationId)).call().content();
     }
 
     @Override
-    public <T> T prompt(String conversationId, String input, Class<T> result) {
-        return clientSelector.getClient(conversationId, false).prompt(buildPrompt(input)).advisors(a -> a.param(
+    public <T> T prompt(String jobClawUserId, String conversationId, String input, Class<T> result) {
+        return clientSelector.getClient(jobClawUserId, conversationId, false).prompt(buildPrompt(input)).advisors(a -> a.param(
                 ChatMemory.CONVERSATION_ID,
                 conversationId)).call().entity(result);
     }
 
     @Override
-    public Flux<String> streamResponse(String conversationId, String question) {
-        return clientSelector.getClient(conversationId, false).prompt(buildPrompt(question)).advisors(a -> a.param(
+    public Flux<String> streamResponse(String jobClawUserId, String conversationId, String question) {
+        return clientSelector.getClient(jobClawUserId, conversationId, false).prompt(buildPrompt(question)).advisors(a -> a.param(
                 ChatMemory.CONVERSATION_ID,
                 conversationId)).stream().content();
     }
 
     @Override
-    public String respondToMultiModal(String conversationId, ChannelReceiveMessage message) {
+    public String respondToMultiModal(String jobClawUserId, String conversationId, ChannelReceiveMessage message) {
         // Execute with conversation memory
-        return clientSelector.getClient(conversationId,
-                hasMedia(message)).prompt(buildPrompt(message)).advisors(a -> a.param(ChatMemory.CONVERSATION_ID,
-                conversationId)).call().content();
+        return clientSelector.getClient(jobClawUserId, conversationId, hasMedia(message))
+                .prompt(buildPrompt(message))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .call()
+                .content();
     }
 
 

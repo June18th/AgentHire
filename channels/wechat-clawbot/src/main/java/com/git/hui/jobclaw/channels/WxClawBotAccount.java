@@ -18,5 +18,8 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class WxClawBotAccount extends ChannelConfig {
+    /**
+     * 微信 ClawBot 用户ID
+     */
     private String userId;
 }

@@ -26,6 +26,12 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.git.hui.jobclaw.channels</groupId>
+            <artifactId>dingding</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.git.hui.jobclaw.provider</groupId>
             <artifactId>openai</artifactId>
             <version>${project.version}</version>

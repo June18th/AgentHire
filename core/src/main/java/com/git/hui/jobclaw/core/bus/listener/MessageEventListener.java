@@ -36,7 +36,7 @@ public class MessageEventListener {
 
     /**
      * 处理消息接收事件
-     * 根据用户角色路由到不同的处理器
+     * todo 根据用户角色、用户意图路由到不同的处理器
      */
     @Async
     @EventListener
@@ -45,7 +45,7 @@ public class MessageEventListener {
         // 然后具体执行单元执行完毕之后，会发送一个 MessageResponseEvent 消息，然后触发下面的监听
         var msg = event.getOriginalMessage();
         try {
-            String response = agent.respondToMultiModal(msg.getFromUserId(), msg);
+            String response = agent.respondToMultiModal(msg.getJobClawUserId(), msg.getFromUserId(), msg);
             ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
                     .toUserId(msg.getFromUserId())
                     .type(ChannelResponseMessage.ResponseMessageType.TEXT)
@@ -85,6 +85,11 @@ public class MessageEventListener {
         // 这里接收到业务Agent的执行返回，此时我们需要将返回结果发送到对应的通道中
         // 这里需要通过 ChannelRegistry 找到对应的通道，然后执行消息响应
         var channel = channelRegistry.getChannel(event.getChannel());
+        if (channel == null) {
+            log.error("找不到对应的通道，请确认这个通道是否正常注册：{}", event.getChannel());
+            return;
+        }
+        log.debug("Publishing MessageResponseEvent: responseId={}, channel={}, msg={}", event.getResponseId(), event.getChannel(), event.getResponseMessage());
         channel.send(event.getResponseMessage());
     }
 

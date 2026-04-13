@@ -39,6 +39,8 @@ public class ClientSelector {
     private final ChatMemory chatMemory;
 
     /**
+     * todo: 这里需要监听用户的模型偏好变更事件，然后需要重新初始化对应的Client
+     *
      * 根据用户缓存的用户偏好配置，支持根据不同的用户，设置不同的启用模型
      */
     private Map<String, ChatClient> userCacheClient;
@@ -55,8 +57,15 @@ public class ClientSelector {
     }
 
 
-    public ChatClient getClient(String userId, boolean multiModal) {
-        String key = multiModal ? userId + "_m" : userId;
+    /**
+     * 根据用户 + 会话，获取对应的LLM客户端
+     * @param userId JobClaw 的用户，用于获取模型偏好配置
+     * @param conversationId 具体的会话，通常不同渠道、即便是同一个用户，这个会话ID也是不同的
+     * @param multiModal 是否支持多模态
+     * @return
+     */
+    public ChatClient getClient(String userId, String conversationId, boolean multiModal) {
+        String key = multiModal ? conversationId + "_m" : conversationId;
         var client = userCacheClient.get(key);
         if (client == null) {
             client = initClient(userId, multiModal);

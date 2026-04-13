@@ -22,6 +22,11 @@ public class ChannelReceiveMessage {
     private String message;
     private String fromUserId;
 
+    /**
+     * JobClaw用户ID，用于获取对应的用户偏好信息
+     */
+    private String jobClawUserId;
+
     private List<MediaMsg> medias;
     private List<FileMsg> files;
 
