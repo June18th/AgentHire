@@ -74,7 +74,7 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
                                 final String sessionId = chatbotMessage.getSessionWebhook();
                                 responseSinks.put(sessionId, sink);
 
-                                // 订阅Mono以激活响应处理链
+                                // fixme 现在的方式为一问一答、对于一问多答，或者主动推送消息，这种方式则有限制；后续进行扩展
                                 sink.asMono().doOnSuccess(response -> {
                                             log.info("Received response for sessionId: {}", sessionId);
                                             try {
