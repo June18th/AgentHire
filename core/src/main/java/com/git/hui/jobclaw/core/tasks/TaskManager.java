@@ -44,16 +44,23 @@ public class TaskManager {
     /**
      * 为指定用户调度任务
      *
-     * @param executionTime 执行时间
+     * @param executionTime 执行时间（LocalDateTime，使用系统默认时区）
      * @param name 任务名称
      * @param description 任务描述
      * @param jobClawUserId 用户ID（必填）
      */
     public void schedule(LocalDateTime executionTime, String name, String description, String jobClawUserId) {
+        // 将 LocalDateTime 转换为 Instant（UTC时间戳），使用系统默认时区
+        // 注意：LocalDateTime 本身无时区信息，需要指定时区才能转换为 Instant
         Instant createdAt = executionTime.atZone(ZoneId.systemDefault()).toInstant();
+
         Task task = taskRepository.save(Task.newTask(name, createdAt, description, jobClawUserId));
+
+        // JobRunr 的 schedule 方法接受 LocalDateTime，会在该时间点执行
         jobScheduler.<TaskHandler>schedule(executionTime, x -> x.executeTask(task.getId()));
-        log.info("Task '{}' ({}) has been scheduled at {} for user {}.", task.getName(), task.getId(), executionTime, jobClawUserId);
+
+        log.info("Task '{}' ({}) has been scheduled at {} (UTC: {}) for user {}.",
+                task.getName(), task.getId(), executionTime, createdAt, jobClawUserId);
     }
 
     /**
@@ -65,9 +72,18 @@ public class TaskManager {
      * @param jobClawUserId 用户ID（必填）
      */
     public void scheduleRecurrently(String cronExpression, String name, String description, String jobClawUserId) {
-        RecurringTask recurringTask = taskRepository.save(RecurringTask.newRecurringTask(name, description, jobClawUserId));
-        jobScheduler.<RecurringTaskHandler>scheduleRecurrently(recurringTask.getName(), cronExpression, x -> x.executeTask(recurringTask.getId()));
-        log.info("Task '{}' ({}) has been scheduled recurrently with cronExpression {} for user {}.", name, recurringTask.getId(), cronExpression, jobClawUserId);
+        RecurringTask recurringTask = taskRepository.save(RecurringTask.newRecurringTask(name,
+                description,
+                jobClawUserId,
+                cronExpression));
+        jobScheduler.<RecurringTaskHandler>scheduleRecurrently(recurringTask.getName(),
+                cronExpression,
+                x -> x.executeTask(recurringTask.getId()));
+        log.info("Task '{}' ({}) has been scheduled recurrently with cronExpression {} for user {}.",
+                name,
+                recurringTask.getId(),
+                cronExpression,
+                jobClawUserId);
     }
 
     /**
@@ -83,7 +99,8 @@ public class TaskManager {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Recurring task with name " + name + " was not found for user " + jobClawUserId));
         jobScheduler.deleteRecurringJob(recurringTask.getName());
-        List<Job> jobList = storageProvider.getJobList(StateName.SCHEDULED, Paging.AmountBasedList.ascOnUpdatedAt(1000));
+        List<Job> jobList = storageProvider.getJobList(StateName.SCHEDULED,
+                Paging.AmountBasedList.ascOnUpdatedAt(1000));
         jobList.stream()
                 .filter(j -> j.getRecurringJobId().map(recurringTask.getName()::equals).orElse(false))
                 .map(Job::getId)
@@ -108,8 +125,13 @@ public class TaskManager {
     }
 
     public void createTaskFromRecurringTask(RecurringTask recurringTask) {
-        Task task = taskRepository.save(Task.newTask(recurringTask.getName(), recurringTask.getDescription(), recurringTask.getJobClawUserId()));
+        Task task = taskRepository.save(Task.newTask(recurringTask.getName(),
+                recurringTask.getDescription(),
+                recurringTask.getJobClawUserId()));
         jobScheduler.<TaskHandler>enqueue(x -> x.executeTask(task.getId()));
-        log.info("Task '{}' ({}) has been created from recurring task for user {}.", task.getName(), task.getId(), recurringTask.getJobClawUserId());
+        log.info("Task '{}' ({}) has been created from recurring task for user {}.",
+                task.getName(),
+                task.getId(),
+                recurringTask.getJobClawUserId());
     }
 }

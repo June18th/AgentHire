@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.tools;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.core.tasks.RecurringTask;
 import com.git.hui.jobclaw.core.tasks.TaskManager;
 import org.slf4j.Logger;
@@ -52,7 +53,12 @@ public class TaskTool {
                     - Name: Short, descriptive identifier (e.g., 'research-market', 'update-docs'). Spaces will be converted to underscores. Must always be in English
                     - Description: Detailed explanation of what needs to be achieved.
                     """)
-    public String createTask(String name, String description, ToolContext toolContext) {
+    public String createTask(
+            @JsonPropertyDescription("任务名，始终是英文格式，如 search-email")
+            String name,
+            @JsonPropertyDescription("任务的描述，使用中文对这个任务进行详细说明")
+            String description,
+            ToolContext toolContext) {
         try {
             String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
             this.taskManager.create(name, description, jobClawUserId);
@@ -66,24 +72,31 @@ public class TaskTool {
 
     @Tool(name = "scheduleTask",
             description = """
-                    Schedules a task using JobRunr for a specific date and time in the future.
-                    Use this when a user explicitly mentions a time or date (e.g., "Remind me next Monday at 9 AM" or "Schedule at 3pm").
+                    Schedules a task using JobRunr for a specific time in the future.
+                    Use this when a user explicitly mentions a time or date (e.g., "Remind me in 10 minutes" or "Schedule in 1 hour").
                                 
-                    - executionTime: The specific local date and time (without timezone) when the task should run in this format YYYY-MM-ddTHH:mm:ss (example 2025-03-17T09:00:00).
+                    - delaySeconds: The number of seconds from now when the task should run (e.g., 600 for 10 minutes, 3600 for 1 hour).
                     - name: Short, descriptive identifier (e.g., 'monday-morning-sync').
                     - description: Detailed instructions on what the task entails.
                     """)
-    public String scheduleTask(String executionTime, String name, String description, ToolContext toolContext) {
+    public String scheduleTask(
+            @JsonPropertyDescription("任务延迟执行的秒数，从当前时间开始计算，如 600 表示10分钟后执行，3600 表示1小时后执行")
+            Long delaySeconds,
+            @JsonPropertyDescription("任务名，始终是英文格式，如 monday-morning-sync")
+            String name,
+            @JsonPropertyDescription("任务的描述，使用中文对这个任务进行详细说明")
+            String description,
+            ToolContext toolContext) {
         try {
             // using string to work around tool call argument parsing exception
             String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
-            LocalDateTime executionTimeAsLocalDateTime = LocalDateTime.parse(executionTime);
-            this.taskManager.schedule(executionTimeAsLocalDateTime, name, description, jobClawUserId);
-            ofNullable(taskEventHandler).ifPresent(x -> x.taskScheduled(executionTimeAsLocalDateTime,
+            LocalDateTime executionTime = LocalDateTime.now().plusSeconds(delaySeconds);
+            this.taskManager.schedule(executionTime, name, description, jobClawUserId);
+            ofNullable(taskEventHandler).ifPresent(x -> x.taskScheduled(executionTime,
                     name,
                     description,
                     jobClawUserId));
-            return String.format("Task '%s' has been scheduled for %s.", name, executionTime);
+            return String.format("Task '%s' has been scheduled to execute in %d seconds.", name, delaySeconds);
         } catch (Exception e) {
             logger.error("Failed to schedule task", e);
             return "Error: Could not schedule task. " + e.getMessage();
@@ -99,7 +112,14 @@ public class TaskTool {
                     - name: Short, descriptive identifier (e.g., 'weekly-log-cleanup').
                     - description: Detailed instructions on what the task entails.
                     """)
-    public String scheduleRecurringTask(String cronExpression, String name, String description, ToolContext toolContext) {
+    public String scheduleRecurringTask(
+            @JsonPropertyDescription("Cron表达式，如 0 12 * * * 表示每天中午12点执行，不要使用 ? 符号")
+            String cronExpression,
+            @JsonPropertyDescription("任务名，始终是英文格式，如 weekly-log-cleanup")
+            String name,
+            @JsonPropertyDescription("任务的描述，使用中文对这个任务进行详细说明")
+            String description,
+            ToolContext toolContext) {
         try {
             String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
             this.taskManager.scheduleRecurrently(cronExpression, name, description, jobClawUserId);
@@ -123,7 +143,10 @@ public class TaskTool {
                                 
                     - name: The name of the recurring task to delete (e.g., 'weekly-log-cleanup').
                     """)
-    public String deleteRecurringTask(String name, ToolContext toolContext) {
+    public String deleteRecurringTask(
+            @JsonPropertyDescription("要删除的周期性任务名，必须是英文格式，如 weekly-log-cleanup")
+            String name,
+            ToolContext toolContext) {
         try {
             String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
 
@@ -150,6 +173,7 @@ public class TaskTool {
         allRecurringTasks.forEach(rt -> {
             sb.append("- id: ").append(rt.getId()).append(System.lineSeparator());
             sb.append("  name: ").append(rt.getName()).append(System.lineSeparator());
+            sb.append("  cronExpression: ").append(rt.getCronExpression()).append(System.lineSeparator());
             sb.append("  description: ").append(rt.getDescription(),
                     0,
                     Math.min(rt.getDescription().length(), 100)).append(System.lineSeparator());

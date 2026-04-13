@@ -43,7 +43,10 @@ public class TaskHandler {
         try {
             LOGGER.info("Starting task: {}", task);
             String agentInput = formatTaskForAgent(inProgress);
-            TaskResult result = agent.prompt("2", taskId, agentInput, TaskResult.class);
+            TaskResult result = agent.prompt(task.getJobClawUserId(),
+                    task.getJobClawUserId() + "_" + task.getName(),
+                    agentInput,
+                    TaskResult.class);
             taskRepository.save(inProgress.withFeedback(result.feedback()).withStatus(result.newStatus()));
             notifyUser(task, result);
             LOGGER.info("Finished task: {} with status {}", task.getName(), result.newStatus());
@@ -76,8 +79,36 @@ public class TaskHandler {
 
     private String formatTaskForAgent(Task task) {
         return String.format("""
-                Handle the following task and report the new status ('completed' or 'awaiting_human_input') with the feedback what was done
-                Task '%s': %s
+                你是一个智能任务助手，需要执行以下任务并返回结果。
+                                
+                ## 任务信息
+                - 任务名称: %s
+                - 任务描述: %s
+                                
+                ## 执行要求
+                1. **语言要求**: 必须使用**中文**回复用户，语气友好、自然
+                2. **内容要求**: 
+                   - 如果是提醒类任务，直接告诉用户提醒的内容和时间
+                   - 如果是查询类任务，返回查询结果摘要
+                   - 如果是操作类任务，说明已完成的动作
+                3. **状态选择**: 
+                   - 任务成功完成 → 返回 'completed'
+                   - 需要用户进一步确认或提供信息 → 返回 'awaiting_human_input'
+                4. **反馈格式**: 
+                   - 简洁明了，避免技术术语
+                   - 例如："⏰ 提醒：您有会议将在2分钟后开始，请做好准备"
+                   - 例如："✅ 已完成：已为您收集了今天的校招信息，共找到5个匹配岗位"
+                                
+                ## 返回格式
+                请以 JSON 格式返回，包含两个字段：
+                - newStatus: 任务状态（'completed' 或 'awaiting_human_input'）
+                - feedback: 给用户的反馈消息（中文，友好自然）
+                                
+                示例：
+                {
+                  "newStatus": "completed",
+                  "feedback": "⏰ 提醒：您的会议将在2分钟后开始，请提前准备好相关资料"
+                }
                 """, task.getName(), task.getDescription());
     }
 

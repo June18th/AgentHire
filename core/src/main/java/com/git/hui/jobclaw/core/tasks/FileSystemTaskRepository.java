@@ -104,7 +104,8 @@ public class FileSystemTaskRepository implements TaskRepository {
         return new RecurringTask(path.toAbsolutePath().toString(),
                 recurringTask.getName(),
                 recurringTask.getDescription(),
-                recurringTask.getJobClawUserId());
+                recurringTask.getJobClawUserId(),
+                recurringTask.getCronExpression());
     }
 
     @Override
@@ -116,7 +117,8 @@ public class FileSystemTaskRepository implements TaskRepository {
             if (jobClawUserId == null || jobClawUserId.isEmpty()) {
                 throw new IllegalStateException("Recurring task file is missing required field: jobClawUserId");
             }
-            return new RecurringTask(id, fm.get("task"), fm.getOrDefault("description", ""), jobClawUserId);
+            String cronExpression = fm.get("cronExpression");
+            return new RecurringTask(id, fm.get("task"), fm.getOrDefault("description", ""), jobClawUserId, cronExpression);
         } catch (IOException e) {
             throw new TaskNotFoundException(id, e);
         }
@@ -191,10 +193,14 @@ public class FileSystemTaskRepository implements TaskRepository {
         if (task.getJobClawUserId() == null || task.getJobClawUserId().isEmpty()) {
             throw new IllegalArgumentException("jobClawUserId is required when saving a recurring task");
         }
+        if (task.getCronExpression() == null || task.getCronExpression().isEmpty()) {
+            throw new IllegalArgumentException("cronExpression is required when saving a recurring task");
+        }
         Map<String, String> fm = new LinkedHashMap<>();
         fm.put("task", task.getName());
         fm.put("description", task.getDescription());
         fm.put("jobClawUserId", task.getJobClawUserId());
+        fm.put("cronExpression", task.getCronExpression());
         writeFile(path, YamlParser.serialize(new YamlDocument(fm, null)));
     }
 
