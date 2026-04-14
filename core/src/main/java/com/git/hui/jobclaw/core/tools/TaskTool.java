@@ -59,6 +59,8 @@ public class TaskTool {
             @JsonPropertyDescription("任务的描述，使用中文对这个任务进行详细说明")
             String description,
             ToolContext toolContext) {
+        logger.info("[TaskTool] createTask called - name: {}, description: {}, jobClawUserId: {}", 
+                name, description, toolContext.getContext().get("jobClawUserId"));
         try {
             String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
             this.taskManager.create(name, description, jobClawUserId);
@@ -87,6 +89,8 @@ public class TaskTool {
             @JsonPropertyDescription("任务的描述，使用中文对这个任务进行详细说明")
             String description,
             ToolContext toolContext) {
+        logger.info("[TaskTool] scheduleTask called - delaySeconds: {}, name: {}, description: {}, jobClawUserId: {}", 
+                delaySeconds, name, description, toolContext.getContext().get("jobClawUserId"));
         try {
             // using string to work around tool call argument parsing exception
             String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
@@ -120,6 +124,8 @@ public class TaskTool {
             @JsonPropertyDescription("任务的描述，使用中文对这个任务进行详细说明")
             String description,
             ToolContext toolContext) {
+        logger.info("[TaskTool] scheduleRecurringTask called - cronExpression: {}, name: {}, description: {}, jobClawUserId: {}", 
+                cronExpression, name, description, toolContext.getContext().get("jobClawUserId"));
         try {
             String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
             this.taskManager.scheduleRecurrently(cronExpression, name, description, jobClawUserId);
@@ -147,6 +153,8 @@ public class TaskTool {
             @JsonPropertyDescription("要删除的周期性任务名，必须是英文格式，如 weekly-log-cleanup")
             String name,
             ToolContext toolContext) {
+        logger.info("[TaskTool] deleteRecurringTask called - name: {}, jobClawUserId: {}", 
+                name, toolContext.getContext().get("jobClawUserId"));
         try {
             String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
 
@@ -165,6 +173,7 @@ public class TaskTool {
                     """)
     public String listRecurringTasks(ToolContext toolContext) {
         String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
+        logger.info("[TaskTool] listRecurringTasks called - jobClawUserId: {}", jobClawUserId);
 
         List<RecurringTask> allRecurringTasks = taskManager.getRecurringTasksByUser(jobClawUserId);
 

@@ -9,6 +9,7 @@ import com.git.hui.jobclaw.core.tools.McpTool;
 import com.git.hui.jobclaw.core.tools.TaskTool;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.springaicommunity.agent.tools.FileSystemTools;
+import org.springaicommunity.agent.tools.ShellTools;
 import org.springaicommunity.agent.tools.SkillsTool;
 import org.springaicommunity.agent.tools.SmartWebFetchTool;
 import org.springaicommunity.agent.utils.AgentEnvironment;
@@ -113,7 +114,7 @@ public class ClientSelector {
                             TaskTool.builder().taskManager(taskManager).build(),
                             McpTool.builder().configurationManager(SpringUtil.getBean(ConfigurationManager.class)).build(),
                             //Bash execution tool
-                            //ShellTools.builder().build(),// built-in shell tools
+                            ShellTools.builder().build(),// built-in shell tools
                             // Read, Write and Edit files tool // fixme 这里需要限制访问权限
                             FileSystemTools.builder().build(),// built-in file system tools
                             // Smart web fetch tool

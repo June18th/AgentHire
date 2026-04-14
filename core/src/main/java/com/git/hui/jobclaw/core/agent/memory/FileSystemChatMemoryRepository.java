@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,7 @@ import java.util.stream.Stream;
  *
  * <p>The conversation ID is the channel name, e.g. {@code web} or
  * {@code telegram-123456789}. The repository maps this to a flat file:
- * {@code {workspace}/conversations/chat-{channel}.yaml}
+ * {@code {workspace}/conversations/{jobClawUserId}/chat-{channel}.yaml}
  *
  * <p>Each file has a frontmatter block with timestamps and a body containing the
  * message list:
@@ -52,11 +53,18 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
     public List<String> findConversationIds() {
         if (!Files.exists(conversationsDir)) return List.of();
         try (Stream<Path> files = Files.list(conversationsDir)) {
-            return files
-                    .map(p -> p.getFileName().toString())
-                    .filter(name -> name.startsWith("chat-") && name.endsWith(".yaml"))
-                    .map(name -> name.substring("chat-".length(), name.length() - ".yaml".length()))
-                    .toList();
+            List<String> total = new ArrayList<>();
+            for (Path p : files.toList()) {
+                try (var sub = Files.list(p)) {
+                    total.addAll(
+                            sub.map(t -> t.getFileName().toString())
+                                    .filter(name -> name.startsWith("chat-") && name.endsWith(".yaml"))
+                                    .map(name -> name.substring("chat-".length(), name.length() - ".yaml".length()))
+                                    .toList()
+                    );
+                }
+            }
+            return total;
         } catch (IOException e) {
             throw new RuntimeException("Failed to list conversations", e);
         }
@@ -120,12 +128,22 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
 
     /**
      * Maps a conversation ID (channel name) to
-     * {@code conversations/chat-{channel}.yaml}.
+     * {@code conversations/{jobClawUserId}/chat-{channel}.yaml}.
      */
     private Path resolveFile(String conversationId) {
+        // 按照约定，原始的conversationId 是按照 jobClawUerId-ConversationId 的格式进行组装的，所以我们首先进行解析，将会话的JobClawUserId依然保存，用于用户会话的隔离
+        int index = conversationId.indexOf("-");
+        String jobClawUserId;
+        if (index > 0) {
+            jobClawUserId = conversationId.substring(0, index);
+            conversationId = conversationId.substring(index + 1);
+        } else {
+            jobClawUserId = "Unknown";
+        }
+
         // 为了避免会话的字符串格式异常，我们统一进行md5操作
         String md5 = MD5Utils.md5(conversationId);
-        return conversationsDir.resolve("chat-" + md5 + ".yaml");
+        return conversationsDir.resolve(jobClawUserId).resolve("chat-" + md5 + ".yaml");
     }
 
     private static Path ensureDirectory(Path dir) {

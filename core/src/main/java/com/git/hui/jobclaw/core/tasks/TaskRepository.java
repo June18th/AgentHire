@@ -9,8 +9,6 @@ public interface TaskRepository {
 
     Task getTaskById(String id);
 
-    List<Task> getTasks(LocalDate localDate, Task.Status status);
-
     /**
      * 获取指定用户的任务列表
      *

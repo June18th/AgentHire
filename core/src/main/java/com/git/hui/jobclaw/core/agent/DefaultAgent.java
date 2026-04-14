@@ -33,11 +33,16 @@ public class DefaultAgent implements Agent {
         this.clientSelector = clientSelector;
     }
 
+    private String buildChatMemConversationId(String jobClawUserId, String conversationId) {
+        return jobClawUserId + "-" + conversationId;
+    }
+
     @Override
     public String respondTo(String jobClawUserId, String conversationId, String question) {
+        String finalConversationId = buildChatMemConversationId(jobClawUserId, conversationId);
         return clientSelector.getClient(jobClawUserId, conversationId, false)
                 .prompt(buildPrompt(question))
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, finalConversationId))
                 .toolContext(Map.of("jobClawUserId", jobClawUserId))
                 .call()
                 .content();
@@ -45,9 +50,10 @@ public class DefaultAgent implements Agent {
 
     @Override
     public <T> T prompt(String jobClawUserId, String conversationId, String input, Class<T> result) {
+        String finalConversationId = buildChatMemConversationId(jobClawUserId, conversationId);
         return clientSelector.getClient(jobClawUserId, conversationId, false)
                 .prompt(buildPrompt(input))
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, finalConversationId))
                 .toolContext(Map.of("jobClawUserId", jobClawUserId))
                 .call()
                 .entity(result);
@@ -55,9 +61,10 @@ public class DefaultAgent implements Agent {
 
     @Override
     public Flux<String> streamResponse(String jobClawUserId, String conversationId, String question) {
+        String finalConversationId = buildChatMemConversationId(jobClawUserId, conversationId);
         return clientSelector.getClient(jobClawUserId, conversationId, false)
                 .prompt(buildPrompt(question))
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, finalConversationId))
                 .toolContext(Map.of("jobClawUserId", jobClawUserId))
                 .stream().content();
     }
@@ -65,9 +72,10 @@ public class DefaultAgent implements Agent {
     @Override
     public String respondToMultiModal(String jobClawUserId, String conversationId, ChannelReceiveMessage message) {
         // Execute with conversation memory
+        String finalConversationId = buildChatMemConversationId(jobClawUserId, conversationId);
         return clientSelector.getClient(jobClawUserId, conversationId, hasMedia(message))
                 .prompt(buildPrompt(message))
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, finalConversationId))
                 .toolContext(Map.of("jobClawUserId", jobClawUserId))
                 .call()
                 .content();

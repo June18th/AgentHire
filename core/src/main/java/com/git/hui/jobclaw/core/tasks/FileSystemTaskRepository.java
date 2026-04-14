@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,30 +66,14 @@ public class FileSystemTaskRepository implements TaskRepository {
     }
 
     @Override
-    public List<Task> getTasks(LocalDate date, Task.Status status) {
-        Path dir = taskDir.resolve(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-        if (!Files.exists(dir)) return List.of();
-        try (Stream<Path> files = Files.list(dir)) {
-            return files
-                    .filter(p -> p.getFileName().toString().endsWith(".md"))
-                    .map(p -> getTaskById(p.toAbsolutePath().toString()))
-                    .filter(t -> status == null || t.getStatus() == status)
-                    .toList();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to list tasks for " + date, e);
-        }
-    }
-
-    @Override
     public List<Task> getTasksByUser(LocalDate date, Task.Status status, String jobClawUserId) {
-        Path dir = taskDir.resolve(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+        Path dir = taskDir.resolve(jobClawUserId).resolve(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
         if (!Files.exists(dir)) return List.of();
         try (Stream<Path> files = Files.list(dir)) {
             return files
                     .filter(p -> p.getFileName().toString().endsWith(".md"))
                     .map(p -> getTaskById(p.toAbsolutePath().toString()))
-                    .filter(t -> (status == null || t.getStatus() == status) && 
-                                 (jobClawUserId == null || jobClawUserId.equals(t.getJobClawUserId())))
+                    .filter(t -> (status == null || t.getStatus() == status))
                     .toList();
         } catch (IOException e) {
             throw new RuntimeException("Failed to list tasks for user " + jobClawUserId + " on " + date, e);
@@ -98,7 +83,7 @@ public class FileSystemTaskRepository implements TaskRepository {
     @Override
     public RecurringTask save(RecurringTask recurringTask) {
         String validName = sanitizeName(recurringTask.getName());
-        Path dir = ensureDirectory(taskDir.resolve("recurring"));
+        Path dir = ensureDirectory(taskDir.resolve(recurringTask.getJobClawUserId()).resolve("recurring"));
         Path path = dir.resolve(validName + ".md");
         writeRecurringTaskFile(path, recurringTask);
         return new RecurringTask(path.toAbsolutePath().toString(),
@@ -118,7 +103,11 @@ public class FileSystemTaskRepository implements TaskRepository {
                 throw new IllegalStateException("Recurring task file is missing required field: jobClawUserId");
             }
             String cronExpression = fm.get("cronExpression");
-            return new RecurringTask(id, fm.get("task"), fm.getOrDefault("description", ""), jobClawUserId, cronExpression);
+            return new RecurringTask(id,
+                    fm.get("task"),
+                    fm.getOrDefault("description", ""),
+                    jobClawUserId,
+                    cronExpression);
         } catch (IOException e) {
             throw new TaskNotFoundException(id, e);
         }
@@ -127,13 +116,22 @@ public class FileSystemTaskRepository implements TaskRepository {
     @Override
     public List<RecurringTask> getAllRecurringTasks() {
         try {
-            Path dir = ensureDirectory(taskDir.resolve("recurring"));
-            try (Stream<Path> recurringTasks = Files.list(dir)) {
-                return recurringTasks
-                        .map(p -> p.toAbsolutePath().toString())
-                        .map(this::getRecurringTaskById)
-                        .toList();
+            Path parent = ensureDirectory(taskDir);
+            List<RecurringTask> total = new ArrayList<>();
+            try (Stream<Path> recurringTasks = Files.list(parent)) {
+                recurringTasks.forEach(p -> {
+                    Path dir = ensureDirectory(p.resolve("recurring"));
+                    try (Stream<Path> subTasks = Files.list(dir)) {
+                        var list = subTasks.map(t -> t.toAbsolutePath().toString())
+                                .map(this::getRecurringTaskById)
+                                .toList();
+                        total.addAll(list);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
+            return total;
         } catch (IOException e) {
             throw new RuntimeException("Could not list all recurring tasks", e);
         }
@@ -142,12 +140,11 @@ public class FileSystemTaskRepository implements TaskRepository {
     @Override
     public List<RecurringTask> getRecurringTasksByUser(String jobClawUserId) {
         try {
-            Path dir = ensureDirectory(taskDir.resolve("recurring"));
+            Path dir = ensureDirectory(taskDir.resolve(jobClawUserId).resolve("recurring"));
             try (Stream<Path> recurringTasks = Files.list(dir)) {
                 return recurringTasks
                         .map(p -> p.toAbsolutePath().toString())
                         .map(this::getRecurringTaskById)
-                        .filter(rt -> jobClawUserId == null || jobClawUserId.equals(rt.getJobClawUserId()))
                         .toList();
             }
         } catch (IOException e) {
@@ -172,7 +169,7 @@ public class FileSystemTaskRepository implements TaskRepository {
         String dateStr = dateTime.toLocalDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String timeStr = dateTime.toLocalTime().format(DateTimeFormatter.ofPattern("HHmmss"));
         String safeName = sanitizeName(task.getName());
-        Path dir = ensureDirectory(taskDir.resolve(dateStr));
+        Path dir = ensureDirectory(taskDir.resolve(task.getJobClawUserId()).resolve(dateStr));
         return dir.resolve(String.format("%s-%s.md", timeStr, safeName));
     }
 
