@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.bus.listener;
 
 import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.agent.soul.collector.SoulCollectorSelector;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
@@ -13,8 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 /**
  * 消息事件监听器 - 处理消息接收和响应事件
@@ -33,6 +32,8 @@ public class MessageEventListener {
 
     private final Agent agent;
 
+    private final SoulCollectorSelector soulCollectorSelector;
+
 
     /**
      * 处理消息接收事件
@@ -41,14 +42,41 @@ public class MessageEventListener {
     @Async
     @EventListener
     public void onMessageReceived(MessageReceivedEvent event) {
-        // 由 RoutingAgent 来统一接收消息，然后根据意图识别，分配到不同的具体执行单元
-        // 然后具体执行单元执行完毕之后，会发送一个 MessageResponseEvent 消息，然后触发下面的监听
         var msg = event.getOriginalMessage();
+        String jobClawUserId = msg.getJobClawUserId();
+        String conversationId = msg.getFromUserId();
+        String channel = msg.getChannel();
+        String userMessage = msg.getMessage();
+
+        // Check if user is in active soul collection mode
+        var soulCollector = soulCollectorSelector.getCollector(jobClawUserId);
+        var collectionState = soulCollector.getCollectionState(jobClawUserId);
+        if (collectionState.isPresent() && collectionState.get().isInProgress()) {
+            log.info("[{}] Processing soul collection answer from user: {}",
+                    soulCollector.getCollectorType(),
+                    jobClawUserId);
+            // Process the answer and ask next question
+            soulCollector.processAnswer(jobClawUserId, userMessage, channel, conversationId);
+            return; // Don't send to normal agent
+        }
+
+        // Check if we should initiate active soul collection for new user
+        // Trigger on first message if no soul exists
+        if (soulCollector.shouldInitiateCollection(jobClawUserId)) {
+            log.info("[{}] Initiating active soul collection for new user: {} on first message",
+                    soulCollector.getCollectorType(),
+                    jobClawUserId);
+            // 开虚拟线程，执行采集
+            soulCollector.initiateCollection(jobClawUserId, channel, conversationId);
+            return;
+        }
+
+        // Normal message handling - route to agent
         try {
-            String response = agent.respondToMultiModal(msg.getJobClawUserId(), msg.getFromUserId(), msg);
+            String response = agent.respondToMultiModal(jobClawUserId, conversationId, msg);
             ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
-                    .jobClawUserId(msg.getJobClawUserId())
-                    .toUserId(msg.getFromUserId())
+                    .jobClawUserId(jobClawUserId)
+                    .toUserId(conversationId)
                     .type(ChannelResponseMessage.ResponseMessageType.TEXT)
                     .content(response)
                     .passThrough(msg.getPassThrough())
@@ -58,20 +86,20 @@ public class MessageEventListener {
             channelEventPublisher.publishMessageResponse(
                     "RSP_" + System.currentTimeMillis(),
                     msg.getMsgId(),
-                    msg.getChannel(),
+                    channel,
                     responseMessage
             );
         } catch (Exception e) {
             ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
-                    .jobClawUserId(msg.getJobClawUserId())
-                    .toUserId(msg.getFromUserId())
+                    .jobClawUserId(jobClawUserId)
+                    .toUserId(conversationId)
                     .type(ChannelResponseMessage.ResponseMessageType.TEXT)
                     .content(ThrowableUtil.getStackTrace("糟糕，JobClaw出现故障啦~", e))
                     .passThrough(msg.getPassThrough())
                     .build();
             channelEventPublisher.publishMessageResponse("RSP_ERR_" + System.currentTimeMillis(),
                     msg.getMsgId(),
-                    msg.getChannel(),
+                    channel,
                     responseMessage
             );
             log.error("JobClaw出现故障啦~", e);
@@ -91,7 +119,10 @@ public class MessageEventListener {
             log.error("找不到对应的通道，请确认这个通道是否正常注册：{}", event.getChannel());
             return;
         }
-        log.debug("Publishing MessageResponseEvent: responseId={}, channel={}, msg={}", event.getResponseId(), event.getChannel(), event.getResponseMessage());
+        log.debug("Publishing MessageResponseEvent: responseId={}, channel={}, msg={}",
+                event.getResponseId(),
+                event.getChannel(),
+                event.getResponseMessage());
         channel.send(event.getResponseMessage());
     }
 
@@ -108,18 +139,10 @@ public class MessageEventListener {
         String template = """
                 您已经成功联通求职派啦，现在您可以直接通过对话和求职派进行沟通了~
                 """;
-
-        ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
-                .toUserId(event.getUserId())
-                .type(ChannelResponseMessage.ResponseMessageType.TEXT)
-                .content(template)
-                .passThrough(Map.of())
-                .build();
-
         // 发送一条欢迎语句给连接用户
         channelEventPublisher.publishProactiveMessage("HI_" + System.currentTimeMillis(),
+                event.getUserId(),
                 event.getChannel(),
-                responseMessage,
-                0);
+                template);
     }
 }

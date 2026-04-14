@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +43,7 @@ public class SessionSummarizer {
 
     public SessionSummarizer(
             ContextWindowProperties properties,
-            Resource promptResource) {
+            @Value("classpath:/prompts/session-summary-prompt.md") Resource promptResource) {
         this.properties = properties;
 
         // Load prompt template

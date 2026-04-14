@@ -93,6 +93,7 @@ agent:
       max-tokens: ${AGENT_CONTEXT_MAX_TOKENS:8000} # Token上限
       filter-short-messages: ${AGENT_CONTEXT_FILTER_SHORT:true} # 过滤短消息
       short-message-threshold: ${AGENT_CONTEXT_SHORT_THRESHOLD:5} # 短消息阈值
+      update-soul-frequency: ${AGENT_CONTEXT_UPDATE_SOUL_FREQUENCY:10} # 更新用户画像的对话频率
   channels:
     wechat:
       clawbot: # 微信的ClawBot Channel配置
@@ -105,11 +106,16 @@ agent:
       accounts:
         2: !!seq [ ] # 一个用户支持配置多个机器人
   ai:
-    model:
-      - user-id: o9cq807KL9SgEouT2mDo1h0kw6LY@im.wechat
-        preference:
+    preference: # 用户维度的模型配置偏好
+      - user-id: 2
+        collector: AI_BASED
+        channels:
+          - wechat-clawbot
+          - dingding
+        models:
           vision: silicon#PaddlePaddle/PaddleOCR-VL-1.5
           text: silicon#Qwen/Qwen2.5-7B-Instruct
+          #          text: zhipu#GLM-4.5-Flash
           providers:
             zhipu:
               api-key: ${ZHIPU_API_KEY:}

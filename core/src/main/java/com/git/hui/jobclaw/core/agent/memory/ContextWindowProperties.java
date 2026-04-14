@@ -57,4 +57,9 @@ public class ContextWindowProperties {
      * Messages shorter than this will be filtered out.
      */
     private int shortMessageThreshold = 5;
+
+    /**
+     * Frequency of updating user soul.
+     */
+    private int updateSoulFrequency = 10;
 }

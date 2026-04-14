@@ -87,8 +87,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
                 this.addAccount(account);
             });
         } else {
-            log.warn(
-                    "WeChat ClawBot not configured (missing bot-token). Please complete the onboarding process and restart the application.");
+            log.warn("WeChat ClawBot not configured (missing bot-token).");
         }
     }
 

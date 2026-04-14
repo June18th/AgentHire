@@ -6,7 +6,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.core.io.FileSystemResource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -49,11 +48,16 @@ class FileSystemChatMemoryRepositoryTest {
                 .thenReturn(false);
         org.mockito.Mockito.when(sessionSummarizer.createSummaryMessage(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(null);
+
+
         
         repository = new FileSystemChatMemoryRepository(
                 new org.springframework.core.io.FileSystemResource(tempDir), 
                 smartWindow, 
-                sessionSummarizer);
+                sessionSummarizer,
+                null,
+                null,
+                null);
     }
 
     @Test

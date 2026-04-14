@@ -6,6 +6,7 @@ import com.git.hui.jobclaw.core.bus.event.UserConnectedEvent;
 import com.git.hui.jobclaw.core.bus.event.UserDisconnectedEvent;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
+import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,8 +24,11 @@ public class DefaultChannelEventPublisher implements ChannelEventPublisher {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    public DefaultChannelEventPublisher(ApplicationEventPublisher eventPublisher) {
+    private final ChannelRegistry channelRegistry;
+
+    public DefaultChannelEventPublisher(ApplicationEventPublisher eventPublisher, ChannelRegistry channelRegistry) {
         this.eventPublisher = eventPublisher;
+        this.channelRegistry = channelRegistry;
     }
 
     @Override
@@ -53,6 +57,17 @@ public class DefaultChannelEventPublisher implements ChannelEventPublisher {
         } catch (Exception e) {
             log.error("Failed to publish MessageResponseEvent: responseId={}", responseId, e);
         }
+    }
+
+    @Override
+    public boolean publishProactiveMessage(String responseId, String jobClawUserId, String channelName, String response) {
+        var pro = channelRegistry.getBackendReceivedChannelAdapter(jobClawUserId, channelName);
+        if (pro != null) {
+            var responseMsg = pro.apply(response);
+            publishProactiveMessage(responseId, channelName, responseMsg, 0);
+            return true;
+        }
+        return false;
     }
 
     @Override

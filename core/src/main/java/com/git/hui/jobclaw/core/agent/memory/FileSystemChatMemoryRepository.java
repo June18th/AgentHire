@@ -1,8 +1,11 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
+import com.git.hui.jobclaw.core.agent.soul.UserSoulExtractor;
+import com.git.hui.jobclaw.core.agent.soul.UserSoulManager;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
+import io.micrometer.common.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.AppendableChatMemoryRepository;
@@ -50,14 +53,22 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
     private final Path conversationsDir;
     private final SmartWindowChatMemory smartWindow;
     private final SessionSummarizer sessionSummarizer;
+    private final UserSoulManager userSoulManager;
+    private final UserSoulExtractor userSoulExtractor;
+    private final ContextWindowProperties contextWindowProperties;
 
     public FileSystemChatMemoryRepository(
             @Value("${agent.workspace:Unknown}") Resource workspaceDir,
             SmartWindowChatMemory smartWindow,
-            SessionSummarizer sessionSummarizer) throws IOException {
+            SessionSummarizer sessionSummarizer,
+            UserSoulManager userSoulManager,
+            UserSoulExtractor userSoulExtractor, ContextWindowProperties contextWindowProperties) throws IOException {
         this.conversationsDir = workspaceDir.getFile().toPath().resolve("conversations");
         this.smartWindow = smartWindow;
         this.sessionSummarizer = sessionSummarizer;
+        this.userSoulManager = userSoulManager;
+        this.userSoulExtractor = userSoulExtractor;
+        this.contextWindowProperties = contextWindowProperties;
     }
 
     @Override
@@ -188,6 +199,96 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
         } catch (IOException e) {
             throw new RuntimeException("Failed to save conversation: " + conversationId, e);
         }
+
+        // Async: Update user soul profile
+        updateUserSoulAsync(conversationId, messages);
+    }
+
+    /**
+     * Asynchronously update user soul profile based on conversation history.
+     *
+     * <p>This method handles incremental soul updates for existing users.
+     * Unlike active collection (for new users), this performs passive extraction
+     * from conversation history to keep the soul profile up-to-date.
+     *
+     * <p>Update strategy:
+     * <ul>
+     *   <li>Only triggers when conversation reaches certain size (avoid frequent AI calls)</li>
+     *   <li>Uses existing soul as baseline for incremental update</li>
+     *   <li>Runs asynchronously to avoid blocking conversation</li>
+     *   <li>Graceful fallback on failure (keeps existing soul)</li>
+     * </ul>
+     *
+     * AIDEV-NOTE: Incremental soul update for existing users - complementary to active collection
+     *
+     * @param conversationId conversation ID (contains jobClawUserId)
+     * @param messages conversation messages
+     */
+    private void updateUserSoulAsync(String conversationId, List<Message> messages) {
+        try {
+            UserConversation userConv = UserConversation.parse(conversationId);
+            String jobClawUserId = userConv.jobClawUserId();
+
+            if ("Unknown".equals(jobClawUserId)) {
+                log.debug("Skipping soul update for unknown user");
+                return;
+            }
+
+            // Skip if user has no soul yet (should use active collection instead)
+            if (!userSoulManager.hasSoul(jobClawUserId)) {
+                log.debug("Skipping incremental update - user {} has no soul (use active collection)", jobClawUserId);
+                return;
+            }
+
+            // Check if update should be triggered (avoid frequent AI calls)
+            if (!shouldTriggerSoulUpdate(messages)) {
+                log.debug("Skipping soul update for user {} - not enough new messages", jobClawUserId);
+                return;
+            }
+
+            log.info("Triggering incremental soul update for user: {} ({} messages)", jobClawUserId, messages.size());
+
+            // Load existing soul as baseline
+            String currentSoul = userSoulManager.loadSoul(jobClawUserId);
+
+            // Extract and update soul asynchronously
+            userSoulExtractor.extractAsync(jobClawUserId, currentSoul, messages)
+                    .thenAcceptAsync(updatedSoul -> {
+                        if (StringUtils.isNotBlank(updatedSoul)) {
+                            userSoulManager.saveSoul(jobClawUserId, updatedSoul);
+                            log.info("User soul updated incrementally for: {}", jobClawUserId);
+                        } else {
+                            log.warn("Soul extraction returned empty for user: {}, keeping existing", jobClawUserId);
+                        }
+                    })
+                    .exceptionally(ex -> {
+                        log.error("Failed to update user soul incrementally for: {}, keeping existing soul",
+                                jobClawUserId, ex);
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            log.error("Failed to trigger incremental soul update for conversation: {}", conversationId, e);
+            // Don't throw - soul update is non-critical
+        }
+    }
+
+    /**
+     * Check if soul update should be triggered based on conversation size.
+     *
+     * <p>Strategy to avoid frequent AI calls:
+     * <ul>
+     *   <li>Only update when message count reaches threshold</li>
+     *   <li>Use modulo to spread updates (e.g., every 10 messages)</li>
+     *   <li>Consider time-based throttling in future</li>
+     * </ul>
+     *
+     * @param messages current messages
+     * @return true if update should be triggered
+     */
+    private boolean shouldTriggerSoulUpdate(List<Message> messages) {
+        // Trigger when message count is a multiple of interval
+        return messages.size() >= 10 && messages.size() % Math.max(contextWindowProperties.getUpdateSoulFrequency(), 1) == 0;
     }
 
     @Override

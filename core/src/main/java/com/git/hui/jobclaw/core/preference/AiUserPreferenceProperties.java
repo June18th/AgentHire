@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.preference;
 
+import com.git.hui.jobclaw.core.agent.soul.collector.SoulCollector;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -22,6 +23,15 @@ public class AiUserPreferenceProperties {
      */
     private List<UserPreferenceEntry> preference;
 
+    public UserPreferenceEntry getUserPreference(String userId) {
+        for (UserPreferenceEntry entry : preference) {
+            if (entry.getUserId().equals(userId)) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
     /**
      * 用户模型配置条目
      */
@@ -31,6 +41,8 @@ public class AiUserPreferenceProperties {
          * 用户ID
          */
         private String userId;
+
+        private SoulCollector.CollectorType collector;
 
         /**
          * 用户配置的优先接受后台推送消息的通道
