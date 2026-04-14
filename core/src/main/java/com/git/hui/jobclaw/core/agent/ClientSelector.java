@@ -19,6 +19,7 @@ import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.model.Model;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -81,6 +82,17 @@ public class ClientSelector {
         return client;
     }
 
+    public Model getUserPreferredModel(String userId, boolean multiModal) {
+        ModelConfig.ModelInfo prefer = modelProviders.getUserPreferredModel(userId,
+                multiModal ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT);
+        if (prefer == null) {
+            // todo 用户必须有一个默认的模型配置，否则应该自动设置一个，这里先直接抛异常
+            throw new RuntimeException("用户没有配置模型，请先配置模型!");
+        }
+        var model = modelProviders.getModel(prefer.getProvider(), prefer.getModelName(), prefer.getApiKey());
+        return model;
+    }
+
 
     private ChatClient initClient(String userId, boolean multiModal) {
         try {
@@ -92,16 +104,7 @@ public class ClientSelector {
             String agentPrompt = agentMd.getContentAsString(StandardCharsets.UTF_8) + System.lineSeparator()
                     + workspace.createRelative("INFO.md").getContentAsString(StandardCharsets.UTF_8) + System.lineSeparator();
 
-
-            // 查询用户的偏好配置
-            ModelConfig.ModelInfo prefer = modelProviders.getUserPreferredModel(userId,
-                    multiModal ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT);
-            if (prefer == null) {
-                // todo 用户必须有一个默认的模型配置，否则应该自动设置一个，这里先直接抛异常
-                throw new RuntimeException("用户没有配置模型，请先配置模型");
-            }
-            var model = modelProviders.getModel(prefer.getProvider(), prefer.getModelName(), prefer.getApiKey());
-
+            var model = getUserPreferredModel(userId, multiModal);
             var chatClientBuilder = ChatClient.builder((ChatModel) model);
 
             chatClientBuilder.defaultAdvisors(new SimpleLoggerAdvisor())

@@ -85,6 +85,14 @@ pay:
 # agent 的相关配置，通过页面的设置进行引导配置
 agent:
   workspace: ${AGENT_WORKSPACE:file:./workspace/}
+  context:
+    window:
+      enabled: ${AGENT_CONTEXT_WINDOW_ENABLED:true}   # 上下文压缩开关
+      max-messages: ${AGENT_CONTEXT_MAX_MESSAGES:20} # 最大消息数
+      keep-recent: ${AGENT_CONTEXT_KEEP_RECENT:10} # 保留最近消息数
+      max-tokens: ${AGENT_CONTEXT_MAX_TOKENS:8000} # Token上限
+      filter-short-messages: ${AGENT_CONTEXT_FILTER_SHORT:true} # 过滤短消息
+      short-message-threshold: ${AGENT_CONTEXT_SHORT_THRESHOLD:5} # 短消息阈值
   channels:
     wechat:
       clawbot: # 微信的ClawBot Channel配置

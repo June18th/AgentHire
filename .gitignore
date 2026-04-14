@@ -48,6 +48,7 @@ datas/ai-oc.mv.db
 logs/
 
 docs/back
+docs/mem
 
 workspace/datas/jobclaw.trace.db
 workspace/datas/jobclaw.mv.db

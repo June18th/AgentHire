@@ -3,6 +3,8 @@ package com.git.hui.jobclaw.core.agent.memory;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.AppendableChatMemoryRepository;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,10 +45,19 @@ import java.util.stream.Stream;
 @Component
 public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepository {
 
-    private final Path conversationsDir;
+    private static final Logger log = LoggerFactory.getLogger(FileSystemChatMemoryRepository.class);
 
-    public FileSystemChatMemoryRepository(@Value("${agent.workspace:Unknown}") Resource workspaceDir) throws IOException {
+    private final Path conversationsDir;
+    private final SmartWindowChatMemory smartWindow;
+    private final SessionSummarizer sessionSummarizer;
+
+    public FileSystemChatMemoryRepository(
+            @Value("${agent.workspace:Unknown}") Resource workspaceDir,
+            SmartWindowChatMemory smartWindow,
+            SessionSummarizer sessionSummarizer) throws IOException {
         this.conversationsDir = workspaceDir.getFile().toPath().resolve("conversations");
+        this.smartWindow = smartWindow;
+        this.sessionSummarizer = sessionSummarizer;
     }
 
     @Override
@@ -76,6 +87,43 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
         if (!Files.exists(file)) return List.of();
         try {
             YamlDocument doc = YamlParser.parse(Files.readString(file));
+            List<Message> allMessages = ChatYamlSerializer.deserialize(doc.body());
+
+            // Apply smart window management
+            List<Message> managedMessages = smartWindow.manage(allMessages);
+
+            // Inject summary if available
+            String summary = doc.frontmatter().get("summary");
+            if (summary != null && !summary.isBlank()) {
+                Message summaryMessage = sessionSummarizer.createSummaryMessage(summary);
+                if (summaryMessage != null) {
+                    // Insert summary at the beginning
+                    List<Message> withSummary = new ArrayList<>();
+                    withSummary.add(summaryMessage);
+                    withSummary.addAll(managedMessages);
+                    log.debug("Injected summary for conversation: {}", conversationId);
+                    return withSummary;
+                }
+            }
+
+            return managedMessages;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read conversation: " + conversationId, e);
+        }
+    }
+
+    /**
+     * Load all messages from file without applying window management.
+     * Used internally for appending messages to preserve full history.
+     *
+     * @param conversationId conversation ID
+     * @return all messages without truncation
+     */
+    private List<Message> loadAllMessages(String conversationId) {
+        Path file = resolveFile(conversationId);
+        if (!Files.exists(file)) return List.of();
+        try {
+            YamlDocument doc = YamlParser.parse(Files.readString(file));
             return ChatYamlSerializer.deserialize(doc.body());
         } catch (IOException e) {
             throw new RuntimeException("Failed to read conversation: " + conversationId, e);
@@ -84,7 +132,8 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
 
     @Override
     public void appendAll(String conversationId, List<Message> messages) {
-        List<Message> existing = findByConversationId(conversationId);
+        // Load ALL messages (without window truncation) to preserve full history
+        List<Message> existing = loadAllMessages(conversationId);
         List<Message> combined = Stream.concat(existing.stream(), messages.stream()).toList();
         saveAll(conversationId, combined);
     }
@@ -96,17 +145,41 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
 
         // Preserve createdAt from any existing file; set it fresh on first write
         String createdAt = Instant.now().toString();
+        String existingSummary = "";
         if (Files.exists(file)) {
             try {
                 Map<String, String> existing = YamlParser.parse(Files.readString(file)).frontmatter();
                 if (existing.containsKey("createdAt")) createdAt = existing.get("createdAt");
+                // Preserve existing summary
+                if (existing.containsKey("summary")) {
+                    existingSummary = existing.get("summary");
+                }
             } catch (IOException ignored) {
+            }
+        }
+
+        // Generate new summary if needed
+        String summary = existingSummary;
+        if (sessionSummarizer.shouldSummarize(messages)) {
+            log.info("Generating summary for conversation: {} ({} messages)", conversationId, messages.size());
+            try {
+                UserConversation conversation = UserConversation.parse(conversationId);
+                summary = sessionSummarizer.summarize(conversation.jobClawUserId, messages);
+                if (summary != null && !summary.isBlank()) {
+                    log.info("Summary saved: {}", summary.substring(0, Math.min(50, summary.length())));
+                }
+            } catch (Exception e) {
+                log.error("Failed to generate summary, keeping existing", e);
+                // Keep existing summary on failure
             }
         }
 
         Map<String, String> frontmatter = new LinkedHashMap<>();
         frontmatter.put("createdAt", createdAt);
         frontmatter.put("updatedAt", Instant.now().toString());
+        if (summary != null && !summary.isBlank()) {
+            frontmatter.put("summary", summary);
+        }
 
         String body = ChatYamlSerializer.serialize(messages);
         String content = YamlParser.serialize(new YamlDocument(frontmatter, body));
@@ -132,18 +205,10 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
      */
     private Path resolveFile(String conversationId) {
         // 按照约定，原始的conversationId 是按照 jobClawUerId-ConversationId 的格式进行组装的，所以我们首先进行解析，将会话的JobClawUserId依然保存，用于用户会话的隔离
-        int index = conversationId.indexOf("-");
-        String jobClawUserId;
-        if (index > 0) {
-            jobClawUserId = conversationId.substring(0, index);
-            conversationId = conversationId.substring(index + 1);
-        } else {
-            jobClawUserId = "Unknown";
-        }
-
+        UserConversation userConversation = UserConversation.parse(conversationId);
         // 为了避免会话的字符串格式异常，我们统一进行md5操作
-        String md5 = MD5Utils.md5(conversationId);
-        return conversationsDir.resolve(jobClawUserId).resolve("chat-" + md5 + ".yaml");
+        String md5 = MD5Utils.md5(userConversation.conversationId);
+        return conversationsDir.resolve(userConversation.jobClawUserId).resolve("chat-" + md5 + ".yaml");
     }
 
     private static Path ensureDirectory(Path dir) {
@@ -152,6 +217,19 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
             return dir;
         } catch (IOException e) {
             throw new RuntimeException("Failed to create directory: " + dir, e);
+        }
+    }
+
+
+    record UserConversation(String jobClawUserId, String conversationId) {
+        public static UserConversation parse(String conversationId) {
+            int index = conversationId.indexOf("-");
+            if (index > 0) {
+                String jobClawUserId = conversationId.substring(0, index);
+                String conversation = conversationId.substring(index + 1);
+                return new UserConversation(jobClawUserId, conversation);
+            }
+            return new UserConversation("Unknown", conversationId);
         }
     }
 }

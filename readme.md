@@ -120,7 +120,7 @@ v2 版本，新增模块：
       - [ ] 同一个用户多通道的特征识别
   - [ ] 记忆：对话上下文管理 --> 需要实现一套记忆方案 --> @core/agent/memory
     - [x] 基于Yaml文件的会话持久化，默认会话存储在 @workspace/conversations/{jobClawUserId}/chat-{sessionId}.yaml
-    - [ ] 会话压缩
+    - [x] 会话压缩
   - [ ] MCP
   - [x] tools
     - [x] TaskTools : 实现任务管理（延时任务、周期任务等）
@@ -135,7 +135,9 @@ v2 版本，新增模块：
 迭代计划：
 
 - [x] 2026/04/14
-  - 用户会话、任务按照JobClawUserId进行隔离，减少相互干扰
+  - [x] 用户会话、任务按照JobClawUserId进行隔离，减少相互干扰
+  - [x] 会话滑动窗口
+  - [x] 会话摘要生成、更新策略
 
 - [x] 2026/04/13
   - [x] 接入钉钉通道, 完成基于WebSocket的消息接受、基于Flux的异步响应流程
