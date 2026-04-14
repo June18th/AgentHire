@@ -95,7 +95,11 @@ v2 版本，新增模块：
       - 用户解绑消息
   - [ ] Agent 意图识别 (即中转层，需要识别用户意图，自动路由到合适的业务Agent)
 - [x] 心跳机制与任务管理
-  - 实现task能力，
+  - 实现task能力 --> @core/tasks
+  - task分为一次性任务、周期性任务（其中周期性任务会按照设定的Cron，生成对应的一次性任务）
+  - 任务存储：
+    - @workspace/tasks/{jobClawUserId}/recurring/周期性任务.md
+    - @workspace/tasks/{jobClawUserId}/年-月-日/时分秒-一次性任务.md
 - [ ] 用户偏好与自我学习
   - [ ] 记录聊天用户的偏好，进行自我学习 ---> 需要设计一套学习方案
   - [ ] 记录用户的岗位投递状态、面试细节、结果等
@@ -115,8 +119,12 @@ v2 版本，新增模块：
       - [x] 实现了一个基于yaml文件的存储方案 --> @core/agent/memory 
       - [ ] 同一个用户多通道的特征识别
   - [ ] 记忆：对话上下文管理 --> 需要实现一套记忆方案 --> @core/agent/memory
+    - [x] 基于Yaml文件的会话持久化，默认会话存储在 @workspace/conversations/{jobClawUserId}/chat-{sessionId}.yaml
+    - [ ] 会话压缩
   - [ ] MCP
-  - [ ] tools
+  - [x] tools
+    - [x] TaskTools : 实现任务管理（延时任务、周期任务等）
+    - [x] ShellTools: 实现shell能力，由 spring-ai-agent-util 提供
   - [ ] SKILLS
   - [ ] 自定义插件
 - [x] 动态配置管理，支持热更新 -> @core/configuration
@@ -125,6 +133,9 @@ v2 版本，新增模块：
 - [ ] 前台页面重构
 
 迭代计划：
+
+- [x] 2026/04/14
+  - 用户会话、任务按照JobClawUserId进行隔离，减少相互干扰
 
 - [x] 2026/04/13
   - [x] 接入钉钉通道, 完成基于WebSocket的消息接受、基于Flux的异步响应流程
