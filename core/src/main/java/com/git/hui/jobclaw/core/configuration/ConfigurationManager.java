@@ -10,6 +10,7 @@ import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.scheduling.annotation.Async;
@@ -28,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  */
 @Slf4j
+@Order(1)
 @Component
 public class ConfigurationManager implements CommandLineRunner {
 
@@ -69,6 +71,14 @@ public class ConfigurationManager implements CommandLineRunner {
         });
 
         eventPublisher.publishEvent(new GlobalEnvConfigChangedEvent(this, keyValues));
+    }
+
+    public String getProperty(String key) {
+        try {
+            return environment.getProperty(key);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
 
@@ -142,9 +152,7 @@ public class ConfigurationManager implements CommandLineRunner {
 
             // 打印加载的配置(脱敏)
             if (log.isInfoEnabled()) {
-                properties.forEach((key, value) ->
-                        log.info("[GlobalEnvConfig] Loaded: {} = {}", key, value)
-                );
+                properties.forEach((key, value) -> log.info("[GlobalEnvConfig] Loaded: {} = {}", key, value));
             }
             // 从数据库中加载完配置，触发一次刷新
             this.autoRefreshConfig(true);

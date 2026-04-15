@@ -61,7 +61,7 @@ public class DefaultChannelEventPublisher implements ChannelEventPublisher {
 
     @Override
     public boolean publishProactiveMessage(String responseId, String jobClawUserId, String channelName, String response) {
-        var pro = channelRegistry.getBackendReceivedChannelAdapter(jobClawUserId, channelName);
+        var pro = channelRegistry.getChannelRspBuilderAdapter(jobClawUserId, channelName);
         if (pro != null) {
             var responseMsg = pro.apply(response);
             publishProactiveMessage(responseId, channelName, responseMsg, 0);

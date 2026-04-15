@@ -33,7 +33,8 @@ public class TaskHandler {
         Task task = taskRepository.getTaskById(taskId);
 
         if (!Task.Status.todo.equals(task.getStatus())) {
-            throw new IllegalStateException("Cannot handle task '" + task.getName() + "' with status " + task.getStatus() + ". Only tasks that have status todo can be run");
+            throw new IllegalStateException(
+                    "Cannot handle task '" + task.getName() + "' with status " + task.getStatus() + ". Only tasks that have status todo can be run");
         }
 
         Task inProgress = taskRepository.save(task.withStatus(Task.Status.in_progress));
@@ -65,9 +66,13 @@ public class TaskHandler {
                             channel,
                             result.feedback());
                     if (tag) {
+                        LOGGER.info("Notified user about task '{}'", task.getName());
                         return;
                     }
                 }
+                LOGGER.warn("Failed to notify user about task '{}': no suitable channel found", task.getName());
+            } else {
+                LOGGER.warn("Failed to notify user about task '{}': no preference found for user '{}'", task.getName(), userId);
             }
         } catch (Exception e) {
             LOGGER.warn("Failed to notify user about task '{}': {}", task.getName(), e.getMessage());

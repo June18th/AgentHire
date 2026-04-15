@@ -1,7 +1,11 @@
 package com.git.hui.jobclaw.core.channel;
 
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 import reactor.core.publisher.Flux;
 
 import java.util.Map;
@@ -12,7 +16,9 @@ import java.util.Map;
  * @date 2026/4/8
  */
 @Data
-@Builder
+@SuperBuilder(toBuilder = true)
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChannelResponseMessage {
     private String jobClawUserId;
     private String toUserId;

@@ -26,13 +26,16 @@ import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
+import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.util.CollectionUtils;
+import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -55,21 +58,35 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
 
     private final DingDingBotProperties dingDingBotProperties;
 
+    /**
+     * key = robotId, value = 构建AICard用于流式返回的卡片管理
+     */
     private final Map<String, CardManager> cardManagers = new ConcurrentHashMap<>();
 
-    public DingDingBotChannel(Resource agentWorkspace, ChannelRegistry channelRegistry, ChannelEventPublisher channelEventPublisher, DingDingBotProperties dingDingBotProperties) {
-        super(agentWorkspace, channelRegistry, channelEventPublisher);
+    public DingDingBotChannel(Resource agentWorkspace,
+                              ChannelRegistry channelRegistry,
+                              ChannelEventPublisher channelEventPublisher,
+                              DingDingBotProperties dingDingBotProperties,
+                              ConfigurationManager configurationManager) {
+        super(agentWorkspace, channelRegistry, channelEventPublisher, configurationManager);
         this.dingDingBotProperties = dingDingBotProperties;
-        if (dingDingBotProperties.isEnabled() && !CollectionUtils.isEmpty(dingDingBotProperties.getAccounts())) {
-            this.dingDingBotProperties.getAccounts().forEach((k, v) -> {
-                if (!CollectionUtils.isEmpty(v)) {
-                    v.forEach(tmp -> registerMsgListenerCallback(k, tmp));
-                }
-            });
-            channelRegistry.registerChannel(this);
-        }
     }
 
+    @Override
+    public void activeChannelAccounts() {
+        log.info("[DingDing] Start to active all channel accounts....");
+        if (dingDingBotProperties.isEnabled() && !CollectionUtils.isEmpty(dingDingBotProperties.getAccounts())) {
+            // 虚拟线程的方式进行初始化，加快应用启动速度
+            Thread.ofVirtual().start(() -> {
+                this.dingDingBotProperties.getAccounts().forEach((k, v) -> {
+                    if (!CollectionUtils.isEmpty(v)) {
+                        v.forEach(tmp -> registerMsgListenerCallback(k, tmp));
+                    }
+                });
+                channelRegistry.registerChannel(this);
+            });
+        }
+    }
 
     @Override
     public String name() {
@@ -77,6 +94,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
     }
 
     @Data
+    @NoArgsConstructor
     public static class ChatbotMessageEx extends ChatbotMessage {
         private String robotId;
         private String aiCardId;
@@ -86,13 +104,13 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
     /**
      * 注册钉钉消息监听器，用于接收钉钉机器人接收到的消息
      *
-     * @param globalUserId 全局用户ID
+     * @param jobClawUserId 全局用户ID
      * @param config       渠道配置
      */
-    private void registerMsgListenerCallback(String globalUserId, ChannelConfig config) {
+    private void registerMsgListenerCallback(String jobClawUserId, ChannelConfig config) {
         try {
             if (StringUtils.isBlank(config.getJobClawUserId())) {
-                config.setJobClawUserId(globalUserId);
+                config.setJobClawUserId(jobClawUserId);
             }
 
             var dingTalkClient = OpenDingTalkStreamClientBuilder.custom()
@@ -100,7 +118,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                     .registerCallbackListener(DingTalkStreamTopics.BOT_MESSAGE_TOPIC,
                             (OpenDingTalkCallbackListener<ChatbotMessage, Void>) chatbotMessage -> {
                                 // 接收到消息之后，发送到消息总线 bus，然后通过sink方式接收大模型的返回，最后将结果响应给用户
-                                log.info("Received message from DingDing msg={}", JsonUtil.toStr(chatbotMessage));
+                                log.info("[DingDing] Received message from DingDing msg={}", JsonUtil.toStr(chatbotMessage));
                                 String aiCardId = initStreamAiCardId(config.getAppId(), chatbotMessage);
                                 ChatbotMessageEx msgEx = new ChatbotMessageEx();
                                 BeanUtils.copyProperties(chatbotMessage, msgEx);
@@ -111,12 +129,13 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                                 return null;
                             })
                     .build();
-            this.cardManagers.put(config.getAppId(),
-                    new CardManager((DingDingBotProperties.DingDingBotAccount) config));
+            this.cardManagers.put(config.getAppId(), new CardManager((DingDingBotProperties.DingDingBotAccount) config));
             dingTalkClient.start();
-            log.info("DingDing bot channel started for user: {}", globalUserId);
+            // 初始化时，基于配置维护用于主动给channel发送消息的心跳信息
+            this.channelRegistry.refreshChannelHeartBeatInfoIgnoreNull(jobClawUserId, name(), buildHeartBeatCallback(jobClawUserId));
+            log.info("[DingDing] DingDing bot channel started for user: {} - {}", jobClawUserId, config.getAppId());
         } catch (Exception e) {
-            log.error("Failed to start DingDing bot channel for user: {}", globalUserId, e);
+            log.error("[DingDing] Failed to start DingDing bot channel for user: {}", jobClawUserId, e);
             throw new RuntimeException("Failed to initialize DingDing channel", e);
         }
     }
@@ -144,24 +163,58 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
 
 
     @Override
-    public Function<Object, ChannelResponseMessage> updatePersonalActiveChannel(MsgWrapper<ChatbotMessageEx> wrapper) {
-        // fixme 需要注意，一个用户有多个机器人的场景，始终会以最后一个交互的机器人作为回复方; 这里应该优化为，每个机器人都维护一个最新的交互状态，方便后台主动推送消息
+    public boolean saveHeartBeatConfig(MsgWrapper<ChatbotMessageEx> wrapper, boolean force) {
         var msg = wrapper.getMsg();
+        String type = "1".equals(msg.getConversationType()) ? "im" : "group";
+        var prefix = buildHeartBeatKey(wrapper.getJobClawUserId(), msg.getRobotId(), type);
+        // 如果存在配置，则不进行更新
+        if (!force && configurationManager.getProperty(prefix) != null) {
+            return false;
+        }
 
-        // type == 1 表示个人对话
-        // type == 2表示群聊, 可以通过 msg.getConversationTitle() 获取群聊名称
-        String type = msg.getConversationType();
-        if ("1".equals(type)) {
-            // 私人与机器人的聊天
-            return input -> ChannelResponseMessage.builder()
-                    .jobClawUserId(wrapper.getJobClawUserId())
-                    .toUserId(msg.getConversationId())
-                    .type(ChannelResponseMessage.ResponseMessageType.TEXT)
-                    .content(String.valueOf(input))
-                    .passThrough(Map.of("input", msg))
-                    .build();
+        // 保存配置
+        var response = ChannelResponseMessage.builder()
+                .jobClawUserId(wrapper.getJobClawUserId())
+                .toUserId(msg.getSenderStaffId())
+                .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                .passThrough(Map.of("input", msg))
+                .build();
+        String value = JsonUtil.toStr(response);
+        configurationManager.updateProperties(Map.of(prefix, value));
+        return true;
+    }
+
+    public Function<Object, ChannelResponseMessage> buildHeartBeatCallback(String jobClawUserId) {
+        // fixme 群聊的主动推送消息的场景需要考虑如何做支持
+        for (String robotId : cardManagers.keySet()) {
+            var key = buildHeartBeatKey(jobClawUserId, robotId, "im");
+            String value = configurationManager.getProperty(key);
+            if (StringUtils.isNotBlank(value)) {
+                var response = JsonUtil.toObj(value, ChannelResponseMessage.class);
+                var input = response.getPassThrough().get("input");
+                if (!(input instanceof ChatbotMessageEx)) {
+                    var msg = JsonUtil.toObj(JsonUtil.toStr(input), ChatbotMessageEx.class);
+                    msg.setAiCardId(null);
+                    response.setPassThrough(Map.of("input", msg));
+                } else {
+                    ((ChatbotMessageEx) input).setAiCardId(null);
+                }
+
+                return object -> {
+                    if (object instanceof Flux<?>) {
+                        response.setStreamContents((Flux<String>) object);
+                    } else {
+                        response.setContent(String.valueOf(object));
+                    }
+                    return response;
+                };
+            }
         }
         return null;
+    }
+
+    private String buildHeartBeatKey(String jobClawUserId, String robotId, String type) {
+        return String.format(HEART_BEAT_CONFIG_PREFIX + ".%s.%s", name(), jobClawUserId, robotId, type);
     }
 
     /**
@@ -174,7 +227,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
     @Override
     public boolean responseToUser(ChannelResponseMessage msg) {
         if (msg == null || msg.getToUserId() == null) {
-            log.warn("Invalid message or missing toUserId");
+            log.warn("[DingDing] Invalid message or missing toUserId");
             return false;
         }
 
@@ -182,29 +235,34 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
         // 流式返回的场景
         CardManager cardManager = cardManagers.get(originalMsg.getRobotId());
         var stream = msg.getStreamContents();
-        final String cardId = originalMsg.getAiCardId();
+        String cardId = originalMsg.getAiCardId();
         if (stream != null) {
             if (StringUtils.isBlank(cardId)) {
+                // 通常是后台主动给用户发送消息的场景
+                cardId = initStreamAiCardId(originalMsg.getRobotId(), originalMsg);
+            }
+
+            if (StringUtils.isBlank(cardId)) {
                 String content = stream.blockLast();
-                directReply(originalMsg, content);
-                return true;
+                return directReply(originalMsg, content);
             } else {
                 StringBuilder content = new StringBuilder();
+                String finalCardId = cardId;
                 stream.doOnNext(response -> {
-                            log.debug("Received response chunk: {}", response);
+                            log.debug("[DingDing] Received response chunk: {}", response);
                             content.append(response);
-                            cardManager.streamUpdate(cardId, content.toString(), false);
+                            cardManager.streamUpdate(finalCardId, content.toString(), false);
                         })
                         .doOnError(error -> {
-                            log.error("Error in stream response for cardId: {}", cardId, error);
+                            log.error("[DingDing] Error in stream response for cardId: {}", finalCardId, error);
                             // 发生错误时，标记卡片为结束状态
-                            cardManager.streamUpdate(cardId, "抱歉，生成回复时遇到了错误。", true);
+                            cardManager.streamUpdate(finalCardId, "抱歉，生成回复时遇到了错误。", true);
                         })
                         .doOnComplete(() -> {
-                            log.info("Stream response completed for cardId: {}, total length: {}", cardId,
+                            log.info("[DingDing] Stream response completed for cardId: {}, total length: {}", finalCardId,
                                     content.length());
                             // 流式响应完成，标记卡片为结束状态
-                            cardManager.streamUpdate(cardId, content.toString(), true);
+                            cardManager.streamUpdate(finalCardId, content.toString(), true);
                         }).subscribe();
             }
         } else {
@@ -215,19 +273,34 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
             }
 
             if (StringUtils.isBlank(cardId)) {
-                directReply(originalMsg, content);
-            } else {
-                cardManager.streamUpdate(cardId, content, true);
+                // 如果会话链接有效，那就通过这个回调发送消息即可
+                if (directReply(originalMsg, content)) {
+                    return true;
+                }
+
+                // 后台主动给用户推送消息的场景，主动创建一个AiCard，用于推送消息
+                cardId = initStreamAiCardId(originalMsg.getRobotId(), originalMsg);
+                if (cardId == null) {
+                    return false;
+                }
             }
+            cardManager.streamUpdate(cardId, content, true);
         }
         return true;
     }
 
-    private void directReply(ChatbotMessage originalMsg, String content) {
+    private boolean directReply(ChatbotMessage originalMsg, String content) {
+        if (originalMsg.getSessionWebhookExpiredTime() < System.currentTimeMillis()) {
+            // 会话已经过期，无法通过这种方式正确返回
+            return false;
+        }
+
         try {
             BotReplier.fromWebhook(originalMsg.getSessionWebhook()).replyText(content);
+            return true;
         } catch (IOException e) {
-            log.error("Failed to reply to DingDing: {}", content, e);
+            log.error("[DingDing] Failed to reply to DingDing: {}", content, e);
+            return false;
         }
     }
 
@@ -259,7 +332,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
             registerMsgListenerCallback(accountConfig.getJobClawUserId(), accountConfig);
             channelRegistry.registerChannel(this);
         } else {
-            log.warn("Unsupported config type: {}", channelConfig.getClass().getName());
+            log.warn("[DingDing] Unsupported config type: {}", channelConfig.getClass().getName());
         }
     }
 
@@ -290,7 +363,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                 config.regionId = "central";
                 this.client = new com.aliyun.dingtalkcard_1_0.Client(config);
             } catch (Exception e) {
-                log.error("createClient get exception, msg:{}", e.getMessage());
+                log.error("[DingDing] createClient get exception, msg:{}", e.getMessage());
             }
         }
 
@@ -302,12 +375,12 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                 request.setAppsecret(this.dingDingBotAccount.getAppSecret());
                 request.setHttpMethod("GET");
                 OapiGettokenResponse response = client.execute(request);
-                log.info("getCorpToken, resp:{}", response.getBody());
+                log.info("[DingDing] getCorpToken, resp:{}", response.getBody());
                 JSONObject obj = JSON.parseObject(response.getBody());
                 this.accessToken = obj.getString("access_token");
                 this.expireTime = System.currentTimeMillis() + obj.getLongValue("expires_in") * 1000 - 60_000;
             } catch (Exception e) {
-                log.error("getCorpToken get exception, msg:{}", e.getMessage());
+                log.error("[DingDing] getCorpToken get exception, msg:{}", e.getMessage());
             }
         }
 
@@ -360,9 +433,11 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
 
                 CreateAndDeliverResponse resp = client.createAndDeliverWithOptions(request, headers,
                         new RuntimeOptions());
-                log.info("CardManager#initImCard get resp:{}", JSON.toJSONString(resp));
+                if (log.isDebugEnabled()) {
+                    log.debug("[DingDing] CardManager#initImCard get resp:{}", JSON.toJSONString(resp));
+                }
             } catch (Exception e) {
-                log.warn("CardManager#initImCard get exception, msg:{}", e.getMessage());
+                log.warn("[DingDing] CardManager#initImCard get exception, msg:{}", e.getMessage());
             }
         }
 
@@ -397,10 +472,10 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                         .setUserIdType(1);
                 var rsp = client.createAndDeliverWithOptions(createAndDeliverRequest, headers, new RuntimeOptions());
                 if (log.isDebugEnabled()) {
-                    log.debug("CardManager#initGroupCard get resp:{}", JSON.toJSONString(rsp));
+                    log.debug("[DingDing] CardManager#initGroupCard get resp:{}", JSON.toJSONString(rsp));
                 }
             } catch (Exception e) {
-                log.warn("CardManager#initGroupCard get exception, msg:{}", e.getMessage());
+                log.warn("[DingDing] CardManager#initGroupCard get exception, msg:{}", e.getMessage());
             }
         }
 
@@ -418,11 +493,11 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                                 .setIsFinalize(isFinalize);
                 var res = client.streamingUpdateWithOptions(request, headers, new RuntimeOptions());
                 if (log.isDebugEnabled()) {
-                    log.debug("CardManager#streamUpdate get res:{}", JSON.toJSONString(res));
+                    log.debug("[DingDing] CardManager#streamUpdate get res:{}", JSON.toJSONString(res));
                 }
 
             } catch (Exception e) {
-                log.error("CardManager#streamUpdate get exception, msg:{}", e.getMessage());
+                log.error("[DingDing] CardManager#streamUpdate get exception, msg:{}", e.getMessage());
             }
         }
     }

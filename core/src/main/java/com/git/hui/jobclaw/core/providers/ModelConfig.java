@@ -11,7 +11,7 @@ import java.util.List;
  * @date 2026/4/9
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 public class ModelConfig {
     /**
      * 模型的接入API风格，如厂家自定义的，或者OpenAI的接口风格
@@ -57,7 +57,7 @@ public class ModelConfig {
     private List<ModelInfo> models;
 
     @Data
-    @Builder
+    @Builder(toBuilder = true)
     public static class ModelInfo {
         private String provider;
         private String apiKey;

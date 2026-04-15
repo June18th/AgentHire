@@ -1,11 +1,13 @@
 package com.git.hui.jobclaw.core.channel;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+@Slf4j
 public class ChannelRegistry {
 
     private final Map<String, Channel> channels;
@@ -35,13 +37,20 @@ public class ChannelRegistry {
         return channels.get(channelName);
     }
 
-    public void refreshBackendReceivedChannel(String jobClawUserId, String channelName, Function<Object, ChannelResponseMessage> adapter) {
+    public void refreshChannelHeartBeatInfo(String jobClawUserId, String channelName, Function<Object, ChannelResponseMessage> adapter) {
         String key = jobClawUserId + ":" + channelName;
         channelResponseAdapters.put(key, adapter);
+        log.info("[ChannelRegistry] refresh channel heartbeat info, jobClawUserId={}, channelName={}", jobClawUserId, channelName);
     }
 
+    public void refreshChannelHeartBeatInfoIgnoreNull(String jobClawUserId, String channelName, Function<Object, ChannelResponseMessage> adapter) {
+        if (adapter == null) {
+            return;
+        }
+        this.refreshChannelHeartBeatInfo(jobClawUserId, channelName, adapter);
+    }
 
-    public Function<Object, ChannelResponseMessage> getBackendReceivedChannelAdapter(String jobClawUserId, String channelName) {
+    public Function<Object, ChannelResponseMessage> getChannelRspBuilderAdapter(String jobClawUserId, String channelName) {
         String key = jobClawUserId + ":" + channelName;
         return channelResponseAdapters.get(key);
     }

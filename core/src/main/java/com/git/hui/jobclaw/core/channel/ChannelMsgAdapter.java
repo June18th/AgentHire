@@ -15,7 +15,7 @@ public interface ChannelMsgAdapter<T> {
 
 
     @Data
-    @Builder
+    @Builder(toBuilder = true)
     class MsgWrapper<T> {
         String jobClawUserId;
         T msg;

@@ -9,6 +9,8 @@ import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
+import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,8 +46,9 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
     public WeChatClawBotChannel(Resource agentWorkspace,
                                 WxChatClawBotProperties wxBotProperties,
                                 ChannelRegistry channelRegistry,
-                                ChannelEventPublisher channelEventPublisher) {
-        super(agentWorkspace, channelRegistry, channelEventPublisher);
+                                ChannelEventPublisher channelEventPublisher,
+                                ConfigurationManager configurationManager) {
+        super(agentWorkspace, channelRegistry, channelEventPublisher, configurationManager);
         this.wxChatClawBotProperties = wxBotProperties;
 
         // Resolve media directory under workspace
@@ -58,6 +61,11 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
         }
 
         this.accountMap = new ConcurrentHashMap<>();
+    }
+
+    @Override
+    public void activeChannelAccounts() {
+        log.info("[WeChatClaw] Start to active all channel accounts....");
         this.loadAllAccounts();
     }
 
@@ -72,8 +80,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
     public void loadAllAccounts() {
         if (!CollectionUtils.isEmpty(this.wxChatClawBotProperties.getAccounts())) {
             this.channelRegistry.registerChannel(this);
-            this.wxChatClawBotProperties.getAccounts().forEach((k, v) -> {
-                WxClawBotAccount account = (WxClawBotAccount) v;
+            this.wxChatClawBotProperties.getAccounts().forEach((jobUserId, account) -> {
                 if (account.getState() != ChannelConfig.ChannelState.NORMAL || StringUtils.isBlank(account.getAppSecret())) {
                     log.warn("[WeChatClaw] 账号异常，已回略! appId={}, state={}",
                             account.getAppId(),
@@ -82,12 +89,12 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
                 }
 
                 if (StringUtils.isBlank(account.getJobClawUserId())) {
-                    account.setJobClawUserId(k);
+                    account.setJobClawUserId(jobUserId);
                 }
                 this.addAccount(account);
             });
         } else {
-            log.warn("WeChat ClawBot not configured (missing bot-token).");
+            log.warn("[WeChatClaw] WeChat ClawBot not configured (missing bot-token).");
         }
     }
 
@@ -110,10 +117,14 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
         var lastSdk = this.accountMap.put(wxUserId, sdk);
         if (lastSdk != null) {
             // 账号更新的场景，停止旧的账号；启动新的账号
-            log.info("account updated, stop last sdk, userId: {}, lastSdk: {}", wxUserId, lastSdk);
+            log.info("[WeChatClaw] account updated, stop last sdk, userId: {}, lastSdk: {}", wxUserId, lastSdk);
             lastSdk.shutdown();
-            log.info("account updated, start new sdk, userId: {}, sdk: {}", wxUserId, sdk);
+            log.info("[WeChatClaw] account updated, start new sdk, userId: {}, sdk: {}", wxUserId, sdk);
+        } else {
+            // 初始化时，基于配置，主动维护心跳信息
+            channelRegistry.refreshChannelHeartBeatInfoIgnoreNull(jobClawUserId, name(), this.buildHeartBeatCallback(jobClawUserId));
         }
+
         // 轮询监听新的账号消息
         sdk.startPolling(new WeixinSdk.MessageHandler() {
             @Override
@@ -121,7 +132,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
                 try {
                     processMessage(MsgWrapper.<WeixinTypes.WeixinMessage>builder().msg(message).jobClawUserId(jobClawUserId).build());
                 } catch (Exception e) {
-                    log.error("Error processing message", e);
+                    log.error("[WeChatClaw] Error processing message", e);
                 }
             }
 
@@ -130,8 +141,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
                 account.setState(ChannelConfig.ChannelState.ERROR);
             }
         });
-        log.info("Started WeChat ClawBot integration with bot token: {}...",
-                botToken.substring(0, Math.min(8, botToken.length())));
+        log.info("[WeChatClaw] Started WeChat ClawBot integration with bot token: {}...", botToken.substring(0, Math.min(8, botToken.length())));
     }
 
     /**
@@ -144,7 +154,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
         String msgContextToken = message.getContextToken();
 
         if (fromUser == null || fromUser.isBlank()) {
-            log.debug("Skipping message with empty from_user_id");
+            log.debug("[WeChatClaw] Skipping message with empty from_user_id");
             return null;
         }
 
@@ -203,21 +213,44 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
         return builder.build();
     }
 
+    private Map<String, Long> lastUpdateHeatBeatTime = new ConcurrentHashMap<>();
 
-    /**
-     * 刷新与微信ClawBot的通话状态，方便后台任务主动给用户推送消息
-     * - 关键点就是维护 msgContentToken 字段，这个用于响应消息回复
-     */
     @Override
-    public Function<Object, ChannelResponseMessage> updatePersonalActiveChannel(MsgWrapper<WeixinTypes.WeixinMessage> msg) {
-        var wxMsg = msg.getMsg();
-        return input -> ChannelResponseMessage.builder()
-                .jobClawUserId(msg.getJobClawUserId())
-                .toUserId(wxMsg.getFromUserId())
+    public boolean saveHeartBeatConfig(MsgWrapper<WeixinTypes.WeixinMessage> wrapper, boolean force) {
+        String key = buildHeartBeatConfig(wrapper.getJobClawUserId());
+        long now = System.currentTimeMillis();
+        if (!force || now - lastUpdateHeatBeatTime.getOrDefault(key, 0L) < 1000 * 60 * 5) {
+            // 五分钟更新一次
+            return false;
+        }
+
+        var response = ChannelResponseMessage.builder()
+                .jobClawUserId(wrapper.getJobClawUserId())
+                .toUserId(wrapper.getMsg().getFromUserId())
                 .type(ChannelResponseMessage.ResponseMessageType.TEXT)
-                .content(String.valueOf(input))
-                .passThrough(Map.of("msgContentToken", wxMsg.getContextToken()))
+                .passThrough(Map.of("msgContentToken", wrapper.getMsg().getContextToken()))
                 .build();
+        String value = JsonUtil.toStr(response);
+        configurationManager.updateProperties(Map.of(key, value));
+        lastUpdateHeatBeatTime.put(key, now);
+        return true;
+    }
+
+    @Override
+    public Function<Object, ChannelResponseMessage> buildHeartBeatCallback(String jobClawUserId) {
+        String value = configurationManager.getProperty(buildHeartBeatConfig(jobClawUserId));
+        if (StringUtils.isBlank(value)) {
+            return null;
+        }
+        var rsp = JsonUtil.toObj(value, ChannelResponseMessage.class);
+        return input -> {
+            rsp.setContent(String.valueOf(input));
+            return rsp;
+        };
+    }
+
+    private String buildHeartBeatConfig(String jobClawUserId) {
+        return String.format(HEART_BEAT_CONFIG_PREFIX, name(), jobClawUserId);
     }
 
     /**
@@ -244,10 +277,10 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
             if (contextToken != null) {
                 weixinSdk.getMessageSender().sendTextMessage(message.getToUserId(), message.getContent(), contextToken);
             }
-            log.debug("Message send: {}", message);
+            log.debug("[WeChatClaw] Message send: {}", message);
             return true;
         } catch (Exception e) {
-            log.error("Failed to send message: {}", message, e);
+            log.error("[WeChatClaw] Failed to send message: {}", message, e);
             return false;
         }
     }
