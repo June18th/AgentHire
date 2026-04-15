@@ -30,7 +30,17 @@ public class ContextWindowProperties {
     /**
      * Whether smart window management is enabled.
      */
-    private boolean enabled = true;
+    private boolean trimEnabled = true;
+
+    /**
+     * Whether to generate session summaries.
+     */
+    private boolean summaryEnabled = false;
+
+    /**
+     * Whether to update user identity automatically.
+     */
+    private boolean identityAutoUpdate = false;
 
     /**
      * Maximum number of messages to keep in context.

@@ -2,7 +2,6 @@ package com.git.hui.jobclaw.core.agent.memory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.stereotype.Component;
@@ -53,7 +52,7 @@ public class SmartWindowChatMemory {
      * @return managed message list within window constraints
      */
     public List<Message> manage(List<Message> messages) {
-        if (!properties.isEnabled()) {
+        if (!properties.isTrimEnabled()) {
             log.debug("Smart window is disabled, returning all {} messages", messages.size());
             return messages;
         }

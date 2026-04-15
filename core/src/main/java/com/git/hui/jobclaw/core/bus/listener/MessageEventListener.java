@@ -131,7 +131,7 @@ public class MessageEventListener {
                 event.getResponseId(),
                 event.getChannel(),
                 event.getResponseMessage());
-        channel.send(event.getResponseMessage());
+        channel.responseToUser(event.getResponseMessage());
     }
 
 

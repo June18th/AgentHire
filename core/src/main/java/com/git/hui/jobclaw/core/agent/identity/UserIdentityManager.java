@@ -1,7 +1,9 @@
 package com.git.hui.jobclaw.core.agent.identity;
 
+import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -10,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 
 /**
  * Manages user identity profile files (user.md).
@@ -30,9 +33,33 @@ public class UserIdentityManager {
 
     private final Path usersDir;
 
-    public UserIdentityManager(@Value("${agent.workspace:Unknown}") Resource workspaceDir) throws IOException {
+    private final ContextWindowProperties contextWindowProperties;
+
+    public UserIdentityManager(@Value("${agent.workspace:Unknown}") Resource workspaceDir, ContextWindowProperties contextWindowProperties) throws IOException {
         this.usersDir = workspaceDir.getFile().toPath().resolve("users");
+        this.contextWindowProperties = contextWindowProperties;
     }
+
+    public boolean shouldAutoUpdateIdentity(String jobClawUserId, List<Message> messages) {
+        if (!contextWindowProperties.isIdentityAutoUpdate()) {
+            return false;
+        }
+
+        if ("Unknown".equals(jobClawUserId)) {
+            log.debug("Skipping identity update for unknown user");
+            return false;
+        }
+
+        // Skip if user has no identity yet (should use active collection instead)
+        if (!hasIdentity(jobClawUserId)) {
+            log.debug("Skipping incremental update - user {} has no identity (use active collection)", jobClawUserId);
+            return false;
+        }
+
+        // Trigger when message count is a multiple of interval
+        return messages.size() >= 10 && messages.size() % Math.max(contextWindowProperties.getUpdateIdentityFrequency(), 1) == 0;
+    }
+
 
     /**
      * Load user identity from file.

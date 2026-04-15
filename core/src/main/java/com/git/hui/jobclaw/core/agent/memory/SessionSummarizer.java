@@ -63,7 +63,7 @@ public class SessionSummarizer {
      * @return true if summary should be generated
      */
     public boolean shouldSummarize(List<Message> messages) {
-        if (messages == null || messages.isEmpty()) {
+        if (messages == null || messages.isEmpty() || !properties.isSummaryEnabled()) {
             return false;
         }
 

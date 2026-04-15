@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
-import com.git.hui.jobclaw.core.agent.identity.UserIdentityManager;
 import com.git.hui.jobclaw.core.agent.identity.UserIdentityExtractor;
+import com.git.hui.jobclaw.core.agent.identity.UserIdentityManager;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
@@ -80,9 +80,9 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
                 try (var sub = Files.list(p)) {
                     total.addAll(
                             sub.map(t -> t.getFileName().toString())
-                                    .filter(name -> name.startsWith("chat-") && name.endsWith(".yaml"))
-                                    .map(name -> name.substring("chat-".length(), name.length() - ".yaml".length()))
-                                    .toList()
+                               .filter(name -> name.startsWith("chat-") && name.endsWith(".yaml"))
+                               .map(name -> name.substring("chat-".length(), name.length() - ".yaml".length()))
+                               .toList()
                     );
                 }
             }
@@ -201,7 +201,7 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
         }
 
         // Async: Update user identity profile
-        updateUseridentityAsync(conversationId, messages);
+        updateUserIdentityAsync(conversationId, messages);
     }
 
     /**
@@ -219,53 +219,39 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
      *   <li>Graceful fallback on failure (keeps existing identity)</li>
      * </ul>
      *
-     * AIDEV-NOTE: Incremental identity update for existing users - complementary to active collection
-     *
      * @param conversationId conversation ID (contains jobClawUserId)
      * @param messages conversation messages
      */
-    private void updateUseridentityAsync(String conversationId, List<Message> messages) {
+    private void updateUserIdentityAsync(String conversationId, List<Message> messages) {
         try {
             UserConversation userConv = UserConversation.parse(conversationId);
             String jobClawUserId = userConv.jobClawUserId();
 
-            if ("Unknown".equals(jobClawUserId)) {
-                log.debug("Skipping identity update for unknown user");
-                return;
-            }
-
-            // Skip if user has no identity yet (should use active collection instead)
-            if (!useridentityManager.hasIdentity(jobClawUserId)) {
-                log.debug("Skipping incremental update - user {} has no identity (use active collection)", jobClawUserId);
-                return;
-            }
-
             // Check if update should be triggered (avoid frequent AI calls)
-            if (!shouldTriggeridentityUpdate(messages)) {
-                log.debug("Skipping identity update for user {} - not enough new messages", jobClawUserId);
+            if (!useridentityManager.shouldAutoUpdateIdentity(jobClawUserId, messages)) {
                 return;
             }
 
             log.info("Triggering incremental identity update for user: {} ({} messages)", jobClawUserId, messages.size());
 
             // Load existing identity as baseline
-            String currentidentity = useridentityManager.loadIdentity(jobClawUserId);
+            String currentIdentity = useridentityManager.loadIdentity(jobClawUserId);
 
             // Extract and update identity asynchronously
-            useridentityExtractor.extractAsync(jobClawUserId, currentidentity, messages)
-                    .thenAcceptAsync(updatedidentity -> {
-                        if (StringUtils.isNotBlank(updatedidentity)) {
-                            useridentityManager.saveIdentity(jobClawUserId, updatedidentity);
-                            log.info("User identity updated incrementally for: {}", jobClawUserId);
-                        } else {
-                            log.warn("identity extraction returned empty for user: {}, keeping existing", jobClawUserId);
-                        }
-                    })
-                    .exceptionally(ex -> {
-                        log.error("Failed to update user identity incrementally for: {}, keeping existing identity",
-                                jobClawUserId, ex);
-                        return null;
-                    });
+            useridentityExtractor.extractAsync(jobClawUserId, currentIdentity, messages)
+                                 .thenAcceptAsync(updatedIdentity -> {
+                                     if (StringUtils.isNotBlank(updatedIdentity)) {
+                                         useridentityManager.saveIdentity(jobClawUserId, updatedIdentity);
+                                         log.info("User identity updated incrementally for: {}", jobClawUserId);
+                                     } else {
+                                         log.warn("identity extraction returned empty for user: {}, keeping existing", jobClawUserId);
+                                     }
+                                 })
+                                 .exceptionally(ex -> {
+                                     log.error("Failed to update user identity incrementally for: {}, keeping existing identity",
+                                             jobClawUserId, ex);
+                                     return null;
+                                 });
 
         } catch (Exception e) {
             log.error("Failed to trigger incremental identity update for conversation: {}", conversationId, e);
@@ -273,23 +259,6 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
         }
     }
 
-    /**
-     * Check if identity update should be triggered based on conversation size.
-     *
-     * <p>Strategy to avoid frequent AI calls:
-     * <ul>
-     *   <li>Only update when message count reaches threshold</li>
-     *   <li>Use modulo to spread updates (e.g., every 10 messages)</li>
-     *   <li>Consider time-based throttling in future</li>
-     * </ul>
-     *
-     * @param messages current messages
-     * @return true if update should be triggered
-     */
-    private boolean shouldTriggeridentityUpdate(List<Message> messages) {
-        // Trigger when message count is a multiple of interval
-        return messages.size() >= 10 && messages.size() % Math.max(contextWindowProperties.getUpdateIdentityFrequency(), 1) == 0;
-    }
 
     @Override
     public void deleteByConversationId(String conversationId) {

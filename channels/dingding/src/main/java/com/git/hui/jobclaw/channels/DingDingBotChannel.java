@@ -27,11 +27,12 @@ import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.util.CollectionUtils;
-import reactor.core.publisher.Sinks;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -50,20 +51,11 @@ import java.util.function.Function;
  * @date 2026/4/13
  */
 @Slf4j
-public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
+public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMessageEx> {
 
     private final DingDingBotProperties dingDingBotProperties;
 
-    /**
-     * msgId -> Sink<ChannelResponseMessage>
-     * 用于异步等待消息响应的回调机制
-     */
-    private final Map<String, RspEmitter> responseSinks = new ConcurrentHashMap<>();
-
     private final Map<String, CardManager> cardManagers = new ConcurrentHashMap<>();
-
-    public record RspEmitter(Sinks.Many<String> sink, Long expireTime) {
-    }
 
     public DingDingBotChannel(Resource agentWorkspace, ChannelRegistry channelRegistry, ChannelEventPublisher channelEventPublisher, DingDingBotProperties dingDingBotProperties) {
         super(agentWorkspace, channelRegistry, channelEventPublisher);
@@ -84,9 +76,15 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
         return "dingding";
     }
 
+    @Data
+    public static class ChatbotMessageEx extends ChatbotMessage {
+        private String robotId;
+        private String aiCardId;
+    }
+
 
     /**
-     * 注册钉钉消息监听器
+     * 注册钉钉消息监听器，用于接收钉钉机器人接收到的消息
      *
      * @param globalUserId 全局用户ID
      * @param config       渠道配置
@@ -103,11 +101,13 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
                             (OpenDingTalkCallbackListener<ChatbotMessage, Void>) chatbotMessage -> {
                                 // 接收到消息之后，发送到消息总线 bus，然后通过sink方式接收大模型的返回，最后将结果响应给用户
                                 log.info("Received message from DingDing msg={}", JsonUtil.toStr(chatbotMessage));
-                                processMessage(MsgWrapper.<ChatbotMessage>builder().msg(chatbotMessage)
-                                        .jobClawUserId(config.getJobClawUserId()).build());
-
-                                var sinks = autoInitRspSink(chatbotMessage);
-                                responseToUser(config.getAppId(), sinks, chatbotMessage);
+                                String aiCardId = initStreamAiCardId(config.getAppId(), chatbotMessage);
+                                ChatbotMessageEx msgEx = new ChatbotMessageEx();
+                                BeanUtils.copyProperties(chatbotMessage, msgEx);
+                                msgEx.setAiCardId(aiCardId);
+                                msgEx.setRobotId(config.getAppId());
+                                processMessage(MsgWrapper.<ChatbotMessageEx>builder().msg(msgEx).jobClawUserId(
+                                        config.getJobClawUserId()).build());
                                 return null;
                             })
                     .build();
@@ -123,7 +123,7 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
 
 
     @Override
-    public ChannelReceiveMessage adaptToReceive(MsgWrapper<ChatbotMessage> msgWrapper) {
+    public ChannelReceiveMessage adaptToReceive(MsgWrapper<ChatbotMessageEx> msgWrapper) {
         if (msgWrapper == null) {
             return null;
         }
@@ -144,7 +144,7 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
 
 
     @Override
-    public Function<Object, ChannelResponseMessage> updatePersonalActiveChannel(MsgWrapper<ChatbotMessage> wrapper) {
+    public Function<Object, ChannelResponseMessage> updatePersonalActiveChannel(MsgWrapper<ChatbotMessageEx> wrapper) {
         // fixme 需要注意，一个用户有多个机器人的场景，始终会以最后一个交互的机器人作为回复方; 这里应该优化为，每个机器人都维护一个最新的交互状态，方便后台主动推送消息
         var msg = wrapper.getMsg();
 
@@ -172,52 +172,66 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
      * @return 是否发送成功
      */
     @Override
-    public boolean send(ChannelResponseMessage msg) {
+    public boolean responseToUser(ChannelResponseMessage msg) {
         if (msg == null || msg.getToUserId() == null) {
             log.warn("Invalid message or missing toUserId");
             return false;
         }
 
-        ChatbotMessage originalMsg = (ChatbotMessage) msg.getPassThrough().get("input");
-        var emitter = responseSinks.get(originalMsg.getSessionWebhook());
-        if (emitter == null || emitter.expireTime <= System.currentTimeMillis()) {
-            log.error("Response timeout for msgId: {}", originalMsg.getSessionWebhook());
-            return false;
-        }
-        Sinks.Many<String> sink = emitter.sink();
-        if (msg.getStreamContents() != null) {
-            // 流式返回的场景
-            var stream = msg.getStreamContents();
-            stream.doOnNext(s -> sink.emitNext(s, Sinks.EmitFailureHandler.FAIL_FAST))
-                    .doOnError(e -> sink.emitError(e, Sinks.EmitFailureHandler.FAIL_FAST))
-                    .doOnComplete(() -> sink.emitComplete(Sinks.EmitFailureHandler.FAIL_FAST))
-                    .subscribe();
+        ChatbotMessageEx originalMsg = (ChatbotMessageEx) msg.getPassThrough().get("input");
+        // 流式返回的场景
+        CardManager cardManager = cardManagers.get(originalMsg.getRobotId());
+        var stream = msg.getStreamContents();
+        final String cardId = originalMsg.getAiCardId();
+        if (stream != null) {
+            if (StringUtils.isBlank(cardId)) {
+                String content = stream.blockLast();
+                directReply(originalMsg, content);
+                return true;
+            } else {
+                StringBuilder content = new StringBuilder();
+                stream.doOnNext(response -> {
+                            log.debug("Received response chunk: {}", response);
+                            content.append(response);
+                            cardManager.streamUpdate(cardId, content.toString(), false);
+                        })
+                        .doOnError(error -> {
+                            log.error("Error in stream response for cardId: {}", cardId, error);
+                            // 发生错误时，标记卡片为结束状态
+                            cardManager.streamUpdate(cardId, "抱歉，生成回复时遇到了错误。", true);
+                        })
+                        .doOnComplete(() -> {
+                            log.info("Stream response completed for cardId: {}, total length: {}", cardId,
+                                    content.length());
+                            // 流式响应完成，标记卡片为结束状态
+                            cardManager.streamUpdate(cardId, content.toString(), true);
+                        }).subscribe();
+            }
         } else {
-            sink.emitNext(msg.getContent(), Sinks.EmitFailureHandler.FAIL_FAST);
+            // 非流式返回的场景，直接回复
+            String content = msg.getContent();
+            if (StringUtils.isBlank(content)) {
+                content = "出现故障了~现在暂无返回，请稍后再试";
+            }
+
+            if (StringUtils.isBlank(cardId)) {
+                directReply(originalMsg, content);
+            } else {
+                cardManager.streamUpdate(cardId, content, true);
+            }
         }
         return true;
     }
 
-
-    private Sinks.Many<String> autoInitRspSink(ChatbotMessage chatbotMessage) {
-        final String sessionId = chatbotMessage.getSessionWebhook();
-        Sinks.Many<String> sinks = Sinks.many().multicast().onBackpressureBuffer();
-        RspEmitter emitter = new RspEmitter(sinks, chatbotMessage.getSessionWebhookExpiredTime());
-        var old = responseSinks.put(sessionId, emitter);
-        if (old != null) {
-            // 直接结束之前的监听
-            old.sink.emitComplete(Sinks.EmitFailureHandler.FAIL_FAST);
+    private void directReply(ChatbotMessage originalMsg, String content) {
+        try {
+            BotReplier.fromWebhook(originalMsg.getSessionWebhook()).replyText(content);
+        } catch (IOException e) {
+            log.error("Failed to reply to DingDing: {}", content, e);
         }
-        return sinks;
     }
 
-    private void responseToUser(String robotId, Sinks.Many<String> sinks, ChatbotMessage chatbotMessage) {
-        // 钉钉的AI卡片支持流式返回，因此我们可以借助它来实现大模型的流式输出
-        // 操作流程：
-        // 1-> 先创建AiCard卡片
-        // 2-> 调用AiCard的update，来实现流式输出
-        // 3-> 执行完毕之后关闭AiCard
-
+    private String initStreamAiCardId(String robotId, ChatbotMessage chatbotMessage) {
         CardManager cardManager = cardManagers.get(robotId);
         if (StringUtils.isNotBlank(cardManager.dingDingBotAccount.getAiCardId())) {
             String cardId = CardManager.genAiCardTrackId();
@@ -227,41 +241,10 @@ public class DingDingBotChannel extends AbsChannel<ChatbotMessage> {
                 cardManager.createGroupCard(cardId, robotId, chatbotMessage.getSenderStaffId(),
                         chatbotMessage.getConversationId());
             }
-
-            StringBuilder content = new StringBuilder();
-            sinks.asFlux()
-                    .doOnNext(response -> {
-                        log.debug("Received response chunk: {}", response);
-                        content.append(response);
-                        cardManager.streamUpdate(cardId, content.toString(), false);
-                    })
-                    .doOnError(error -> {
-                        log.error("Error in stream response for cardId: {}", cardId, error);
-                        // 发生错误时，标记卡片为结束状态
-                        cardManager.streamUpdate(cardId, "抱歉，生成回复时遇到了错误。", true);
-                    })
-                    .doOnComplete(() -> {
-                        log.info("Stream response completed for cardId: {}, total length: {}", cardId,
-                                content.length());
-                        // 流式响应完成，标记卡片为结束状态
-                        cardManager.streamUpdate(cardId, content.toString(), true);
-                    }).subscribe();
-        } else {
-            // 没有配置AICard，直接一次性返回
-            final String sessionId = chatbotMessage.getSessionWebhook();
-            sinks.asFlux().subscribe(response -> {
-                log.info("Received response: {} sessionId: {}", response, sessionId);
-                try {
-                    if (StringUtils.isNotBlank(response)) {
-                        BotReplier.fromWebhook(sessionId).replyText(response);
-                    }
-                } catch (IOException e) {
-                    log.error("Failed to reply to DingDing: {}", response, e);
-                }
-            });
+            return cardId;
         }
+        return null;
     }
-
 
     /**
      * 添加账号并启动监听

@@ -1,10 +1,15 @@
 package com.git.hui.jobclaw.core.channel;
 
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import reactor.core.publisher.Sinks;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
@@ -12,6 +17,7 @@ import java.util.function.Function;
  * @author YiHui
  * @date 2026/4/8
  */
+@Slf4j
 public abstract class AbsChannel<T> implements Channel, ChannelMsgAdapter<T> {
     protected final ChannelEventPublisher channelEventPublisher;
     protected final ChannelRegistry channelRegistry;
@@ -32,11 +38,11 @@ public abstract class AbsChannel<T> implements Channel, ChannelMsgAdapter<T> {
         if (func != null) {
             channelRegistry.refreshBackendReceivedChannel(msg.getJobClawUserId(), r.getChannel(), func);
         }
-        report(r);
+        reportToAgent(r);
     }
 
     @Override
-    public void report(ChannelReceiveMessage msg) {
+    public void reportToAgent(ChannelReceiveMessage msg) {
         if (StringUtils.isBlank(msg.getChannel())) {
             msg.setChannel(name());
         }

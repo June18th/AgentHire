@@ -119,8 +119,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
             @Override
             public void onMessage(WeixinTypes.WeixinMessage message) {
                 try {
-                    processMessage(MsgWrapper.<WeixinTypes.WeixinMessage>builder().msg(message).jobClawUserId(
-                            jobClawUserId).build());
+                    processMessage(MsgWrapper.<WeixinTypes.WeixinMessage>builder().msg(message).jobClawUserId(jobClawUserId).build());
                 } catch (Exception e) {
                     log.error("Error processing message", e);
                 }
@@ -231,7 +230,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
 
     // todo 这里现在只实现了发送文本消息，对于图片、文件、视频、语音等消息，待进一步实现
     @Override
-    public boolean send(ChannelResponseMessage message) {
+    public boolean responseToUser(ChannelResponseMessage message) {
         var weixinSdk = this.accountMap.get(message.getToUserId());
         if (weixinSdk == null) {
             log.error("WeixinSdk not initialized");

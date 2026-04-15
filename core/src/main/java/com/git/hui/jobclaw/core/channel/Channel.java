@@ -11,11 +11,11 @@ public interface Channel {
     }
 
     /**
-     * 通道接收到消息，并向外发送
+     * 通道接收到消息，并向外发送给Agent
      *
      * @return
      */
-    void report(ChannelReceiveMessage msg);
+    void reportToAgent(ChannelReceiveMessage msg);
 
     /**
      * 向通道发送消息
@@ -23,7 +23,7 @@ public interface Channel {
      * @param msg
      * @return
      */
-    boolean send(ChannelResponseMessage msg);
+    boolean responseToUser(ChannelResponseMessage msg);
 
 
     /**

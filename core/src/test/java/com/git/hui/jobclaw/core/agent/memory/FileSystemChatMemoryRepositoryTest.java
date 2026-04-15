@@ -33,7 +33,7 @@ class FileSystemChatMemoryRepositoryTest {
     void setUp() throws IOException {
         // Setup properties with small limits for testing
         properties = new ContextWindowProperties();
-        properties.setEnabled(true);
+        properties.setTrimEnabled(true);
         properties.setMaxMessages(10);
         properties.setKeepRecent(5);
         properties.setMaxTokens(5000);
@@ -196,7 +196,7 @@ class FileSystemChatMemoryRepositoryTest {
 
     @Test
     void testWindowDisabled() {
-        properties.setEnabled(false);
+        properties.setTrimEnabled(false);
         
         String conversationId = "test-user-conv5";
         List<Message> messages = createMessages(30);
