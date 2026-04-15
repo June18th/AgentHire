@@ -59,7 +59,7 @@ public class ContextWindowProperties {
     private int shortMessageThreshold = 5;
 
     /**
-     * Frequency of updating user soul.
+     * Frequency of updating user identity.
      */
-    private int updateSoulFrequency = 10;
+    private int updateIdentityFrequency = 10;
 }

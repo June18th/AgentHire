@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent.soul.collector;
+package com.git.hui.jobclaw.core.agent.identity.collector;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -7,14 +7,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages the state of active soul collection conversations.
+ * Manages the state of active identity collection conversations.
  *
- * <p>Tracks which users are in the middle of soul collection,
+ * <p>Tracks which users are in the middle of identity collection,
  * what questions have been asked, and what information is still needed.
  *
- * AIDEV-NOTE: State manager for Phase 3 active soul collection
+ * AIDEV-NOTE: State manager for Phase 3 active identity collection
  */
-public class SoulCollectionState {
+public class IdentityCollectionState {
 
     /**
      * Collection status enum
@@ -24,7 +24,7 @@ public class SoulCollectionState {
         NOT_STARTED,
         /** In progress - asking questions */
         IN_PROGRESS,
-        /** Completed - basic soul created */
+        /** Completed - basic identity created */
         COMPLETED,
         /** Abandoned by user */
         ABANDONED
@@ -81,7 +81,7 @@ public class SoulCollectionState {
     private String activeChannel;
     private String conversationId;
 
-    public SoulCollectionState(String jobClawUserId) {
+    public IdentityCollectionState(String jobClawUserId) {
         this.jobClawUserId = jobClawUserId;
         this.status = Status.NOT_STARTED;
         this.startedAt = Instant.now();
@@ -177,7 +177,7 @@ public class SoulCollectionState {
 
     @Override
     public String toString() {
-        return "SoulCollectionState{" +
+        return "identityCollectionState{" +
                 "jobClawUserId='" + jobClawUserId + '\'' +
                 ", status=" + status +
                 ", askedQuestions=" + askedQuestions.size() +

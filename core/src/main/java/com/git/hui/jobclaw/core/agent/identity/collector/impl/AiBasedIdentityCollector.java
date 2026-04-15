@@ -1,11 +1,11 @@
-package com.git.hui.jobclaw.core.agent.soul.collector.impl;
+package com.git.hui.jobclaw.core.agent.identity.collector.impl;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.core.agent.ClientSelector;
-import com.git.hui.jobclaw.core.agent.soul.UserSoulExtractor;
-import com.git.hui.jobclaw.core.agent.soul.UserSoulManager;
-import com.git.hui.jobclaw.core.agent.soul.collector.SoulCollectionState;
-import com.git.hui.jobclaw.core.agent.soul.collector.SoulCollector;
+import com.git.hui.jobclaw.core.agent.identity.UserIdentityExtractor;
+import com.git.hui.jobclaw.core.agent.identity.UserIdentityManager;
+import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollectionState;
+import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollector;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.slf4j.Logger;
@@ -31,7 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * AI-based soul collector using LLM and tool calling.
+ * AI-based identity collector using LLM and tool calling.
  *
  * <p>This implementation uses an AI agent with the AskUserQuestionTool to:
  * <ul>
@@ -49,19 +49,19 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>Can infer information from context</li>
  * </ul>
  *
- * AIDEV-NOTE: AI-based implementation of SoulCollector interface using LLM + tools
+ * AIDEV-NOTE: AI-based implementation of identityCollector interface using LLM + tools
  */
 @Component
-public class AiBasedSoulCollector implements SoulCollector {
+public class AiBasedIdentityCollector implements IdentityCollector {
 
-    private static final Logger log = LoggerFactory.getLogger(AiBasedSoulCollector.class);
+    private static final Logger log = LoggerFactory.getLogger(AiBasedIdentityCollector.class);
 
-    private final UserSoulManager userSoulManager;
-    private final UserSoulExtractor userSoulExtractor;
+    private final UserIdentityManager useridentityManager;
+    private final UserIdentityExtractor useridentityExtractor;
     private final ChannelEventPublisher channelEventPublisher;
 
     // Track collection states per user
-    private final Map<String, SoulCollectionState> collectionStates = new ConcurrentHashMap<>();
+    private final Map<String, IdentityCollectionState> collectionStates = new ConcurrentHashMap<>();
 
     // Conversation history per user (for AI context)
     private final Map<String, List<Message>> conversationHistories = new ConcurrentHashMap<>();
@@ -70,21 +70,21 @@ public class AiBasedSoulCollector implements SoulCollector {
 
     private String promptTemplate;
 
-    public AiBasedSoulCollector(UserSoulManager userSoulManager,
-                                UserSoulExtractor userSoulExtractor,
-                                ChannelEventPublisher channelEventPublisher,
-                                @Value("classpath:/prompts/user-soul-collect-prompt.md") Resource promptResource) {
-        this.userSoulManager = userSoulManager;
-        this.userSoulExtractor = userSoulExtractor;
+    public AiBasedIdentityCollector(UserIdentityManager useridentityManager,
+                                    UserIdentityExtractor useridentityExtractor,
+                                    ChannelEventPublisher channelEventPublisher,
+                                    @Value("classpath:/prompts/user-identity-collect-prompt.md") Resource promptResource) {
+        this.useridentityManager = useridentityManager;
+        this.useridentityExtractor = useridentityExtractor;
         this.channelEventPublisher = channelEventPublisher;
         beanOutputConverter = new BeanOutputConverter<>(AiCollectionResponse.class);
         format = beanOutputConverter.getFormat();
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
-            log.info("UserSoulExtractor initialized with prompt template");
+            log.info("UseridentityExtractor initialized with prompt template");
         } catch (IOException e) {
-            log.error("Failed to load user soul extraction prompt template", e);
-            throw new RuntimeException("Failed to initialize UserSoulExtractor", e);
+            log.error("Failed to load user identity extraction prompt template", e);
+            throw new RuntimeException("Failed to initialize UseridentityExtractor", e);
         }
     }
 
@@ -95,13 +95,13 @@ public class AiBasedSoulCollector implements SoulCollector {
 
     @Override
     public boolean shouldInitiateCollection(String jobClawUserId) {
-        // Skip if already has soul
-        if (userSoulManager.hasSoul(jobClawUserId)) {
+        // Skip if already has identity
+        if (useridentityManager.hasIdentity(jobClawUserId)) {
             return false;
         }
 
         // Skip if collection already in progress
-        SoulCollectionState state = collectionStates.get(jobClawUserId);
+        IdentityCollectionState state = collectionStates.get(jobClawUserId);
         if (state != null && state.isInProgress()) {
             return false;
         }
@@ -119,7 +119,7 @@ public class AiBasedSoulCollector implements SoulCollector {
         log.info("[AiBased] Initiating AI-driven collection for user: {} via channel: {}", jobClawUserId, channel);
 
         // Create collection state
-        SoulCollectionState state = new SoulCollectionState(jobClawUserId);
+        IdentityCollectionState state = new IdentityCollectionState(jobClawUserId);
         state.start(channel, conversationId);
         collectionStates.put(jobClawUserId, state);
 
@@ -132,7 +132,7 @@ public class AiBasedSoulCollector implements SoulCollector {
 
     @Override
     public void processAnswer(String jobClawUserId, String userMessage, String channel, String conversationId) {
-        SoulCollectionState state = collectionStates.get(jobClawUserId);
+        IdentityCollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {
             return;
         }
@@ -152,14 +152,14 @@ public class AiBasedSoulCollector implements SoulCollector {
     }
 
     @Override
-    public Optional<SoulCollectionState> getCollectionState(String jobClawUserId) {
+    public Optional<IdentityCollectionState> getCollectionState(String jobClawUserId) {
         return Optional.ofNullable(collectionStates.get(jobClawUserId));
     }
 
     /**
      * Start AI-driven conversation using LLM
      */
-    private void startAiConversation(SoulCollectionState state) {
+    private void startAiConversation(IdentityCollectionState state) {
         log.info("[AiBased] Starting AI conversation for user: {}", state.getJobClawUserId());
 
         // Create system prompt
@@ -193,7 +193,7 @@ public class AiBasedSoulCollector implements SoulCollector {
     /**
      * Continue AI conversation after user response
      */
-    private void continueAiConversation(SoulCollectionState state, List<Message> history) {
+    private void continueAiConversation(IdentityCollectionState state, List<Message> history) {
         String systemPrompt = promptTemplate;
 
         // Call AI and get structured response
@@ -240,7 +240,7 @@ public class AiBasedSoulCollector implements SoulCollector {
     /**
      * Call AI for collection and parse structured response
      */
-    private AiCollectionResponse callAiForCollection(SoulCollectionState state, String systemPrompt, List<Message> messages) {
+    private AiCollectionResponse callAiForCollection(IdentityCollectionState state, String systemPrompt, List<Message> messages) {
         String jobClawUserId = state.getJobClawUserId();
         try {
             // Build conversation with system prompt
@@ -275,28 +275,28 @@ public class AiBasedSoulCollector implements SoulCollector {
     /**
      * Send fallback message when AI fails
      */
-    private void sendFallbackMessage(SoulCollectionState state) {
+    private void sendFallbackMessage(IdentityCollectionState state) {
         if (state != null) {
             sendProactiveMessage(state, "抱歉，我遇到了一些问题。让我换个方式了解你：你是哪所学校毕业的呢？");
         }
     }
 
     /**
-     * Complete collection and generate SOUL.md
+     * Complete collection and generate identity.md
      */
-    private void completeCollection(SoulCollectionState state, List<Message> history) {
+    private void completeCollection(IdentityCollectionState state, List<Message> history) {
         log.info("[AiBased] Completing AI-driven collection for user: {}", state.getJobClawUserId());
 
-        // Use UserSoulExtractor to generate SOUL.md from conversation
-        String soul = userSoulExtractor.extract(state.getJobClawUserId(), "", history);
+        // Use UseridentityExtractor to generate identity.md from conversation
+        String identity = useridentityExtractor.extract(state.getJobClawUserId(), "", history);
 
-        if (soul == null || soul.isBlank()) {
-            // Fallback to simple soul
-            soul = buildSimpleSoul(state);
+        if (identity == null || identity.isBlank()) {
+            // Fallback to simple identity
+            identity = buildSimpleidentity(state);
         }
 
-        // Save soul
-        userSoulManager.saveSoul(state.getJobClawUserId(), soul);
+        // Save identity
+        useridentityManager.saveIdentity(state.getJobClawUserId(), identity);
 
         // Mark as completed
         state.complete();
@@ -318,12 +318,12 @@ public class AiBasedSoulCollector implements SoulCollector {
     }
 
     /**
-     * Build simple soul as fallback
+     * Build simple identity as fallback
      */
-    private String buildSimpleSoul(SoulCollectionState state) {
+    private String buildSimpleidentity(IdentityCollectionState state) {
         Instant now = Instant.now();
         return """
-                # User Soul Profile
+                # User identity Profile
                                 
                 ## Basic Info
                 - **jobClawUserId**: %s
@@ -341,9 +341,9 @@ public class AiBasedSoulCollector implements SoulCollector {
     /**
      * Send proactive message to user
      */
-    private void sendProactiveMessage(SoulCollectionState state, String content) {
+    private void sendProactiveMessage(IdentityCollectionState state, String content) {
         try {
-            channelEventPublisher.publishProactiveMessage("SOUL_AI_" + System.currentTimeMillis(),
+            channelEventPublisher.publishProactiveMessage("identity_AI_" + System.currentTimeMillis(),
                     state.getJobClawUserId(), state.getActiveChannel(), content);
 
             log.debug("[AiBased] Sent proactive message to user: {}", state.getJobClawUserId());

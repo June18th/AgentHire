@@ -1,8 +1,8 @@
-package com.git.hui.jobclaw.core.agent.soul.collector.impl;
+package com.git.hui.jobclaw.core.agent.identity.collector.impl;
 
-import com.git.hui.jobclaw.core.agent.soul.UserSoulManager;
-import com.git.hui.jobclaw.core.agent.soul.collector.SoulCollectionState;
-import com.git.hui.jobclaw.core.agent.soul.collector.SoulCollector;
+import com.git.hui.jobclaw.core.agent.identity.UserIdentityManager;
+import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollectionState;
+import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollector;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +16,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Rule-based soul collector using predefined question flow.
+ * Rule-based identity collector using predefined question flow.
  *
  * <p>This implementation uses a fixed set of questions organized by category.
  * It's simple, predictable, and doesn't require AI model calls.
@@ -29,82 +29,82 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>Allows users to skip questions</li>
  * </ul>
  *
- * AIDEV-NOTE: Rule-based implementation of SoulCollector interface
+ * AIDEV-NOTE: Rule-based implementation of identityCollector interface
  */
 @Component
-public class RuleBasedSoulCollector implements SoulCollector {
+public class RuleBasedIdentityCollector implements IdentityCollector {
 
-    private static final Logger log = LoggerFactory.getLogger(RuleBasedSoulCollector.class);
+    private static final Logger log = LoggerFactory.getLogger(RuleBasedIdentityCollector.class);
 
-    private final UserSoulManager userSoulManager;
+    private final UserIdentityManager useridentityManager;
     private final ChannelEventPublisher channelEventPublisher;
 
     // Track collection states per user
-    private final Map<String, SoulCollectionState> collectionStates = new ConcurrentHashMap<>();
+    private final Map<String, IdentityCollectionState> collectionStates = new ConcurrentHashMap<>();
 
     // Predefined question flow
-    private static final List<SoulCollectionState.CollectionQuestion> DEFAULT_QUESTION_FLOW = List.of(
+    private static final List<IdentityCollectionState.CollectionQuestion> DEFAULT_QUESTION_FLOW = List.of(
             // Basic Info
-            new SoulCollectionState.CollectionQuestion(
-                    SoulCollectionState.QuestionCategory.BASIC_INFO,
+            new IdentityCollectionState.CollectionQuestion(
+                    IdentityCollectionState.QuestionCategory.BASIC_INFO,
                     "你好！我是求职派助手。为了更好地帮助你，可以告诉我你的姓名吗？😊",
                     "name",
                     false
             ),
-            new SoulCollectionState.CollectionQuestion(
-                    SoulCollectionState.QuestionCategory.BASIC_INFO,
+            new IdentityCollectionState.CollectionQuestion(
+                    IdentityCollectionState.QuestionCategory.BASIC_INFO,
                     "你是什么时候毕业的呢？（例如：2026年）",
                     "graduationYear",
                     true
             ),
 
             // Education
-            new SoulCollectionState.CollectionQuestion(
-                    SoulCollectionState.QuestionCategory.EDUCATION,
+            new IdentityCollectionState.CollectionQuestion(
+                    IdentityCollectionState.QuestionCategory.EDUCATION,
                     "你在哪所学校就读呢？",
                     "university",
                     true
             ),
-            new SoulCollectionState.CollectionQuestion(
-                    SoulCollectionState.QuestionCategory.EDUCATION,
+            new IdentityCollectionState.CollectionQuestion(
+                    IdentityCollectionState.QuestionCategory.EDUCATION,
                     "你的专业是什么？",
                     "major",
                     true
             ),
 
             // Job Preferences
-            new SoulCollectionState.CollectionQuestion(
-                    SoulCollectionState.QuestionCategory.JOB_PREFERENCES,
+            new IdentityCollectionState.CollectionQuestion(
+                    IdentityCollectionState.QuestionCategory.JOB_PREFERENCES,
                     "你想找哪个城市的工作呢？（可以说多个城市，用逗号分隔）",
                     "location",
                     true
             ),
-            new SoulCollectionState.CollectionQuestion(
-                    SoulCollectionState.QuestionCategory.JOB_PREFERENCES,
+            new IdentityCollectionState.CollectionQuestion(
+                    IdentityCollectionState.QuestionCategory.JOB_PREFERENCES,
                     "你期望的岗位类型是什么？（例如：Java开发、产品经理、数据分析师等）",
                     "jobType",
                     true
             ),
-            new SoulCollectionState.CollectionQuestion(
-                    SoulCollectionState.QuestionCategory.JOB_PREFERENCES,
+            new IdentityCollectionState.CollectionQuestion(
+                    IdentityCollectionState.QuestionCategory.JOB_PREFERENCES,
                     "你是在找实习岗位还是正式工作呢？（回复\"实习\"或\"正式\"）",
                     "internship",
                     true
             ),
 
             // Skills
-            new SoulCollectionState.CollectionQuestion(
-                    SoulCollectionState.QuestionCategory.SKILLS,
+            new IdentityCollectionState.CollectionQuestion(
+                    IdentityCollectionState.QuestionCategory.SKILLS,
                     "你掌握哪些技术技能呢？（例如：Java、Python、Spring Boot等，可以列出多个）",
                     "skills",
                     false
             )
     );
 
-    public RuleBasedSoulCollector(
-            UserSoulManager userSoulManager,
+    public RuleBasedIdentityCollector(
+            UserIdentityManager useridentityManager,
             ChannelEventPublisher channelEventPublisher) {
-        this.userSoulManager = userSoulManager;
+        this.useridentityManager = useridentityManager;
         this.channelEventPublisher = channelEventPublisher;
     }
 
@@ -115,13 +115,13 @@ public class RuleBasedSoulCollector implements SoulCollector {
 
     @Override
     public boolean shouldInitiateCollection(String jobClawUserId) {
-        // Skip if already has soul
-        if (userSoulManager.hasSoul(jobClawUserId)) {
+        // Skip if already has identity
+        if (useridentityManager.hasIdentity(jobClawUserId)) {
             return false;
         }
 
         // Skip if collection already in progress
-        SoulCollectionState state = collectionStates.get(jobClawUserId);
+        IdentityCollectionState state = collectionStates.get(jobClawUserId);
         if (state != null && state.isInProgress()) {
             return false;
         }
@@ -132,14 +132,14 @@ public class RuleBasedSoulCollector implements SoulCollector {
     @Override
     public void initiateCollection(String jobClawUserId, String channel, String conversationId) {
         if (!shouldInitiateCollection(jobClawUserId)) {
-            log.debug("Skipping soul collection initiation for user: {}", jobClawUserId);
+            log.debug("Skipping identity collection initiation for user: {}", jobClawUserId);
             return;
         }
 
         log.info("[RuleBased] Initiating collection for user: {} via channel: {}", jobClawUserId, channel);
 
         // Create collection state
-        SoulCollectionState state = new SoulCollectionState(jobClawUserId);
+        IdentityCollectionState state = new IdentityCollectionState(jobClawUserId);
         state.start(channel, conversationId);
         state.setRemainingQuestions(new ArrayList<>(DEFAULT_QUESTION_FLOW));
         collectionStates.put(jobClawUserId, state);
@@ -150,7 +150,7 @@ public class RuleBasedSoulCollector implements SoulCollector {
 
     @Override
     public void processAnswer(String jobClawUserId, String userMessage, String channel, String conversationId) {
-        SoulCollectionState state = collectionStates.get(jobClawUserId);
+        IdentityCollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {
             return;
         }
@@ -160,7 +160,7 @@ public class RuleBasedSoulCollector implements SoulCollector {
         state.setConversationId(conversationId);
 
         // Record answer
-        SoulCollectionState.CollectionQuestion currentQ = state.getCurrentQuestion();
+        IdentityCollectionState.CollectionQuestion currentQ = state.getCurrentQuestion();
         if (currentQ != null) {
             state.recordAnswer(currentQ.field(), userMessage);
             log.info("[RuleBased] Recorded answer for user {}: {} = {}", jobClawUserId, currentQ.field(), userMessage);
@@ -180,19 +180,19 @@ public class RuleBasedSoulCollector implements SoulCollector {
     }
 
     @Override
-    public Optional<SoulCollectionState> getCollectionState(String jobClawUserId) {
+    public Optional<IdentityCollectionState> getCollectionState(String jobClawUserId) {
         return Optional.ofNullable(collectionStates.get(jobClawUserId));
     }
 
     /**
      * Ask the next question in the flow
      */
-    private void askNextQuestion(SoulCollectionState state) {
+    private void askNextQuestion(IdentityCollectionState state) {
         if (state.getRemainingQuestions().isEmpty()) {
             return;
         }
 
-        SoulCollectionState.CollectionQuestion nextQuestion = state.getRemainingQuestions().get(0);
+        IdentityCollectionState.CollectionQuestion nextQuestion = state.getRemainingQuestions().get(0);
         state.markQuestionAsked(nextQuestion);
 
         String question = formatQuestion(nextQuestion, state.getAskedQuestions().size());
@@ -204,7 +204,7 @@ public class RuleBasedSoulCollector implements SoulCollector {
     /**
      * Format question with progress indicator
      */
-    private String formatQuestion(SoulCollectionState.CollectionQuestion question, int progress) {
+    private String formatQuestion(IdentityCollectionState.CollectionQuestion question, int progress) {
         return String.format("""
                         【%d/%d】%s
                                         
@@ -217,16 +217,16 @@ public class RuleBasedSoulCollector implements SoulCollector {
     }
 
     /**
-     * Complete the collection and create initial SOUL.md
+     * Complete the collection and create initial identity.md
      */
-    private void completeCollection(SoulCollectionState state) {
+    private void completeCollection(IdentityCollectionState state) {
         log.info("[RuleBased] Completing collection for user: {}", state.getJobClawUserId());
 
-        // Build initial soul from collected answers
-        String initialSoul = buildInitialSoul(state);
+        // Build initial identity from collected answers
+        String initialidentity = buildInitialidentity(state);
 
-        // Save soul
-        userSoulManager.saveSoul(state.getJobClawUserId(), initialSoul);
+        // Save identity
+        useridentityManager.saveIdentity(state.getJobClawUserId(), initialidentity);
 
         // Mark as completed
         state.complete();
@@ -247,71 +247,71 @@ public class RuleBasedSoulCollector implements SoulCollector {
     }
 
     /**
-     * Build initial SOUL.md from collected answers
+     * Build initial identity.md from collected answers
      */
-    private String buildInitialSoul(SoulCollectionState state) {
+    private String buildInitialidentity(IdentityCollectionState state) {
         Map<String, String> answers = state.getCollectedAnswers();
         Instant now = Instant.now();
 
-        StringBuilder soul = new StringBuilder();
-        soul.append("# User Soul Profile\n\n");
-        soul.append("## Basic Info\n");
-        soul.append("- **jobClawUserId**: ").append(state.getJobClawUserId()).append("\n");
-        soul.append("- **lastUpdated**: ").append(now).append("\n");
-        soul.append("- **conversationCount**: 1\n");
-        soul.append("- **collectedVia**: rule_based\n\n");
+        StringBuilder identity = new StringBuilder();
+        identity.append("# User identity Profile\n\n");
+        identity.append("## Basic Info\n");
+        identity.append("- **jobClawUserId**: ").append(state.getJobClawUserId()).append("\n");
+        identity.append("- **lastUpdated**: ").append(now).append("\n");
+        identity.append("- **conversationCount**: 1\n");
+        identity.append("- **collectedVia**: rule_based\n\n");
 
-        soul.append("## Preferences (偏好)\n");
-        soul.append("### Job Preferences (求职偏好)\n");
-        soul.append("- **location**: [").append(answers.getOrDefault("location", "")).append("]\n");
-        soul.append("- **jobType**: [").append(answers.getOrDefault("jobType", "")).append("]\n");
-        soul.append("- **industry**: []\n");
-        soul.append("- **salary**: []\n");
-        soul.append("- **internship**: ").append("实习".equals(answers.get("internship"))).append("\n\n");
+        identity.append("## Preferences (偏好)\n");
+        identity.append("### Job Preferences (求职偏好)\n");
+        identity.append("- **location**: [").append(answers.getOrDefault("location", "")).append("]\n");
+        identity.append("- **jobType**: [").append(answers.getOrDefault("jobType", "")).append("]\n");
+        identity.append("- **industry**: []\n");
+        identity.append("- **salary**: []\n");
+        identity.append("- **internship**: ").append("实习".equals(answers.get("internship"))).append("\n\n");
 
-        soul.append("### Communication Preferences (沟通偏好)\n");
-        soul.append("- **language**: [中文]\n");
-        soul.append("- **detailLevel**: [简洁]\n");
-        soul.append("- **responseStyle**: [友好]\n\n");
+        identity.append("### Communication Preferences (沟通偏好)\n");
+        identity.append("- **language**: [中文]\n");
+        identity.append("- **detailLevel**: [简洁]\n");
+        identity.append("- **responseStyle**: [友好]\n\n");
 
-        soul.append("## Profile (个人特征)\n");
-        soul.append("### Education (教育背景)\n");
-        soul.append("- **university**: [").append(answers.getOrDefault("university", "")).append("]\n");
-        soul.append("- **major**: [").append(answers.getOrDefault("major", "")).append("]\n");
-        soul.append("- **graduationYear**: [").append(answers.getOrDefault("graduationYear", "")).append("]\n");
-        soul.append("- **degree**: []\n\n");
+        identity.append("## Profile (个人特征)\n");
+        identity.append("### Education (教育背景)\n");
+        identity.append("- **university**: [").append(answers.getOrDefault("university", "")).append("]\n");
+        identity.append("- **major**: [").append(answers.getOrDefault("major", "")).append("]\n");
+        identity.append("- **graduationYear**: [").append(answers.getOrDefault("graduationYear", "")).append("]\n");
+        identity.append("- **degree**: []\n\n");
 
-        soul.append("### Skills (技能)\n");
-        soul.append("- **technical**: [").append(answers.getOrDefault("skills", "")).append("]\n");
-        soul.append("- **soft**: []\n");
-        soul.append("- **languages**: [中文]\n\n");
+        identity.append("### Skills (技能)\n");
+        identity.append("- **technical**: [").append(answers.getOrDefault("skills", "")).append("]\n");
+        identity.append("- **soft**: []\n");
+        identity.append("- **languages**: [中文]\n\n");
 
-        soul.append("### Experience (经验)\n");
-        soul.append("- **internships**: []\n");
-        soul.append("- **projects**: []\n");
-        soul.append("- **awards**: []\n\n");
+        identity.append("### Experience (经验)\n");
+        identity.append("- **internships**: []\n");
+        identity.append("- **projects**: []\n");
+        identity.append("- **awards**: []\n\n");
 
-        soul.append("## Key Facts (关键事实)\n");
+        identity.append("## Key Facts (关键事实)\n");
         if (answers.containsKey("university") && answers.containsKey("graduationYear")) {
-            soul.append("- ").append(answers.get("university")).append(answers.get("graduationYear")).append("届毕业生\n");
+            identity.append("- ").append(answers.get("university")).append(answers.get("graduationYear")).append("届毕业生\n");
         }
         if (answers.containsKey("jobType") && answers.containsKey("location")) {
-            soul.append("- 寻找").append(answers.get("location")).append("地区").append(answers.get("jobType")).append(
+            identity.append("- 寻找").append(answers.get("location")).append("地区").append(answers.get("jobType")).append(
                     "岗位\n");
         }
-        soul.append("\n");
+        identity.append("\n");
 
-        soul.append("## History (历史行为)\n");
-        soul.append("### Recent Activities (最近活动)\n");
-        soul.append("- ").append(now.toString().substring(0, 10)).append(": 完成初始画像收集\n\n");
+        identity.append("## History (历史行为)\n");
+        identity.append("### Recent Activities (最近活动)\n");
+        identity.append("- ").append(now.toString().substring(0, 10)).append(": 完成初始画像收集\n\n");
 
-        soul.append("### Applied Jobs (投递记录)\n");
-        soul.append("- []\n\n");
+        identity.append("### Applied Jobs (投递记录)\n");
+        identity.append("- []\n\n");
 
-        soul.append("## Notes (备注)\n");
-        soul.append("- 用户通过规则式对话完成初始画像收集\n");
+        identity.append("## Notes (备注)\n");
+        identity.append("- 用户通过规则式对话完成初始画像收集\n");
 
-        return soul.toString();
+        return identity.toString();
     }
 
     /**
@@ -326,7 +326,7 @@ public class RuleBasedSoulCollector implements SoulCollector {
     /**
      * Send skip acknowledgement
      */
-    private void sendSkipAcknowledgement(SoulCollectionState state) {
+    private void sendSkipAcknowledgement(IdentityCollectionState state) {
         String msg = "好的，我们跳过这个问题，继续下一个~ 😊";
         sendProactiveMessage(state, msg);
     }
@@ -334,11 +334,11 @@ public class RuleBasedSoulCollector implements SoulCollector {
     /**
      * Send proactive message to user
      */
-    private void sendProactiveMessage(SoulCollectionState state, String content) {
+    private void sendProactiveMessage(IdentityCollectionState state, String content) {
         try {
 
             channelEventPublisher.publishProactiveMessage(
-                    "SOUL_" + System.currentTimeMillis(),
+                    "identity_" + System.currentTimeMillis(),
                     state.getJobClawUserId(),
                     state.getActiveChannel(),
                     content

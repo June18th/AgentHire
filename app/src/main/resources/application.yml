@@ -93,7 +93,7 @@ agent:
       max-tokens: ${AGENT_CONTEXT_MAX_TOKENS:8000} # Token上限
       filter-short-messages: ${AGENT_CONTEXT_FILTER_SHORT:true} # 过滤短消息
       short-message-threshold: ${AGENT_CONTEXT_SHORT_THRESHOLD:5} # 短消息阈值
-      update-soul-frequency: ${AGENT_CONTEXT_UPDATE_SOUL_FREQUENCY:10} # 更新用户画像的对话频率
+      update-identity-frequency: ${AGENT_CONTEXT_UPDATE_identity_FREQUENCY:10} # 更新用户画像的对话频率
   channels:
     wechat:
       clawbot: # 微信的ClawBot Channel配置

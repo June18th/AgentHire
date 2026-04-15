@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.core.bus.listener;
 
 import com.git.hui.jobclaw.core.agent.Agent;
-import com.git.hui.jobclaw.core.agent.soul.collector.SoulCollectorSelector;
+import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollectorSelector;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
@@ -32,7 +32,7 @@ public class MessageEventListener {
 
     private final Agent agent;
 
-    private final SoulCollectorSelector soulCollectorSelector;
+    private final IdentityCollectorSelector soulCollectorSelector;
 
 
     /**

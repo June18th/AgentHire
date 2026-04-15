@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent.soul;
+package com.git.hui.jobclaw.core.agent.identity;
 
 import com.git.hui.jobclaw.core.agent.ClientSelector;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
@@ -18,92 +18,92 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
- * Extracts and updates user soul/profile from conversation history.
+ * Extracts and updates user identity/profile from conversation history.
  *
  * <p>Features:
  * <ul>
- *   <li>Async soul extraction to avoid blocking</li>
- *   <li>Incremental update based on existing soul</li>
- *   <li>Fallback to existing soul on failure</li>
+ *   <li>Async identity extraction to avoid blocking</li>
+ *   <li>Incremental update based on existing identity</li>
+ *   <li>Fallback to existing identity on failure</li>
  *   <li>Prompt template based</li>
  * </ul>
  *
  */
 @Component
-public class UserSoulExtractor {
+public class UserIdentityExtractor {
 
-    private static final Logger log = LoggerFactory.getLogger(UserSoulExtractor.class);
+    private static final Logger log = LoggerFactory.getLogger(UserIdentityExtractor.class);
 
     private static final int MAX_CONVERSATION_FOR_EXTRACTION = 50;
     private final String promptTemplate;
 
-    public UserSoulExtractor(
-            @Value("classpath:/prompts/user-soul-extraction-prompt.md") Resource promptResource) {
+    public UserIdentityExtractor(
+            @Value("classpath:/prompts/user-identity-extraction-prompt.md") Resource promptResource) {
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
-            log.info("UserSoulExtractor initialized with prompt template");
+            log.info("UseridentityExtractor initialized with prompt template");
         } catch (IOException e) {
-            log.error("Failed to load user soul extraction prompt template", e);
-            throw new RuntimeException("Failed to initialize UserSoulExtractor", e);
+            log.error("Failed to load user identity extraction prompt template", e);
+            throw new RuntimeException("Failed to initialize UseridentityExtractor", e);
         }
     }
 
     /**
-     * Extract user soul asynchronously.
+     * Extract user identity asynchronously.
      *
      * @param jobClawUserId user ID
-     * @param currentSoul current soul profile (may be empty)
+     * @param currentidentity current identity profile (may be empty)
      * @param messages new conversation messages
-     * @return CompletableFuture with updated soul markdown
+     * @return CompletableFuture with updated identity markdown
      */
-    public CompletableFuture<String> extractAsync(String jobClawUserId, String currentSoul, List<Message> messages) {
-        return CompletableFuture.supplyAsync(() -> extract(jobClawUserId, currentSoul, messages));
+    public CompletableFuture<String> extractAsync(String jobClawUserId, String currentidentity, List<Message> messages) {
+        return CompletableFuture.supplyAsync(() -> extract(jobClawUserId, currentidentity, messages));
     }
 
     /**
-     * Extract user soul synchronously.
+     * Extract user identity synchronously.
      *
      * @param jobClawUserId user ID
-     * @param currentSoul current soul profile (may be empty)
+     * @param currentidentity current identity profile (may be empty)
      * @param messages new conversation messages
-     * @return updated soul markdown, or existing soul if failed
+     * @return updated identity markdown, or existing identity if failed
      */
-    public String extract(String jobClawUserId, String currentSoul, List<Message> messages) {
+    public String extract(String jobClawUserId, String currentidentity, List<Message> messages) {
         if (messages == null || messages.isEmpty()) {
-            log.debug("No messages to extract soul from");
-            return currentSoul;
+            log.debug("No messages to extract identity from");
+            return currentidentity;
         }
 
         try {
-            log.info("Extracting soul for user: {} ({} messages)", jobClawUserId, messages.size());
+            log.info("Extracting identity for user: {} ({} messages)", jobClawUserId, messages.size());
 
             // Prepare conversation text
             String conversationText = formatConversation(messages);
 
-            // Use existing soul or empty
-            String existingSoul = currentSoul != null ? currentSoul : "无现有画像";
+            // Use existing identity or empty
+            String existingidentity = currentidentity != null ? currentidentity : "无现有画像";
 
             // Build prompt
             String prompt = promptTemplate
-                    .replace("{current_soul}", existingSoul)
+                    .replace("{current_identity}", existingidentity)
                     .replace("{conversation_history}", conversationText);
 
-            // Call AI to extract soul
+            // Call AI to extract identity
             var model = (ChatModel) SpringUtil.getBean(ClientSelector.class).getUserPreferredModel(jobClawUserId, false);
-            String updatedSoul = model.call(prompt);
+            String updatedidentity = model.call(prompt);
 
-            // Validate and clean soul
-            updatedSoul = validateSoul(updatedSoul, jobClawUserId);
+            // Validate and clean identity
+            updatedidentity = validateidentity(updatedidentity, jobClawUserId);
 
-            log.info("Soul extracted successfully for user: {} ({} chars)",
-                    jobClawUserId, updatedSoul.length());
+            log.info("identity extracted successfully for user: {} ({} chars)",
+                    jobClawUserId, updatedidentity.length());
 
-            return updatedSoul;
+            return updatedidentity;
 
         } catch (Exception e) {
-            log.error("Failed to extract soul for user: {}", jobClawUserId, e);
-            // Fallback to existing soul
-            return currentSoul;
+            log.error("Failed to extract identity for user: {}", jobClawUserId, e);
+            // Fallback to existing identity
+            return currentidentity;
         }
     }
 
@@ -133,39 +133,39 @@ public class UserSoulExtractor {
     }
 
     /**
-     * Validate and clean the extracted soul.
+     * Validate and clean the extracted identity.
      *
-     * @param soul raw soul markdown
+     * @param identity raw identity markdown
      * @param jobClawUserId user ID
-     * @return validated soul
+     * @return validated identity
      */
-    private String validateSoul(String soul, String jobClawUserId) {
-        if (soul == null || soul.isBlank()) {
+    private String validateidentity(String identity, String jobClawUserId) {
+        if (identity == null || identity.isBlank()) {
             return "";
         }
 
         // Trim whitespace
-        soul = soul.trim();
+        identity = identity.trim();
 
-        // Ensure it starts with # User Soul Profile
-        if (!soul.startsWith("# User Soul Profile")) {
-            soul = "# User Soul Profile\n\n" + soul;
+        // Ensure it starts with # User identity Profile
+        if (!identity.startsWith("# User identity Profile")) {
+            identity = "# User identity Profile\n\n" + identity;
         }
 
         // Ensure jobClawUserId is present
-        if (!soul.contains("**jobClawUserId**")) {
-            soul = soul.replace(
+        if (!identity.contains("**jobClawUserId**")) {
+            identity = identity.replace(
                     "## Basic Info",
                     "## Basic Info\n- **jobClawUserId**: " + jobClawUserId
             );
         }
 
         // Update timestamp
-        soul = soul.replaceAll(
+        identity = identity.replaceAll(
                 "- \\*\\*lastUpdated\\*\\*: .+",
                 "- **lastUpdated**: " + Instant.now().toString()
         );
 
-        return soul;
+        return identity;
     }
 }

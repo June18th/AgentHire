@@ -1,12 +1,9 @@
-package com.git.hui.jobclaw.core.agent.soul.collector;
+package com.git.hui.jobclaw.core.agent.identity.collector;
 
-import com.git.hui.jobclaw.core.agent.soul.collector.SoulCollectionState;
-
-import java.util.Map;
 import java.util.Optional;
 
 /**
- * Common interface for soul/profile collectors.
+ * Common interface for identity/profile collectors.
  *
  * <p>Implementations can use different strategies:
  * <ul>
@@ -14,9 +11,9 @@ import java.util.Optional;
  *   <li>AI-based: LLM-driven dynamic conversation</li>
  * </ul>
  *
- * AIDEV-NOTE: Common interface for Phase 3 soul collection strategies
+ * AIDEV-NOTE: Common interface for Phase 3 identity collection strategies
  */
-public interface SoulCollector {
+public interface IdentityCollector {
 
     /**
      * Collector type enum
@@ -29,7 +26,7 @@ public interface SoulCollector {
     }
 
     /**
-     * Check if we should initiate soul collection for this user.
+     * Check if we should initiate identity collection for this user.
      *
      * @param jobClawUserId user ID
      * @return true if collection should be initiated
@@ -37,7 +34,7 @@ public interface SoulCollector {
     boolean shouldInitiateCollection(String jobClawUserId);
 
     /**
-     * Initiate active soul collection for a new user.
+     * Initiate active identity collection for a new user.
      *
      * @param jobClawUserId user ID
      * @param channel active channel
@@ -61,7 +58,7 @@ public interface SoulCollector {
      * @param jobClawUserId user ID
      * @return collection state if exists
      */
-    Optional<SoulCollectionState> getCollectionState(String jobClawUserId);
+    Optional<IdentityCollectionState> getCollectionState(String jobClawUserId);
 
     /**
      * Get the collector type.

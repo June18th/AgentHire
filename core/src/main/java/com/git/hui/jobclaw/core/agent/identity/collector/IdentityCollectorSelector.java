@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent.soul.collector;
+package com.git.hui.jobclaw.core.agent.identity.collector;
 
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import org.springframework.stereotype.Component;
@@ -13,31 +13,31 @@ import java.util.stream.Collectors;
  * @date 2026/4/14
  */
 @Component
-public class SoulCollectorSelector {
-    private final Map<SoulCollector.CollectorType, SoulCollector> collectorMap;
+public class IdentityCollectorSelector {
+    private final Map<IdentityCollector.CollectorType, IdentityCollector> collectorMap;
 
     private final AiUserPreferenceProperties aiUserPreferenceProperties;
 
 
-    public SoulCollectorSelector(List<SoulCollector> collectors,
-                                 AiUserPreferenceProperties aiUserPreferenceProperties) {
-        this.collectorMap = collectors.stream().collect(Collectors.toMap(SoulCollector::getCollectorType,
+    public IdentityCollectorSelector(List<IdentityCollector> collectors,
+                                     AiUserPreferenceProperties aiUserPreferenceProperties) {
+        this.collectorMap = collectors.stream().collect(Collectors.toMap(IdentityCollector::getCollectorType,
                 collector -> collector));
         this.aiUserPreferenceProperties = aiUserPreferenceProperties;
     }
 
-    public SoulCollector getCollector(String jobClawUserId) {
+    public IdentityCollector getCollector(String jobClawUserId) {
         var tmp = aiUserPreferenceProperties.getPreference().stream()
                 .filter(entry -> entry.getUserId().equals(jobClawUserId))
                 .findFirst();
         if (tmp.isPresent()) {
             var collectorType = tmp.get().getCollector();
             if (collectorType == null) {
-                collectorType = SoulCollector.CollectorType.AI_BASED;
+                collectorType = IdentityCollector.CollectorType.AI_BASED;
             }
             return collectorMap.get(collectorType);
         } else {
-            return collectorMap.get(SoulCollector.CollectorType.RULE_BASED);
+            return collectorMap.get(IdentityCollector.CollectorType.RULE_BASED);
         }
     }
 }

@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
-import com.git.hui.jobclaw.core.agent.soul.UserSoulExtractor;
-import com.git.hui.jobclaw.core.agent.soul.UserSoulManager;
+import com.git.hui.jobclaw.core.agent.identity.UserIdentityManager;
+import com.git.hui.jobclaw.core.agent.identity.UserIdentityExtractor;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
@@ -53,21 +53,21 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
     private final Path conversationsDir;
     private final SmartWindowChatMemory smartWindow;
     private final SessionSummarizer sessionSummarizer;
-    private final UserSoulManager userSoulManager;
-    private final UserSoulExtractor userSoulExtractor;
+    private final UserIdentityManager useridentityManager;
+    private final UserIdentityExtractor useridentityExtractor;
     private final ContextWindowProperties contextWindowProperties;
 
     public FileSystemChatMemoryRepository(
             @Value("${agent.workspace:Unknown}") Resource workspaceDir,
             SmartWindowChatMemory smartWindow,
             SessionSummarizer sessionSummarizer,
-            UserSoulManager userSoulManager,
-            UserSoulExtractor userSoulExtractor, ContextWindowProperties contextWindowProperties) throws IOException {
+            UserIdentityManager useridentityManager,
+            UserIdentityExtractor useridentityExtractor, ContextWindowProperties contextWindowProperties) throws IOException {
         this.conversationsDir = workspaceDir.getFile().toPath().resolve("conversations");
         this.smartWindow = smartWindow;
         this.sessionSummarizer = sessionSummarizer;
-        this.userSoulManager = userSoulManager;
-        this.userSoulExtractor = userSoulExtractor;
+        this.useridentityManager = useridentityManager;
+        this.useridentityExtractor = useridentityExtractor;
         this.contextWindowProperties = contextWindowProperties;
     }
 
@@ -200,81 +200,81 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
             throw new RuntimeException("Failed to save conversation: " + conversationId, e);
         }
 
-        // Async: Update user soul profile
-        updateUserSoulAsync(conversationId, messages);
+        // Async: Update user identity profile
+        updateUseridentityAsync(conversationId, messages);
     }
 
     /**
-     * Asynchronously update user soul profile based on conversation history.
+     * Asynchronously update user identity profile based on conversation history.
      *
-     * <p>This method handles incremental soul updates for existing users.
+     * <p>This method handles incremental identity updates for existing users.
      * Unlike active collection (for new users), this performs passive extraction
-     * from conversation history to keep the soul profile up-to-date.
+     * from conversation history to keep the identity profile up-to-date.
      *
      * <p>Update strategy:
      * <ul>
      *   <li>Only triggers when conversation reaches certain size (avoid frequent AI calls)</li>
-     *   <li>Uses existing soul as baseline for incremental update</li>
+     *   <li>Uses existing identity as baseline for incremental update</li>
      *   <li>Runs asynchronously to avoid blocking conversation</li>
-     *   <li>Graceful fallback on failure (keeps existing soul)</li>
+     *   <li>Graceful fallback on failure (keeps existing identity)</li>
      * </ul>
      *
-     * AIDEV-NOTE: Incremental soul update for existing users - complementary to active collection
+     * AIDEV-NOTE: Incremental identity update for existing users - complementary to active collection
      *
      * @param conversationId conversation ID (contains jobClawUserId)
      * @param messages conversation messages
      */
-    private void updateUserSoulAsync(String conversationId, List<Message> messages) {
+    private void updateUseridentityAsync(String conversationId, List<Message> messages) {
         try {
             UserConversation userConv = UserConversation.parse(conversationId);
             String jobClawUserId = userConv.jobClawUserId();
 
             if ("Unknown".equals(jobClawUserId)) {
-                log.debug("Skipping soul update for unknown user");
+                log.debug("Skipping identity update for unknown user");
                 return;
             }
 
-            // Skip if user has no soul yet (should use active collection instead)
-            if (!userSoulManager.hasSoul(jobClawUserId)) {
-                log.debug("Skipping incremental update - user {} has no soul (use active collection)", jobClawUserId);
+            // Skip if user has no identity yet (should use active collection instead)
+            if (!useridentityManager.hasIdentity(jobClawUserId)) {
+                log.debug("Skipping incremental update - user {} has no identity (use active collection)", jobClawUserId);
                 return;
             }
 
             // Check if update should be triggered (avoid frequent AI calls)
-            if (!shouldTriggerSoulUpdate(messages)) {
-                log.debug("Skipping soul update for user {} - not enough new messages", jobClawUserId);
+            if (!shouldTriggeridentityUpdate(messages)) {
+                log.debug("Skipping identity update for user {} - not enough new messages", jobClawUserId);
                 return;
             }
 
-            log.info("Triggering incremental soul update for user: {} ({} messages)", jobClawUserId, messages.size());
+            log.info("Triggering incremental identity update for user: {} ({} messages)", jobClawUserId, messages.size());
 
-            // Load existing soul as baseline
-            String currentSoul = userSoulManager.loadSoul(jobClawUserId);
+            // Load existing identity as baseline
+            String currentidentity = useridentityManager.loadIdentity(jobClawUserId);
 
-            // Extract and update soul asynchronously
-            userSoulExtractor.extractAsync(jobClawUserId, currentSoul, messages)
-                    .thenAcceptAsync(updatedSoul -> {
-                        if (StringUtils.isNotBlank(updatedSoul)) {
-                            userSoulManager.saveSoul(jobClawUserId, updatedSoul);
-                            log.info("User soul updated incrementally for: {}", jobClawUserId);
+            // Extract and update identity asynchronously
+            useridentityExtractor.extractAsync(jobClawUserId, currentidentity, messages)
+                    .thenAcceptAsync(updatedidentity -> {
+                        if (StringUtils.isNotBlank(updatedidentity)) {
+                            useridentityManager.saveIdentity(jobClawUserId, updatedidentity);
+                            log.info("User identity updated incrementally for: {}", jobClawUserId);
                         } else {
-                            log.warn("Soul extraction returned empty for user: {}, keeping existing", jobClawUserId);
+                            log.warn("identity extraction returned empty for user: {}, keeping existing", jobClawUserId);
                         }
                     })
                     .exceptionally(ex -> {
-                        log.error("Failed to update user soul incrementally for: {}, keeping existing soul",
+                        log.error("Failed to update user identity incrementally for: {}, keeping existing identity",
                                 jobClawUserId, ex);
                         return null;
                     });
 
         } catch (Exception e) {
-            log.error("Failed to trigger incremental soul update for conversation: {}", conversationId, e);
-            // Don't throw - soul update is non-critical
+            log.error("Failed to trigger incremental identity update for conversation: {}", conversationId, e);
+            // Don't throw - identity update is non-critical
         }
     }
 
     /**
-     * Check if soul update should be triggered based on conversation size.
+     * Check if identity update should be triggered based on conversation size.
      *
      * <p>Strategy to avoid frequent AI calls:
      * <ul>
@@ -286,9 +286,9 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
      * @param messages current messages
      * @return true if update should be triggered
      */
-    private boolean shouldTriggerSoulUpdate(List<Message> messages) {
+    private boolean shouldTriggeridentityUpdate(List<Message> messages) {
         // Trigger when message count is a multiple of interval
-        return messages.size() >= 10 && messages.size() % Math.max(contextWindowProperties.getUpdateSoulFrequency(), 1) == 0;
+        return messages.size() >= 10 && messages.size() % Math.max(contextWindowProperties.getUpdateIdentityFrequency(), 1) == 0;
     }
 
     @Override

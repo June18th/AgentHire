@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent.soul.collector;
+package com.git.hui.jobclaw.core.agent.identity.collector;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import org.slf4j.Logger;
@@ -12,7 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Tool for AI agent to ask questions to users during soul collection.
+ * Tool for AI agent to ask questions to users during identity collection.
  *
  * <p>This tool enables the AI agent to:
  * <ul>
@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>Collect answers and build user profile</li>
  * </ul>
  *
- * AIDEV-NOTE: Tool for AI-based soul collection - enables dynamic questioning
+ * AIDEV-NOTE: Tool for AI-based identity collection - enables dynamic questioning
  */
 @Component
 public class AskUserQuestionTool {
@@ -102,7 +102,7 @@ public class AskUserQuestionTool {
         );
         pendingQuestions.put(jobClawUserId + ":" + fieldName, pending);
 
-        // The actual question sending will be handled by AiBasedSoulCollector
+        // The actual question sending will be handled by AiBasedidentityCollector
         // This tool just registers the question and returns instructions
         return String.format("""
                 Question registered: "%s"
@@ -117,7 +117,7 @@ public class AskUserQuestionTool {
 
     /**
      * Submit an answer to a pending question.
-     * Called by AiBasedSoulCollector when user responds.
+     * Called by AiBasedidentityCollector when user responds.
      *
      * @param jobClawUserId user ID
      * @param fieldName field name
