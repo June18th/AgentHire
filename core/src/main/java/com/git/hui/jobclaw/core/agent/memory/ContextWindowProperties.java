@@ -72,4 +72,24 @@ public class ContextWindowProperties {
      * Frequency of updating user identity.
      */
     private int updateIdentityFrequency = 10;
+
+    /**
+     * Whether to update agent soul automatically.
+     */
+    private boolean soulAutoUpdate = false;
+
+    /**
+     * Frequency of updating agent soul (every N messages).
+     */
+    private int soulUpdateFrequency = 10;
+
+    /**
+     * Whether to update agent info automatically.
+     */
+    private boolean infoAutoUpdate = false;
+
+    /**
+     * Trigger for info update (e.g., "user_identity_change").
+     */
+    private String infoUpdateTrigger = "user_identity_change";
 }

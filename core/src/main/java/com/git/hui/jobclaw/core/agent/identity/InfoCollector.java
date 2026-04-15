@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent.identity.collector;
+package com.git.hui.jobclaw.core.agent.identity;
 
 import java.util.Optional;
 
@@ -13,7 +13,7 @@ import java.util.Optional;
  *
  * AIDEV-NOTE: Common interface for Phase 3 identity collection strategies
  */
-public interface IdentityCollector {
+public interface InfoCollector {
 
     /**
      * Collector type enum
@@ -58,7 +58,7 @@ public interface IdentityCollector {
      * @param jobClawUserId user ID
      * @return collection state if exists
      */
-    Optional<IdentityCollectionState> getCollectionState(String jobClawUserId);
+    Optional<CollectionState> getCollectionState(String jobClawUserId);
 
     /**
      * Get the collector type.
@@ -66,5 +66,4 @@ public interface IdentityCollector {
      * @return collector type
      */
     CollectorType getCollectorType();
-
 }

@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent.identity.collector;
+package com.git.hui.jobclaw.core.agent.identity;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * AIDEV-NOTE: State manager for Phase 3 active identity collection
  */
-public class IdentityCollectionState {
+public class CollectionState {
 
     /**
      * Collection status enum
@@ -81,7 +81,7 @@ public class IdentityCollectionState {
     private String activeChannel;
     private String conversationId;
 
-    public IdentityCollectionState(String jobClawUserId) {
+    public CollectionState(String jobClawUserId) {
         this.jobClawUserId = jobClawUserId;
         this.status = Status.NOT_STARTED;
         this.startedAt = Instant.now();

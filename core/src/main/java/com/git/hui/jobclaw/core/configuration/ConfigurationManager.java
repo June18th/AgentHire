@@ -53,6 +53,9 @@ public class ConfigurationManager implements CommandLineRunner {
 
     @Transactional
     public void updateProperties(Map<String, Object> keyValues) {
+        // 为了避免刷新配置之后，立马取配置拿不到最新的情况，我们先主动写入缓存中
+        // 与之搭配的，应该使用下面的 getProperty 获取配置
+        cachedConfig.putAll(keyValues);
         // 持久化变更的配置
         keyValues.forEach((k, v) -> {
             if (v instanceof String) {
@@ -74,6 +77,10 @@ public class ConfigurationManager implements CommandLineRunner {
     }
 
     public String getProperty(String key) {
+        if (cachedConfig.containsKey(key)) {
+            return String.valueOf(cachedConfig.get(key));
+        }
+
         try {
             return environment.getProperty(key);
         } catch (Exception e) {
@@ -173,7 +180,6 @@ public class ConfigurationManager implements CommandLineRunner {
                 applyConfigToEnvironment(newConfig);
                 cachedConfig.clear();
                 cachedConfig.putAll(newConfig);
-
                 log.info("[GlobalEnvConfig] Configuration refreshed successfully");
             }
         } catch (Exception e) {

@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent.identity;
+package com.git.hui.jobclaw.core.agent.identity.user;
 
 import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import org.slf4j.Logger;

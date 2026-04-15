@@ -1,11 +1,11 @@
-package com.git.hui.jobclaw.core.agent.identity.collector.impl;
+package com.git.hui.jobclaw.core.agent.identity.user.collector;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.core.agent.ClientSelector;
-import com.git.hui.jobclaw.core.agent.identity.UserIdentityExtractor;
-import com.git.hui.jobclaw.core.agent.identity.UserIdentityManager;
-import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollectionState;
-import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollector;
+import com.git.hui.jobclaw.core.agent.identity.CollectionState;
+import com.git.hui.jobclaw.core.agent.identity.InfoCollector;
+import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityExtractor;
+import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityManager;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.slf4j.Logger;
@@ -52,7 +52,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * AIDEV-NOTE: AI-based implementation of identityCollector interface using LLM + tools
  */
 @Component
-public class AiBasedIdentityCollector implements IdentityCollector {
+public class AiBasedIdentityCollector implements InfoCollector {
 
     private static final Logger log = LoggerFactory.getLogger(AiBasedIdentityCollector.class);
 
@@ -61,7 +61,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
     private final ChannelEventPublisher channelEventPublisher;
 
     // Track collection states per user
-    private final Map<String, IdentityCollectionState> collectionStates = new ConcurrentHashMap<>();
+    private final Map<String, CollectionState> collectionStates = new ConcurrentHashMap<>();
 
     // Conversation history per user (for AI context)
     private final Map<String, List<Message>> conversationHistories = new ConcurrentHashMap<>();
@@ -101,7 +101,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
         }
 
         // Skip if collection already in progress
-        IdentityCollectionState state = collectionStates.get(jobClawUserId);
+        CollectionState state = collectionStates.get(jobClawUserId);
         if (state != null && state.isInProgress()) {
             return false;
         }
@@ -119,7 +119,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
         log.info("[AiBased] Initiating AI-driven collection for user: {} via channel: {}", jobClawUserId, channel);
 
         // Create collection state
-        IdentityCollectionState state = new IdentityCollectionState(jobClawUserId);
+        CollectionState state = new CollectionState(jobClawUserId);
         state.start(channel, conversationId);
         collectionStates.put(jobClawUserId, state);
 
@@ -132,7 +132,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
 
     @Override
     public void processAnswer(String jobClawUserId, String userMessage, String channel, String conversationId) {
-        IdentityCollectionState state = collectionStates.get(jobClawUserId);
+        CollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {
             return;
         }
@@ -152,14 +152,14 @@ public class AiBasedIdentityCollector implements IdentityCollector {
     }
 
     @Override
-    public Optional<IdentityCollectionState> getCollectionState(String jobClawUserId) {
+    public Optional<CollectionState> getCollectionState(String jobClawUserId) {
         return Optional.ofNullable(collectionStates.get(jobClawUserId));
     }
 
     /**
      * Start AI-driven conversation using LLM
      */
-    private void startAiConversation(IdentityCollectionState state) {
+    private void startAiConversation(CollectionState state) {
         log.info("[AiBased] Starting AI conversation for user: {}", state.getJobClawUserId());
 
         // Create system prompt
@@ -193,7 +193,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
     /**
      * Continue AI conversation after user response
      */
-    private void continueAiConversation(IdentityCollectionState state, List<Message> history) {
+    private void continueAiConversation(CollectionState state, List<Message> history) {
         String systemPrompt = promptTemplate;
 
         // Call AI and get structured response
@@ -240,7 +240,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
     /**
      * Call AI for collection and parse structured response
      */
-    private AiCollectionResponse callAiForCollection(IdentityCollectionState state, String systemPrompt, List<Message> messages) {
+    private AiCollectionResponse callAiForCollection(CollectionState state, String systemPrompt, List<Message> messages) {
         String jobClawUserId = state.getJobClawUserId();
         try {
             // Build conversation with system prompt
@@ -275,7 +275,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
     /**
      * Send fallback message when AI fails
      */
-    private void sendFallbackMessage(IdentityCollectionState state) {
+    private void sendFallbackMessage(CollectionState state) {
         if (state != null) {
             sendProactiveMessage(state, "抱歉，我遇到了一些问题。让我换个方式了解你：你是哪所学校毕业的呢？");
         }
@@ -284,7 +284,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
     /**
      * Complete collection and generate identity.md
      */
-    private void completeCollection(IdentityCollectionState state, List<Message> history) {
+    private void completeCollection(CollectionState state, List<Message> history) {
         log.info("[AiBased] Completing AI-driven collection for user: {}", state.getJobClawUserId());
 
         // Use UseridentityExtractor to generate identity.md from conversation
@@ -320,7 +320,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
     /**
      * Build simple identity as fallback
      */
-    private String buildSimpleidentity(IdentityCollectionState state) {
+    private String buildSimpleidentity(CollectionState state) {
         Instant now = Instant.now();
         return """
                 # User identity Profile
@@ -341,7 +341,7 @@ public class AiBasedIdentityCollector implements IdentityCollector {
     /**
      * Send proactive message to user
      */
-    private void sendProactiveMessage(IdentityCollectionState state, String content) {
+    private void sendProactiveMessage(CollectionState state, String content) {
         try {
             channelEventPublisher.publishProactiveMessage("identity_AI_" + System.currentTimeMillis(),
                     state.getJobClawUserId(), state.getActiveChannel(), content);

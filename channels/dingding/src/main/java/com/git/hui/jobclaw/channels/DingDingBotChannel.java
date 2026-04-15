@@ -63,6 +63,8 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
      */
     private final Map<String, CardManager> cardManagers = new ConcurrentHashMap<>();
 
+    private ActiveAiCardCache aiCardStatus = new ActiveAiCardCache();
+
     public DingDingBotChannel(Resource agentWorkspace,
                               ChannelRegistry channelRegistry,
                               ChannelEventPublisher channelEventPublisher,
@@ -120,6 +122,9 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                                 // 接收到消息之后，发送到消息总线 bus，然后通过sink方式接收大模型的返回，最后将结果响应给用户
                                 log.info("[DingDing] Received message from DingDing msg={}", JsonUtil.toStr(chatbotMessage));
                                 String aiCardId = initStreamAiCardId(config.getAppId(), chatbotMessage);
+                                String key = config.getAppId() + ":" + jobClawUserId;
+                                aiCardStatus.startAiCard(config.getAppId(), jobClawUserId, aiCardId);
+
                                 ChatbotMessageEx msgEx = new ChatbotMessageEx();
                                 BeanUtils.copyProperties(chatbotMessage, msgEx);
                                 msgEx.setAiCardId(aiCardId);
@@ -239,7 +244,10 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
         if (stream != null) {
             if (StringUtils.isBlank(cardId)) {
                 // 通常是后台主动给用户发送消息的场景
-                cardId = initStreamAiCardId(originalMsg.getRobotId(), originalMsg);
+                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
+                if (cardId == null) {
+                    cardId = initStreamAiCardId(originalMsg.getRobotId(), originalMsg);
+                }
             }
 
             if (StringUtils.isBlank(cardId)) {
@@ -252,17 +260,20 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                             log.debug("[DingDing] Received response chunk: {}", response);
                             content.append(response);
                             cardManager.streamUpdate(finalCardId, content.toString(), false);
+                            aiCardStatus.answerAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
                         })
                         .doOnError(error -> {
                             log.error("[DingDing] Error in stream response for cardId: {}", finalCardId, error);
                             // 发生错误时，标记卡片为结束状态
                             cardManager.streamUpdate(finalCardId, "抱歉，生成回复时遇到了错误。", true);
+                            aiCardStatus.finishAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
                         })
                         .doOnComplete(() -> {
                             log.info("[DingDing] Stream response completed for cardId: {}, total length: {}", finalCardId,
                                     content.length());
                             // 流式响应完成，标记卡片为结束状态
                             cardManager.streamUpdate(finalCardId, content.toString(), true);
+                            aiCardStatus.finishAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
                         }).subscribe();
             }
         } else {
@@ -273,6 +284,12 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
             }
 
             if (StringUtils.isBlank(cardId)) {
+                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
+                if (cardId != null) {
+                    cardManager.streamUpdate(cardId, content, true);
+                    return true;
+                }
+
                 // 如果会话链接有效，那就通过这个回调发送消息即可
                 if (directReply(originalMsg, content)) {
                     return true;
@@ -333,6 +350,63 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
             channelRegistry.registerChannel(this);
         } else {
             log.warn("[DingDing] Unsupported config type: {}", channelConfig.getClass().getName());
+        }
+    }
+
+
+    public enum AiCardStatus {
+        INIT,
+        ANSWERING,
+        COMPLETE,
+        ;
+    }
+
+    public record AiCardState(AiCardStatus status, Long updateTime) {
+    }
+
+
+    public static class ActiveAiCardCache {
+        private final Map<String, Map<String, AiCardState>> aiCardStatus = new ConcurrentHashMap<>();
+
+        private String buildKey(String robotId, String jobClawUserId) {
+            return robotId + "_" + jobClawUserId;
+        }
+
+        public void startAiCard(String robotId, String jobClawUserId, String cardId) {
+            aiCardStatus.computeIfAbsent(buildKey(robotId, jobClawUserId),
+                            key -> new ConcurrentHashMap<>())
+                    .put(cardId, new AiCardState(AiCardStatus.INIT, System.currentTimeMillis()));
+        }
+
+        public void answerAiCard(String robotId, String jobClawUserId, String cardId) {
+            String key = buildKey(robotId, jobClawUserId);
+            var map = aiCardStatus.get(key);
+            if (map != null) {
+                map.put(cardId, new AiCardState(AiCardStatus.ANSWERING, System.currentTimeMillis()));
+            }
+        }
+
+        public void finishAiCard(String robotId, String jobClawUserId, String cardId) {
+            String key = buildKey(robotId, jobClawUserId);
+            var map = aiCardStatus.get(key);
+            if (map != null) {
+                map.remove(cardId);
+            }
+        }
+
+        public String getActiveAiCard(String robotId, String jobClawUserId) {
+            // 查找时间最大的一个初始化状态的aiCard
+            String key = buildKey(robotId, jobClawUserId);
+            var map = aiCardStatus.get(key);
+            if (map == null) {
+                return null;
+            }
+            for (Map.Entry<String, AiCardState> entry : map.entrySet()) {
+                if (entry.getValue().status == AiCardStatus.INIT) {
+                    return entry.getKey();
+                }
+            }
+            return null;
         }
     }
 

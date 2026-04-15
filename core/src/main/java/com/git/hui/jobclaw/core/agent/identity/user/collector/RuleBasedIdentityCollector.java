@@ -1,8 +1,8 @@
-package com.git.hui.jobclaw.core.agent.identity.collector.impl;
+package com.git.hui.jobclaw.core.agent.identity.user.collector;
 
-import com.git.hui.jobclaw.core.agent.identity.UserIdentityManager;
-import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollectionState;
-import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollector;
+import com.git.hui.jobclaw.core.agent.identity.CollectionState;
+import com.git.hui.jobclaw.core.agent.identity.InfoCollector;
+import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityManager;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * AIDEV-NOTE: Rule-based implementation of identityCollector interface
  */
 @Component
-public class RuleBasedIdentityCollector implements IdentityCollector {
+public class RuleBasedIdentityCollector implements InfoCollector {
 
     private static final Logger log = LoggerFactory.getLogger(RuleBasedIdentityCollector.class);
 
@@ -40,61 +40,61 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
     private final ChannelEventPublisher channelEventPublisher;
 
     // Track collection states per user
-    private final Map<String, IdentityCollectionState> collectionStates = new ConcurrentHashMap<>();
+    private final Map<String, CollectionState> collectionStates = new ConcurrentHashMap<>();
 
     // Predefined question flow
-    private static final List<IdentityCollectionState.CollectionQuestion> DEFAULT_QUESTION_FLOW = List.of(
+    private static final List<CollectionState.CollectionQuestion> DEFAULT_QUESTION_FLOW = List.of(
             // Basic Info
-            new IdentityCollectionState.CollectionQuestion(
-                    IdentityCollectionState.QuestionCategory.BASIC_INFO,
+            new CollectionState.CollectionQuestion(
+                    CollectionState.QuestionCategory.BASIC_INFO,
                     "你好！我是求职派助手。为了更好地帮助你，可以告诉我你的姓名吗？😊",
                     "name",
                     false
             ),
-            new IdentityCollectionState.CollectionQuestion(
-                    IdentityCollectionState.QuestionCategory.BASIC_INFO,
+            new CollectionState.CollectionQuestion(
+                    CollectionState.QuestionCategory.BASIC_INFO,
                     "你是什么时候毕业的呢？（例如：2026年）",
                     "graduationYear",
                     true
             ),
 
             // Education
-            new IdentityCollectionState.CollectionQuestion(
-                    IdentityCollectionState.QuestionCategory.EDUCATION,
+            new CollectionState.CollectionQuestion(
+                    CollectionState.QuestionCategory.EDUCATION,
                     "你在哪所学校就读呢？",
                     "university",
                     true
             ),
-            new IdentityCollectionState.CollectionQuestion(
-                    IdentityCollectionState.QuestionCategory.EDUCATION,
+            new CollectionState.CollectionQuestion(
+                    CollectionState.QuestionCategory.EDUCATION,
                     "你的专业是什么？",
                     "major",
                     true
             ),
 
             // Job Preferences
-            new IdentityCollectionState.CollectionQuestion(
-                    IdentityCollectionState.QuestionCategory.JOB_PREFERENCES,
+            new CollectionState.CollectionQuestion(
+                    CollectionState.QuestionCategory.JOB_PREFERENCES,
                     "你想找哪个城市的工作呢？（可以说多个城市，用逗号分隔）",
                     "location",
                     true
             ),
-            new IdentityCollectionState.CollectionQuestion(
-                    IdentityCollectionState.QuestionCategory.JOB_PREFERENCES,
+            new CollectionState.CollectionQuestion(
+                    CollectionState.QuestionCategory.JOB_PREFERENCES,
                     "你期望的岗位类型是什么？（例如：Java开发、产品经理、数据分析师等）",
                     "jobType",
                     true
             ),
-            new IdentityCollectionState.CollectionQuestion(
-                    IdentityCollectionState.QuestionCategory.JOB_PREFERENCES,
+            new CollectionState.CollectionQuestion(
+                    CollectionState.QuestionCategory.JOB_PREFERENCES,
                     "你是在找实习岗位还是正式工作呢？（回复\"实习\"或\"正式\"）",
                     "internship",
                     true
             ),
 
             // Skills
-            new IdentityCollectionState.CollectionQuestion(
-                    IdentityCollectionState.QuestionCategory.SKILLS,
+            new CollectionState.CollectionQuestion(
+                    CollectionState.QuestionCategory.SKILLS,
                     "你掌握哪些技术技能呢？（例如：Java、Python、Spring Boot等，可以列出多个）",
                     "skills",
                     false
@@ -121,7 +121,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
         }
 
         // Skip if collection already in progress
-        IdentityCollectionState state = collectionStates.get(jobClawUserId);
+        CollectionState state = collectionStates.get(jobClawUserId);
         if (state != null && state.isInProgress()) {
             return false;
         }
@@ -139,7 +139,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
         log.info("[RuleBased] Initiating collection for user: {} via channel: {}", jobClawUserId, channel);
 
         // Create collection state
-        IdentityCollectionState state = new IdentityCollectionState(jobClawUserId);
+        CollectionState state = new CollectionState(jobClawUserId);
         state.start(channel, conversationId);
         state.setRemainingQuestions(new ArrayList<>(DEFAULT_QUESTION_FLOW));
         collectionStates.put(jobClawUserId, state);
@@ -150,7 +150,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
 
     @Override
     public void processAnswer(String jobClawUserId, String userMessage, String channel, String conversationId) {
-        IdentityCollectionState state = collectionStates.get(jobClawUserId);
+        CollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {
             return;
         }
@@ -160,7 +160,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
         state.setConversationId(conversationId);
 
         // Record answer
-        IdentityCollectionState.CollectionQuestion currentQ = state.getCurrentQuestion();
+        CollectionState.CollectionQuestion currentQ = state.getCurrentQuestion();
         if (currentQ != null) {
             state.recordAnswer(currentQ.field(), userMessage);
             log.info("[RuleBased] Recorded answer for user {}: {} = {}", jobClawUserId, currentQ.field(), userMessage);
@@ -180,19 +180,19 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
     }
 
     @Override
-    public Optional<IdentityCollectionState> getCollectionState(String jobClawUserId) {
+    public Optional<CollectionState> getCollectionState(String jobClawUserId) {
         return Optional.ofNullable(collectionStates.get(jobClawUserId));
     }
 
     /**
      * Ask the next question in the flow
      */
-    private void askNextQuestion(IdentityCollectionState state) {
+    private void askNextQuestion(CollectionState state) {
         if (state.getRemainingQuestions().isEmpty()) {
             return;
         }
 
-        IdentityCollectionState.CollectionQuestion nextQuestion = state.getRemainingQuestions().get(0);
+        CollectionState.CollectionQuestion nextQuestion = state.getRemainingQuestions().get(0);
         state.markQuestionAsked(nextQuestion);
 
         String question = formatQuestion(nextQuestion, state.getAskedQuestions().size());
@@ -204,7 +204,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
     /**
      * Format question with progress indicator
      */
-    private String formatQuestion(IdentityCollectionState.CollectionQuestion question, int progress) {
+    private String formatQuestion(CollectionState.CollectionQuestion question, int progress) {
         return String.format("""
                         【%d/%d】%s
                                         
@@ -219,7 +219,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
     /**
      * Complete the collection and create initial identity.md
      */
-    private void completeCollection(IdentityCollectionState state) {
+    private void completeCollection(CollectionState state) {
         log.info("[RuleBased] Completing collection for user: {}", state.getJobClawUserId());
 
         // Build initial identity from collected answers
@@ -249,7 +249,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
     /**
      * Build initial identity.md from collected answers
      */
-    private String buildInitialidentity(IdentityCollectionState state) {
+    private String buildInitialidentity(CollectionState state) {
         Map<String, String> answers = state.getCollectedAnswers();
         Instant now = Instant.now();
 
@@ -326,7 +326,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
     /**
      * Send skip acknowledgement
      */
-    private void sendSkipAcknowledgement(IdentityCollectionState state) {
+    private void sendSkipAcknowledgement(CollectionState state) {
         String msg = "好的，我们跳过这个问题，继续下一个~ 😊";
         sendProactiveMessage(state, msg);
     }
@@ -334,7 +334,7 @@ public class RuleBasedIdentityCollector implements IdentityCollector {
     /**
      * Send proactive message to user
      */
-    private void sendProactiveMessage(IdentityCollectionState state, String content) {
+    private void sendProactiveMessage(CollectionState state, String content) {
         try {
 
             channelEventPublisher.publishProactiveMessage(

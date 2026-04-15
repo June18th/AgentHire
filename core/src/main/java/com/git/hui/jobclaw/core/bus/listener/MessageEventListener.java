@@ -1,7 +1,8 @@
 package com.git.hui.jobclaw.core.bus.listener;
 
 import com.git.hui.jobclaw.core.agent.Agent;
-import com.git.hui.jobclaw.core.agent.identity.collector.IdentityCollectorSelector;
+import com.git.hui.jobclaw.core.agent.identity.UnifiedIdentityInitializer;
+import com.git.hui.jobclaw.core.agent.identity.user.IdentityCollectorSelector;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
@@ -19,6 +20,8 @@ import reactor.core.publisher.Flux;
 /**
  * 消息事件监听器 - 处理消息接收和响应事件
  *
+ * AIDEV-NOTE: Modified to integrate UnifiedIdentityInitializer for unified initialization flow
+ *
  * @author YiHui
  * @date 2026/4/8
  */
@@ -35,6 +38,8 @@ public class MessageEventListener {
 
     private final IdentityCollectorSelector identityCollectorSelector;
 
+    private final UnifiedIdentityInitializer unifiedInitializer;
+
 
     /**
      * 处理消息接收事件
@@ -49,7 +54,14 @@ public class MessageEventListener {
         String channel = msg.getChannel();
         String userMessage = msg.getMessage();
 
-        // Check if user is in active identity collection mode
+        // Step 1: Check and advance unified initialization sequence
+        // This handles soul.md → user.md → info.md initialization
+        if (unifiedInitializer.checkAndAdvance(jobClawUserId, userMessage, channel, conversationId)) {
+            log.info("Message handled by unified initializer for user: {}", jobClawUserId);
+            return; // Don't send to normal agent during initialization
+        }
+
+        // Step 2: Check if user is in active identity collection mode
         var collector = identityCollectorSelector.getCollector(jobClawUserId);
         var collectionState = collector.getCollectionState(jobClawUserId);
         if (collectionState.isPresent() && collectionState.get().isInProgress()) {
@@ -61,8 +73,8 @@ public class MessageEventListener {
             return; // Don't send to normal agent
         }
 
-        // Check if we should initiate active identity collection for new user
-        // Trigger on first message if no identity exists
+        // Step 3: Check if we should initiate active identity collection for new user
+        // This is a fallback if unified initializer didn't trigger
         if (collector.shouldInitiateCollection(jobClawUserId)) {
             log.info("[{}] Initiating active identity collection for new user: {} on first message",
                     collector.getCollectorType(),
@@ -72,7 +84,7 @@ public class MessageEventListener {
             return;
         }
 
-        // Normal message handling - route to agent
+        // Step 4: Normal message handling - route to agent
         try {
             String response = null;
             Flux<String> streamRes = null;

@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
-import com.git.hui.jobclaw.core.agent.identity.UserIdentityExtractor;
-import com.git.hui.jobclaw.core.agent.identity.UserIdentityManager;
+import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityExtractor;
+import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityManager;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
