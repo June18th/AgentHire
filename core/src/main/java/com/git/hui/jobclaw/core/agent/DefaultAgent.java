@@ -60,10 +60,10 @@ public class DefaultAgent implements Agent {
     }
 
     @Override
-    public Flux<String> streamResponse(String jobClawUserId, String conversationId, String question) {
+    public Flux<String> streamResponse(String jobClawUserId, String conversationId, ChannelReceiveMessage message) {
         String finalConversationId = buildChatMemConversationId(jobClawUserId, conversationId);
-        return clientSelector.getClient(jobClawUserId, conversationId, false)
-                .prompt(buildPrompt(question))
+        return clientSelector.getClient(jobClawUserId, conversationId, hasMedia(message))
+                .prompt(buildPrompt(message))
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, finalConversationId))
                 .toolContext(Map.of("jobClawUserId", jobClawUserId))
                 .stream().content();

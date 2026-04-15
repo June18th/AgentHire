@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 /**
  * 消息事件监听器 - 处理消息接收和响应事件
@@ -32,7 +33,7 @@ public class MessageEventListener {
 
     private final Agent agent;
 
-    private final IdentityCollectorSelector soulCollectorSelector;
+    private final IdentityCollectorSelector identityCollectorSelector;
 
 
     /**
@@ -48,37 +49,44 @@ public class MessageEventListener {
         String channel = msg.getChannel();
         String userMessage = msg.getMessage();
 
-        // Check if user is in active soul collection mode
-        var soulCollector = soulCollectorSelector.getCollector(jobClawUserId);
-        var collectionState = soulCollector.getCollectionState(jobClawUserId);
+        // Check if user is in active identity collection mode
+        var collector = identityCollectorSelector.getCollector(jobClawUserId);
+        var collectionState = collector.getCollectionState(jobClawUserId);
         if (collectionState.isPresent() && collectionState.get().isInProgress()) {
-            log.info("[{}] Processing soul collection answer from user: {}",
-                    soulCollector.getCollectorType(),
+            log.info("[{}] Processing identity collection answer from user: {}",
+                    collector.getCollectorType(),
                     jobClawUserId);
             // Process the answer and ask next question
-            soulCollector.processAnswer(jobClawUserId, userMessage, channel, conversationId);
+            collector.processAnswer(jobClawUserId, userMessage, channel, conversationId);
             return; // Don't send to normal agent
         }
 
-        // Check if we should initiate active soul collection for new user
-        // Trigger on first message if no soul exists
-        if (soulCollector.shouldInitiateCollection(jobClawUserId)) {
-            log.info("[{}] Initiating active soul collection for new user: {} on first message",
-                    soulCollector.getCollectorType(),
+        // Check if we should initiate active identity collection for new user
+        // Trigger on first message if no identity exists
+        if (collector.shouldInitiateCollection(jobClawUserId)) {
+            log.info("[{}] Initiating active identity collection for new user: {} on first message",
+                    collector.getCollectorType(),
                     jobClawUserId);
             // 开虚拟线程，执行采集
-            soulCollector.initiateCollection(jobClawUserId, channel, conversationId);
+            collector.initiateCollection(jobClawUserId, channel, conversationId);
             return;
         }
 
         // Normal message handling - route to agent
         try {
-            String response = agent.respondToMultiModal(jobClawUserId, conversationId, msg);
+            String response = null;
+            Flux<String> streamRes = null;
+            if (msg.isStream()) {
+                streamRes = agent.streamResponse(jobClawUserId, conversationId, msg);
+            } else {
+                response = agent.respondToMultiModal(jobClawUserId, conversationId, msg);
+            }
             ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
                     .jobClawUserId(jobClawUserId)
                     .toUserId(conversationId)
                     .type(ChannelResponseMessage.ResponseMessageType.TEXT)
                     .content(response)
+                    .streamContents(streamRes)
                     .passThrough(msg.getPassThrough())
                     .build();
 

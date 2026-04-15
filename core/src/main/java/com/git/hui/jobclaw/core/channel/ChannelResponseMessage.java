@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.core.channel;
 
 import lombok.Builder;
 import lombok.Data;
+import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
@@ -17,6 +18,7 @@ public class ChannelResponseMessage {
     private String toUserId;
     private ResponseMessageType type;
     private String content;
+    private Flux<String> streamContents;
     private Map<String, Object> passThrough;
 
 

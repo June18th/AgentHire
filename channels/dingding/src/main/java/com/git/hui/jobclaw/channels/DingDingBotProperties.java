@@ -20,7 +20,7 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "agent.channels.dingding")
 public class DingDingBotProperties {
     private boolean enabled;
-    private Map<String, List<ChannelConfig>> accounts;
+    private Map<String, List<DingDingBotAccount>> accounts;
 
 
     @Data
@@ -29,6 +29,9 @@ public class DingDingBotProperties {
     @AllArgsConstructor
     @EqualsAndHashCode(callSuper = true)
     public static class DingDingBotAccount extends ChannelConfig {
-        private String userId;
+        /**
+         * 用于流式返回的 cardId
+         */
+        private String aiCardId;
     }
 }

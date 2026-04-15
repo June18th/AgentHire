@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.channel;
 
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -34,6 +35,13 @@ public class ChannelReceiveMessage {
      * 透传参数，channel上报的接收消息，当JobClaw处理之后，会生成一个/多个响应消息，每个响应消息都会携带这个参数；用于解决不同渠道的传参个性化
      */
     private Map<String, Object> passThrough;
+
+    /**
+     * 是否流式处理，默认是否，表示同步调用大模型
+     * 是否支持流式返回，主要取决于通信Channel，是否支持这种场景
+     */
+    @Builder.Default
+    private boolean stream = false;
 
 
     @Data

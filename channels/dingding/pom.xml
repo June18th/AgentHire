@@ -21,13 +21,6 @@
 
 
     <dependencies>
-        <!-- Source: https://mvnrepository.com/artifact/com.dingtalk.open/dingtalk-stream -->
-        <dependency>
-            <groupId>com.dingtalk.open</groupId>
-            <artifactId>dingtalk-stream</artifactId>
-            <version>${dingding-sdk-version}</version>
-        </dependency>
-
         <dependency>
             <groupId>com.git.hui.jobclaw</groupId>
             <artifactId>core</artifactId>
@@ -44,6 +37,30 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+
+        <!-- Source: https://mvnrepository.com/artifact/com.dingtalk.open/dingtalk-stream -->
+        <dependency>
+            <groupId>com.dingtalk.open</groupId>
+            <artifactId>dingtalk-stream</artifactId>
+            <version>${dingding-sdk-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>dingtalk</artifactId>
+            <version>2.2.47</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>alibaba-dingtalk-service-sdk</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
+            <version>2.0.61</version>
+        </dependency>
+
 
     </dependencies>
 
