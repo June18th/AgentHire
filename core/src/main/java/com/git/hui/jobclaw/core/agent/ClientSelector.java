@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.core.tasks.TaskManager;
+import com.git.hui.jobclaw.core.tools.AutoDiscoveredTool;
 import com.git.hui.jobclaw.core.tools.CheckListTool;
 import com.git.hui.jobclaw.core.tools.McpTool;
 import com.git.hui.jobclaw.core.tools.TaskTool;
@@ -20,6 +21,8 @@ import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.model.Model;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -28,7 +31,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -53,15 +58,20 @@ public class ClientSelector {
 
     @Value("${agent.workspace:Unknown}")
     private Resource workspace;
-    public static final String AGENT_MD = "AGENT.private.md";
 
+    private final List<AutoDiscoveredTool<?>> autoDiscoveredTools;
+    
+    public static final String AGENT_MD = "AGENT.private.md";
+    
     public ClientSelector(ModelProviders modelProviders,
                           ChatMemory chatMemory,
-                          TaskManager taskManager) {
+                          TaskManager taskManager,
+                          @Autowired(required = false) List<AutoDiscoveredTool<?>> autoDiscoveredTools) {
         this.modelProviders = modelProviders;
         this.chatMemory = chatMemory;
         this.taskManager = taskManager;
         this.userCacheClient = new ConcurrentHashMap<>();
+        this.autoDiscoveredTools = autoDiscoveredTools != null ? autoDiscoveredTools : List.of();
     }
 
 
@@ -126,6 +136,11 @@ public class ClientSelector {
                             ToolCallAdvisor.builder().build(),
                             MessageChatMemoryAdvisor.builder(chatMemory).build()
                     );
+
+
+            if (autoDiscoveredTools != null && !autoDiscoveredTools.isEmpty()) {
+                autoDiscoveredTools.forEach(autoDiscoveredTool -> chatClientBuilder.defaultTools(autoDiscoveredTool.tool()));
+            }
             return chatClientBuilder.build();
         } catch (Exception e) {
             throw new RuntimeException(e);

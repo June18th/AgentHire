@@ -111,6 +111,10 @@ agent:
       enabled: false
       accounts:
         2: !!seq [ ]
+  tools:
+    playwright:
+      enabled: true # 是否启用playwright
+      headless: true # 是否启用无头模式
   ai:
     preference: # 用户维度的模型配置偏好
       - user-id: 2

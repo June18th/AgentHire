@@ -20,6 +20,7 @@
     </properties>
 
     <dependencies>
+        <!--  channels  -->
         <dependency>
             <groupId>com.git.hui.jobclaw.channels</groupId>
             <artifactId>wechat-clawbot</artifactId>
@@ -36,9 +37,18 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!--  providers  -->
         <dependency>
             <groupId>com.git.hui.jobclaw.provider</groupId>
             <artifactId>openai</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+
+        <!--  plugins  -->
+        <dependency>
+            <groupId>com.git.hui.jobclaw.plugins</groupId>
+            <artifactId>playwright</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -57,15 +67,6 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
-
-        <!--  阿里的大模型      -->
-        <!-- Source: https://mvnrepository.com/artifact/com.alibaba.cloud.ai/spring-ai-alibaba-starter-dashscope -->
-<!--        <dependency>-->
-<!--            <groupId>com.alibaba.cloud.ai</groupId>-->
-<!--            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>-->
-<!--            <version>1.1.2.2</version>-->
-<!--            <scope>compile</scope>-->
-<!--        </dependency>-->
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
