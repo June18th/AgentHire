@@ -236,21 +236,7 @@ public class UserAgentSoulCollector implements InfoCollector {
 
             // Return streaming flux directly
             return model.stream(prompt)
-                    .map(chunk -> {
-                        // 思考内容
-                        var r = chunk.getResult().getOutput().getMetadata().get("reasoningContent");
-                        String text = chunk.getResult().getOutput().getText();
-
-                        if (log.isDebugEnabled()) {
-                            log.debug("[Soul] Reasoning: \nthin>>{} \ntext>>{}", r, text);
-                        }
-                        if (StringUtils.isBlank(text) && r != null) {
-                            return new LlmRspCell((String) r, null, null);
-                        }
-
-                        // fixme 工具的返回
-                        return new LlmRspCell(null, text, null);
-                    })
+                    .map(LlmRspCell::of)
                     .doOnError(error -> {
                         log.error("[Soul] Streaming error for user: {}", state.getJobClawUserId(), error);
                     });

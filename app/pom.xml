@@ -30,6 +30,11 @@
             <artifactId>dingding</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.git.hui.jobclaw.channels</groupId>
+            <artifactId>feishu</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>com.git.hui.jobclaw.provider</groupId>

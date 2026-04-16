@@ -307,20 +307,7 @@ public class AiBasedIdentityCollector implements InfoCollector {
 
             // Return streaming flux directly
             return chatModel.stream(prompt)
-                    .map(chunk -> {
-                        var r = chunk.getResult().getOutput().getMetadata().get("reasoningContent");
-                        String text = chunk.getResult().getOutput().getText();
-
-                        if (log.isDebugEnabled()) {
-                            log.debug("[UserIdentity] Reasoning: \nthin>>{} \ntext>>{}", r, text);
-                        }
-                        if (StringUtils.isBlank(text) && r != null) {
-                            return new LlmRspCell((String) r, null, null);
-                        }
-
-                        // fixme 工具的返回
-                        return new LlmRspCell(null, text, null);
-                    })
+                    .map(LlmRspCell::of)
                     .doOnError(error -> {
                         log.error("[UserIdentity] Streaming error for user: {}", jobClawUserId, error);
                     });

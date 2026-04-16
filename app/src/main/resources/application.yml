@@ -107,6 +107,10 @@ agent:
       enabled: false
       accounts:
         2: !!seq [ ] # 一个用户支持配置多个机器人
+    feishu:
+      enabled: false
+      accounts:
+        2: !!seq [ ]
   ai:
     preference: # 用户维度的模型配置偏好
       - user-id: 2
