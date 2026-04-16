@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.channel;
 
+import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +25,7 @@ public class ChannelResponseMessage {
     private String toUserId;
     private ResponseMessageType type;
     private String content;
-    private Flux<String> streamContents;
+    private Flux<LlmRspCell> streamContents;
     private Map<String, Object> passThrough;
 
 

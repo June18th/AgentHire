@@ -1,8 +1,10 @@
 package com.git.hui.jobclaw.core.bus;
 
+import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
+import reactor.core.publisher.Flux;
 
 /**
  * 通道事件发布器接口 - 用于发布 IM 通道相关的事件
@@ -58,6 +60,9 @@ public interface ChannelEventPublisher {
      * @return true 表示成功发布事件，false 表示用户未绑定该通道或发布失败
      */
     boolean publishProactiveMessage(String responseId, String jobClawUserId, String channelName, String response);
+
+
+    boolean publishProactiveMessage(String responseId, String jobClawUserId, String channelName, Flux<LlmRspCell> response);
 
     /**
      * 发布主动推送消息事件（完整版）

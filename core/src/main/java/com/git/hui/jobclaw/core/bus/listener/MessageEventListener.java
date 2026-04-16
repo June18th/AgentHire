@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.bus.listener;
 
 import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.identity.UnifiedIdentityInitializer;
 import com.git.hui.jobclaw.core.agent.identity.user.IdentityCollectorSelector;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
@@ -87,7 +88,7 @@ public class MessageEventListener {
         // Step 4: Normal message handling - route to agent
         try {
             String response = null;
-            Flux<String> streamRes = null;
+            Flux<LlmRspCell> streamRes = null;
             if (msg.isStream()) {
                 streamRes = agent.streamResponse(jobClawUserId, conversationId, msg);
             } else {

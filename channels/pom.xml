@@ -23,6 +23,7 @@
     <modules>
         <module>wechat-clawbot</module>
         <module>dingding</module>
+        <module>feishu</module>
     </modules>
 
 </project>

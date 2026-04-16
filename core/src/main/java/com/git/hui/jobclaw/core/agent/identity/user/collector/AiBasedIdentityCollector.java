@@ -1,25 +1,28 @@
 package com.git.hui.jobclaw.core.agent.identity.user.collector;
 
-import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.core.agent.ClientSelector;
+import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.identity.CollectionState;
 import com.git.hui.jobclaw.core.agent.identity.InfoCollector;
 import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityExtractor;
 import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityManager;
+import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.converter.BeanOutputConverter;
-import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -59,32 +62,37 @@ public class AiBasedIdentityCollector implements InfoCollector {
     private final UserIdentityManager useridentityManager;
     private final UserIdentityExtractor useridentityExtractor;
     private final ChannelEventPublisher channelEventPublisher;
+    private final ContextWindowProperties contextWindowProperties;
 
     // Track collection states per user
     private final Map<String, CollectionState> collectionStates = new ConcurrentHashMap<>();
 
     // Conversation history per user (for AI context)
     private final Map<String, List<Message>> conversationHistories = new ConcurrentHashMap<>();
-    private BeanOutputConverter<AiCollectionResponse> beanOutputConverter;
-    private String format;
+
+    // Conversation turn count per user (to prevent infinite loops)
+    private final Map<String, Integer> conversationTurnCounts = new ConcurrentHashMap<>();
 
     private String promptTemplate;
+
+    // Fixed completion marker to detect end of identity collection
+    private static final String IDENTITY_COLLECTION_COMPLETE_MARKER = "[IDENTITY_COLLECTION_COMPLETE]";
 
     public AiBasedIdentityCollector(UserIdentityManager useridentityManager,
                                     UserIdentityExtractor useridentityExtractor,
                                     ChannelEventPublisher channelEventPublisher,
+                                    ContextWindowProperties contextWindowProperties,
                                     @Value("classpath:/prompts/user-identity-collect-prompt.md") Resource promptResource) {
         this.useridentityManager = useridentityManager;
         this.useridentityExtractor = useridentityExtractor;
         this.channelEventPublisher = channelEventPublisher;
-        beanOutputConverter = new BeanOutputConverter<>(AiCollectionResponse.class);
-        format = beanOutputConverter.getFormat();
+        this.contextWindowProperties = contextWindowProperties;
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
-            log.info("UseridentityExtractor initialized with prompt template");
+            log.info("AiBasedIdentityCollector initialized with prompt template");
         } catch (IOException e) {
-            log.error("Failed to load user identity extraction prompt template", e);
-            throw new RuntimeException("Failed to initialize UseridentityExtractor", e);
+            log.error("Failed to load user identity collection prompt template", e);
+            throw new RuntimeException("Failed to initialize AiBasedIdentityCollector", e);
         }
     }
 
@@ -112,11 +120,11 @@ public class AiBasedIdentityCollector implements InfoCollector {
     @Override
     public void initiateCollection(String jobClawUserId, String channel, String conversationId) {
         if (!shouldInitiateCollection(jobClawUserId)) {
-            log.debug("[AiBased] Skipping collection initiation for user: {}", jobClawUserId);
+            log.debug("[UserIdentity] Skipping collection initiation for user: {}", jobClawUserId);
             return;
         }
 
-        log.info("[AiBased] Initiating AI-driven collection for user: {} via channel: {}", jobClawUserId, channel);
+        log.info("[UserIdentity] Initiating AI-driven collection for user: {} via channel: {}", jobClawUserId, channel);
 
         // Create collection state
         CollectionState state = new CollectionState(jobClawUserId);
@@ -125,6 +133,9 @@ public class AiBasedIdentityCollector implements InfoCollector {
 
         // Initialize conversation history
         conversationHistories.put(jobClawUserId, new ArrayList<>());
+
+        // Initialize turn counter
+        conversationTurnCounts.put(jobClawUserId, 0);
 
         // Start AI-driven conversation
         startAiConversation(state);
@@ -145,7 +156,19 @@ public class AiBasedIdentityCollector implements InfoCollector {
         List<Message> history = conversationHistories.get(jobClawUserId);
         history.add(new UserMessage(userMessage));
 
-        log.info("[AiBased] User answered: {} (user={})", userMessage, jobClawUserId);
+        // Increment turn counter
+        int currentTurns = conversationTurnCounts.getOrDefault(jobClawUserId, 0) + 1;
+        conversationTurnCounts.put(jobClawUserId, currentTurns);
+
+        log.info("[UserIdentity] User answered: {} (user={}, turn={})", userMessage, jobClawUserId, currentTurns);
+
+        // Check if exceeded max turns
+        if (currentTurns >= contextWindowProperties.getMaxIdentityCollectionTurns()) {
+            log.warn("[UserIdentity] Max conversation turns ({}) reached for user: {}, forcing completion",
+                    contextWindowProperties.getMaxIdentityCollectionTurns(), jobClawUserId);
+            completeCollection(state, history);
+            return;
+        }
 
         // Continue AI conversation
         continueAiConversation(state, history);
@@ -157,13 +180,13 @@ public class AiBasedIdentityCollector implements InfoCollector {
     }
 
     /**
-     * Start AI-driven conversation using LLM
+     * Start AI-driven conversation using LLM with streaming
      */
     private void startAiConversation(CollectionState state) {
-        log.info("[AiBased] Starting AI conversation for user: {}", state.getJobClawUserId());
+        log.info("[UserIdentity] Starting AI conversation for user: {}", state.getJobClawUserId());
 
-        // Create system prompt
-        String systemPrompt = promptTemplate;
+        // Create system prompt with completion marker instruction
+        String systemPrompt = promptTemplate + "\n\n当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接总结你收集到的信息展示给用户，并在最后单独一行添加标记：[IDENTITY_COLLECTION_COMPLETE]";
 
         // Create initial user message to trigger AI
         String initialPrompt = """
@@ -181,113 +204,32 @@ public class AiBasedIdentityCollector implements InfoCollector {
         List<Message> messages = new ArrayList<>();
         messages.add(new UserMessage(initialPrompt));
 
-        // Call AI with tool
-        var aiResponse = callAiForCollection(state, systemPrompt, messages);
-        if (aiResponse == null) {
-            sendProactiveMessage(state, "现在大模型响应出了点问题，请稍后再试~");
-        } else {
-            sendProactiveMessage(state, aiResponse.question());
-        }
+        // Call AI and stream response
+        Flux<LlmRspCell> responseFlux = callAiForCollectionStream(state, systemPrompt, messages);
+        sendProactiveMessageStream(state, responseFlux);
     }
 
     /**
-     * Continue AI conversation after user response
+     * Continue AI conversation after user response with streaming
      */
     private void continueAiConversation(CollectionState state, List<Message> history) {
-        String systemPrompt = promptTemplate;
+        String systemPrompt = promptTemplate + "\n\n当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接总结你收集到的信息展示给用户，并在最后单独一行添加标记：[IDENTITY_COLLECTION_COMPLETE]";
 
-        // Call AI and get structured response
-        AiCollectionResponse aiResponse = callAiForCollection(state, systemPrompt, history);
+        // Call AI and stream response
+        Flux<LlmRspCell> responseFlux = callAiForCollectionStream(state, systemPrompt, history);
 
-        if (aiResponse == null) {
-            log.error("[AiBased] AI returned null response for user: {}", state.getJobClawUserId());
-            sendFallbackMessage(state);
-            return;
-        }
-
-        // Check if AI decided to complete
-        if (aiResponse.isComplete()) {
-            log.info("[AiBased] AI decided to complete collection for user: {} (response: {})",
-                    state.getJobClawUserId(), aiResponse);
-            completeCollection(state, history);
-            return;
-        }
-
-        // AI wants to ask another question
-        if (aiResponse.question() != null && !aiResponse.question().isBlank()) {
-            sendProactiveMessage(state, aiResponse.question());
-            log.info("[AiBased] AI asking question: aiResponse={}, user={}", aiResponse, state.getJobClawUserId());
-        } else {
-            log.warn("[AiBased] AI returned empty question for user: {}", state.getJobClawUserId());
-            sendFallbackMessage(state);
-        }
+        // Send streaming response and check for completion marker
+        sendProactiveMessageStreamWithCompletionCheck(state, responseFlux, history);
     }
 
-    /**
-     * AI collection response with status
-     */
-    public record AiCollectionResponse(
-            /** Whether collection is complete */
-            @JsonPropertyDescription(value = "用户信息收集的状态，true 表示已经收集完数据，无需再次问答收集信息") boolean isComplete,
-            /** Question to ask user (null if complete) */
-            @JsonPropertyDescription(value = "询问用户以获取相关信息的问题，如：你预计什么时候毕业？；注意当问询结束之后，question应该为空") String question,
-            @JsonPropertyDescription(value = "结束信息收集的原因，如：用户表现出不想继续回答的意愿") String completeReason,
-            @JsonPropertyDescription(value = "已经收集到的字段，如：[\"name\", \"graduationYear\", \"university\"]") List<String> collectedFields
-    ) {
-    }
-
-
-    /**
-     * Call AI for collection and parse structured response
-     */
-    private AiCollectionResponse callAiForCollection(CollectionState state, String systemPrompt, List<Message> messages) {
-        String jobClawUserId = state.getJobClawUserId();
-        try {
-            // Build conversation with system prompt
-            List<Message> conversationWithSystem = new ArrayList<>();
-            conversationWithSystem.add(new SystemMessage(systemPrompt));
-            conversationWithSystem.addAll(messages);
-            conversationWithSystem.add(new UserMessage(format));
-
-            // Call AI
-            log.info("[AiBased] AI raw req: {}", conversationWithSystem);
-            var chatModel = (ChatModel) SpringUtil.getBean(ClientSelector.class).getUserPreferredModel(jobClawUserId,
-                    false);
-            String response = chatModel.call(Prompt.builder().messages(conversationWithSystem).chatOptions(
-                            ToolCallingChatOptions.builder().temperature(0.7).build()).build())
-                    .getResult().getOutput().getText();
-
-            log.info("[AiBased] AI raw response for user {}: {}", jobClawUserId,
-                    response.length() > 200 ? response.substring(0, 200) + "..." : response);
-
-            // Parse JSON response
-            try {
-                return beanOutputConverter.convert(response);
-            } catch (Exception e) {
-                return new AiCollectionResponse(false, response, "出现异常:" + e.getMessage(), List.of());
-            }
-        } catch (Exception e) {
-            log.error("[AiBased] Failed to call AI for user: {}", jobClawUserId, e);
-            return null;
-        }
-    }
-
-    /**
-     * Send fallback message when AI fails
-     */
-    private void sendFallbackMessage(CollectionState state) {
-        if (state != null) {
-            sendProactiveMessage(state, "抱歉，我遇到了一些问题。让我换个方式了解你：你是哪所学校毕业的呢？");
-        }
-    }
 
     /**
      * Complete collection and generate identity.md
      */
     private void completeCollection(CollectionState state, List<Message> history) {
-        log.info("[AiBased] Completing AI-driven collection for user: {}", state.getJobClawUserId());
+        log.info("[UserIdentity] Completing AI-driven collection for user: {}", state.getJobClawUserId());
 
-        // Use UseridentityExtractor to generate identity.md from conversation
+        // Use UserIdentityExtractor to generate identity.md from conversation
         String identity = useridentityExtractor.extract(state.getJobClawUserId(), "", history);
 
         if (identity == null || identity.isBlank()) {
@@ -302,8 +244,9 @@ public class AiBasedIdentityCollector implements InfoCollector {
         state.complete();
         collectionStates.remove(state.getJobClawUserId());
         conversationHistories.remove(state.getJobClawUserId());
+        conversationTurnCounts.remove(state.getJobClawUserId());
 
-        // Send completion message
+        // Send completion message with streaming
         String completionMsg = """
                 🎉 太好了！通过刚才的聊天，我已经对你有了基本了解。
                                 
@@ -312,9 +255,9 @@ public class AiBasedIdentityCollector implements InfoCollector {
                                 
                 现在，有什么我可以帮你的吗？😊
                 """;
-        sendProactiveMessage(state, completionMsg);
+        sendProactiveMessageStream(state, Flux.just(new LlmRspCell(null, completionMsg, null)));
 
-        log.info("[AiBased] AI-driven collection completed for user: {}", state.getJobClawUserId());
+        log.info("[UserIdentity] AI-driven collection completed for user: {}", state.getJobClawUserId());
     }
 
     /**
@@ -339,16 +282,111 @@ public class AiBasedIdentityCollector implements InfoCollector {
 
 
     /**
-     * Send proactive message to user
+     * Call AI for collection with streaming response
+     * <p>
+     * 使用流式调用，实时返回文本内容，减少用户等待时间。
+     * 通过检测固定标记 [IDENTITY_COLLECTION_COMPLETE] 来判断收集是否完成。
      */
-    private void sendProactiveMessage(CollectionState state, String content) {
+    private Flux<LlmRspCell> callAiForCollectionStream(CollectionState state, String systemPrompt, List<Message> messages) {
+        String jobClawUserId = state.getJobClawUserId();
         try {
-            channelEventPublisher.publishProactiveMessage("identity_AI_" + System.currentTimeMillis(),
-                    state.getJobClawUserId(), state.getActiveChannel(), content);
+            // Build conversation with system prompt
+            List<Message> conversationWithSystem = new ArrayList<>();
+            conversationWithSystem.add(new SystemMessage(systemPrompt));
+            conversationWithSystem.addAll(messages);
 
-            log.debug("[AiBased] Sent proactive message to user: {}", state.getJobClawUserId());
+            // Call AI model with streaming
+            var chatModel = (ChatModel) SpringUtil.getBean(ClientSelector.class)
+                    .getUserPreferredModel(jobClawUserId, false);
+
+            Prompt prompt = Prompt.builder()
+                    .messages(conversationWithSystem)
+                    .build();
+
+            log.debug("[UserIdentity] Calling AI with streaming for user: {}", jobClawUserId);
+
+            // Return streaming flux directly
+            return chatModel.stream(prompt)
+                    .map(chunk -> {
+                        var r = chunk.getResult().getOutput().getMetadata().get("reasoningContent");
+                        String text = chunk.getResult().getOutput().getText();
+
+                        if (log.isDebugEnabled()) {
+                            log.debug("[UserIdentity] Reasoning: \nthin>>{} \ntext>>{}", r, text);
+                        }
+                        if (StringUtils.isBlank(text) && r != null) {
+                            return new LlmRspCell((String) r, null, null);
+                        }
+
+                        // fixme 工具的返回
+                        return new LlmRspCell(null, text, null);
+                    })
+                    .doOnError(error -> {
+                        log.error("[UserIdentity] Streaming error for user: {}", jobClawUserId, error);
+                    });
+
         } catch (Exception e) {
-            log.error("[AiBased] Failed to send proactive message to user: {}", state.getJobClawUserId(), e);
+            log.error("[UserIdentity] Failed to call AI for user: {}", jobClawUserId, e);
+            return Flux.just(new LlmRspCell(null, "现在大模型响应出了点问题，请稍后再试~", null));
         }
+    }
+
+
+    /**
+     * Send proactive message with streaming and check for completion marker
+     *
+     * @param state collection state
+     * @param contentFlux streaming content flux
+     */
+    private void sendProactiveMessageStreamWithCompletionCheck(CollectionState state, Flux<LlmRspCell> contentFlux, List<Message> history) {
+        // Accumulate content to check for completion marker
+        StringBuilder contentAccumulator = new StringBuilder();
+        String jobClawUserId = state.getJobClawUserId();
+
+        // Create a flux that monitors for completion marker while streaming
+        Flux<LlmRspCell> monitoredFlux = contentFlux
+                .doOnNext(chunk -> {
+                    if (chunk.content() != null) {
+                        contentAccumulator.append(chunk.content());
+
+                        // Check if completion marker is present
+                        if (contentAccumulator.toString().contains(IDENTITY_COLLECTION_COMPLETE_MARKER)) {
+                            log.info("[UserIdentity] Completion marker detected for user: {}", jobClawUserId);
+                            completeCollection(state, conversationHistories.get(jobClawUserId));
+                        }
+                    }
+                })
+                .doOnComplete(() -> {
+                    // When streaming is complete, add AI's response to conversation history
+                    String fullResponse = contentAccumulator.toString();
+                    if (!fullResponse.isBlank()) {
+                        history.add(new AssistantMessage(fullResponse));
+                    }
+                })
+                .doOnError(error -> {
+                    log.error("[UserIdentity] Streaming error for user: {}", jobClawUserId, error);
+                });
+
+        sendProactiveMessageStream(state, monitoredFlux);
+    }
+
+    /**
+     * Send proactive message to user with streaming
+     *
+     * @param state collection state
+     * @param contentFlux streaming content flux
+     */
+    private void sendProactiveMessageStream(CollectionState state, Flux<LlmRspCell> contentFlux) {
+        String responseId = "identity_AI_" + System.currentTimeMillis();
+
+        channelEventPublisher.publishProactiveMessage(
+                responseId,
+                state.getJobClawUserId(),
+                state.getActiveChannel(),
+                contentFlux
+        );
+
+        log.debug("[UserIdentity] Sent streaming proactive message to user: {}, responseId={}",
+                state.getJobClawUserId(), responseId);
     }
 }

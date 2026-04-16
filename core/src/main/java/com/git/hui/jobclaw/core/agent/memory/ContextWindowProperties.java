@@ -92,4 +92,14 @@ public class ContextWindowProperties {
      * Trigger for info update (e.g., "user_identity_change").
      */
     private String infoUpdateTrigger = "user_identity_change";
+
+    /**
+     * Maximum conversation turns for soul collection to prevent infinite loops.
+     */
+    private int maxSoulCollectionTurns = 15;
+
+    /**
+     * Maximum conversation turns for identity collection to prevent infinite loops.
+     */
+    private int maxIdentityCollectionTurns = 20;
 }

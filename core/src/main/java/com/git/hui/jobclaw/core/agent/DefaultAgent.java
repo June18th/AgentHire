@@ -80,13 +80,25 @@ public class DefaultAgent implements Agent {
     }
 
     @Override
-    public Flux<String> streamResponse(String jobClawUserId, String conversationId, ChannelReceiveMessage message) {
+    public Flux<LlmRspCell> streamResponse(String jobClawUserId, String conversationId, ChannelReceiveMessage message) {
         String finalConversationId = buildChatMemConversationId(jobClawUserId, conversationId);
         return clientSelector.getClient(jobClawUserId, conversationId, hasMedia(message))
                 .prompt(buildPrompt(jobClawUserId, message))
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, finalConversationId))
                 .toolContext(Map.of("jobClawUserId", jobClawUserId))
-                .stream().content();
+                .stream()
+                .chatResponse()
+                .map(chunk -> {
+                    // 思考内容
+                    var r = chunk.getResult().getOutput().getMetadata().get("reasoningContent");
+                    if (r != null) {
+                        return new LlmRspCell((String) r, null, null);
+                    }
+
+                    // fixme 工具的返回
+                    String text = chunk.getResult().getOutput().getText();
+                    return new LlmRspCell(null, text, null);
+                });
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.bus;
 
+import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
 import com.git.hui.jobclaw.core.bus.event.UserConnectedEvent;
@@ -11,6 +12,7 @@ import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 /**
  * 事件发布器实现 - 使用Spring Event机制
@@ -61,6 +63,17 @@ public class DefaultChannelEventPublisher implements ChannelEventPublisher {
 
     @Override
     public boolean publishProactiveMessage(String responseId, String jobClawUserId, String channelName, String response) {
+        var pro = channelRegistry.getChannelRspBuilderAdapter(jobClawUserId, channelName);
+        if (pro != null) {
+            var responseMsg = pro.apply(response);
+            publishProactiveMessage(responseId, channelName, responseMsg, 0);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean publishProactiveMessage(String responseId, String jobClawUserId, String channelName, Flux<LlmRspCell> response) {
         var pro = channelRegistry.getChannelRspBuilderAdapter(jobClawUserId, channelName);
         if (pro != null) {
             var responseMsg = pro.apply(response);

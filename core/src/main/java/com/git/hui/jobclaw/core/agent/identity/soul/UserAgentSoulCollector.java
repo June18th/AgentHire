@@ -1,22 +1,25 @@
 package com.git.hui.jobclaw.core.agent.identity.soul;
 
-import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.core.agent.ClientSelector;
+import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.identity.CollectionState;
 import com.git.hui.jobclaw.core.agent.identity.InfoCollector;
+import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,6 +50,7 @@ public class UserAgentSoulCollector implements InfoCollector {
     private final UserAgentSoulManager soulManager;
     private final UserAgentSoulExtractor userAgentSoulExtractor;
     private final ChannelEventPublisher channelEventPublisher;
+    private final ContextWindowProperties contextWindowProperties;
 
     // Track collection states per user
     private final Map<String, CollectionState> collectionStates = new ConcurrentHashMap<>();
@@ -54,30 +58,31 @@ public class UserAgentSoulCollector implements InfoCollector {
     // Conversation history per user (for AI context)
     private final Map<String, List<Message>> conversationHistories = new ConcurrentHashMap<>();
 
-    // AI output converter
-    private BeanOutputConverter<SoulCollectionResponse> beanOutputConverter;
-    private String format;
+    // Conversation turn count per user (to prevent infinite loops)
+    private final Map<String, Integer> conversationTurnCounts = new ConcurrentHashMap<>();
 
     // Prompt template
     private String promptTemplate;
 
+    // Fixed completion marker to detect end of soul collection
+    private static final String SOUL_COLLECTION_COMPLETE_MARKER = "[SOUL_COLLECTION_COMPLETE]";
+
     public UserAgentSoulCollector(UserAgentSoulManager soulManager,
                                   UserAgentSoulExtractor userAgentSoulExtractor,
                                   ChannelEventPublisher channelEventPublisher,
+                                  ContextWindowProperties contextWindowProperties,
                                   @Value("classpath:/prompts/agent-soul-collect-prompt.md") Resource promptResource) {
         this.soulManager = soulManager;
         this.userAgentSoulExtractor = userAgentSoulExtractor;
         this.channelEventPublisher = channelEventPublisher;
-
-        beanOutputConverter = new BeanOutputConverter<>(SoulCollectionResponse.class);
-        format = beanOutputConverter.getFormat();
+        this.contextWindowProperties = contextWindowProperties;
 
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
-            log.info("AiBasedSoulCollector initialized with prompt template");
+            log.info("UserAgentSoulCollector initialized with prompt template");
         } catch (IOException e) {
             log.error("Failed to load soul collection prompt template", e);
-            throw new RuntimeException("Failed to initialize AiBasedSoulCollector", e);
+            throw new RuntimeException("Failed to initialize UserAgentSoulCollector", e);
         }
     }
 
@@ -120,6 +125,9 @@ public class UserAgentSoulCollector implements InfoCollector {
         // Initialize conversation history
         conversationHistories.put(jobClawUserId, new ArrayList<>());
 
+        // Initialize turn counter
+        conversationTurnCounts.put(jobClawUserId, 0);
+
         // Start AI-driven conversation
         startAiConversation(state);
     }
@@ -139,7 +147,19 @@ public class UserAgentSoulCollector implements InfoCollector {
         List<Message> history = conversationHistories.get(jobClawUserId);
         history.add(new UserMessage(userMessage));
 
-        log.info("[Soul] User answered: {} (user={})", userMessage, jobClawUserId);
+        // Increment turn counter
+        int currentTurns = conversationTurnCounts.getOrDefault(jobClawUserId, 0) + 1;
+        conversationTurnCounts.put(jobClawUserId, currentTurns);
+
+        log.info("[Soul] User answered: {} (user={}, turn={})", userMessage, jobClawUserId, currentTurns);
+
+        // Check if exceeded max turns
+        if (currentTurns >= contextWindowProperties.getMaxSoulCollectionTurns()) {
+            log.warn("[Soul] Max conversation turns ({}) reached for user: {}, forcing completion",
+                    contextWindowProperties.getMaxSoulCollectionTurns(), jobClawUserId);
+            completeCollection(state, history);
+            return;
+        }
 
         // Continue AI conversation
         continueAiConversation(state, history);
@@ -151,7 +171,7 @@ public class UserAgentSoulCollector implements InfoCollector {
     }
 
     /**
-     * Start AI-driven conversation using LLM
+     * Start AI-driven conversation using LLM with streaming
      */
     private void startAiConversation(CollectionState state) {
         log.info("[Soul] Starting AI conversation for user: {}", state.getJobClawUserId());
@@ -167,73 +187,77 @@ public class UserAgentSoulCollector implements InfoCollector {
                                 
                 请从基础信息开始(比如给AI起个名字),一次只问一个问题。
                 语气要友好自然,像朋友聊天,不要像审问。
+                                
+                重要：当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接总结你收集到的信息展示给用户，并在最后单独一行添加标记：[SOUL_COLLECTION_COMPLETE]
                 """;
 
         List<Message> messages = new ArrayList<>();
         messages.add(new UserMessage(initialPrompt));
 
-        // Call AI and get structured response
-        SoulCollectionResponse aiResponse = callAiForCollection(state, messages);
-        if (aiResponse == null) {
-            sendProactiveMessage(state, "现在大模型响应出了点问题,请稍后再试~");
-        } else {
-            sendProactiveMessage(state, aiResponse.question());
-        }
+        // Call AI and stream response
+        Flux<LlmRspCell> responseFlux = callAiForCollectionStream(state, messages);
+        sendProactiveMessageStream(state, responseFlux);
     }
 
     /**
-     * Continue AI conversation after user response
+     * Continue AI conversation after user response with streaming
      */
     private void continueAiConversation(CollectionState state, List<Message> history) {
-        // Call AI and get structured response
-        SoulCollectionResponse aiResponse = callAiForCollection(state, history);
+        // Call AI and stream response
+        Flux<LlmRspCell> responseFlux = callAiForCollectionStream(state, history);
 
-        if (aiResponse == null) {
-            sendProactiveMessage(state, "现在大模型响应出了点问题,请稍后再试~");
-            return;
-        }
-
-        // Check if collection is complete
-        if (aiResponse.isComplete()) {
-            completeCollection(state, history);
-        } else {
-            // Ask next question
-            sendProactiveMessage(state, aiResponse.question());
-        }
+        // Send streaming response and check for completion marker
+        sendProactiveMessageStreamWithCompletionCheck(state, responseFlux, history);
     }
 
     /**
-     * Call AI for collection with structured output
+     * Call AI for collection with streaming response
+     * <p>
+     * 使用流式调用，实时返回文本内容，减少用户等待时间。
+     * 通过检测固定标记 [SOUL_COLLECTION_COMPLETE] 来判断收集是否完成。
      */
-    private SoulCollectionResponse callAiForCollection(CollectionState state, List<Message> history) {
+    private Flux<LlmRspCell> callAiForCollectionStream(CollectionState state, List<Message> history) {
         try {
             // Build system prompt
-            String systemPrompt = promptTemplate + "\n\n" + format;
+            String systemPrompt = promptTemplate + "\n\n重要：当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接总结你收集到的信息展示给用户，并在最后单独一行添加标记：[SOUL_COLLECTION_COMPLETE]";
 
             // Create messages list with system prompt
             List<Message> messages = new ArrayList<>();
             messages.add(new SystemMessage(systemPrompt));
             messages.addAll(history);
 
-            // Add instruction to return structured JSON
-            messages.add(new UserMessage("\n请根据对话历史,返回结构化的JSON响应,包含是否完成、下一个问题、已收集的信息。"));
-
-            // Call AI model
+            // Call AI model with streaming
             var model = (ChatModel) SpringUtil.getBean(ClientSelector.class)
                     .getUserPreferredModel(state.getJobClawUserId(), false);
 
             Prompt prompt = new Prompt(messages);
-            String response = model.call(prompt).getResult().getOutput().getText();
 
-            // Parse structured response
-            SoulCollectionResponse parsedResponse = beanOutputConverter.convert(response);
+            log.debug("[Soul] Calling AI with streaming for user: {}", state.getJobClawUserId());
 
-            log.debug("[Soul] AI response parsed successfully for user: {}", state.getJobClawUserId());
-            return parsedResponse;
+            // Return streaming flux directly
+            return model.stream(prompt)
+                    .map(chunk -> {
+                        // 思考内容
+                        var r = chunk.getResult().getOutput().getMetadata().get("reasoningContent");
+                        String text = chunk.getResult().getOutput().getText();
+
+                        if (log.isDebugEnabled()) {
+                            log.debug("[Soul] Reasoning: \nthin>>{} \ntext>>{}", r, text);
+                        }
+                        if (StringUtils.isBlank(text) && r != null) {
+                            return new LlmRspCell((String) r, null, null);
+                        }
+
+                        // fixme 工具的返回
+                        return new LlmRspCell(null, text, null);
+                    })
+                    .doOnError(error -> {
+                        log.error("[Soul] Streaming error for user: {}", state.getJobClawUserId(), error);
+                    });
 
         } catch (Exception e) {
             log.error("[Soul] Failed to call AI for collection: {}", state.getJobClawUserId(), e);
-            return null;
+            return Flux.just(new LlmRspCell(null, "现在大模型响应出了点问题,请稍后再试~", null));
         }
     }
 
@@ -257,45 +281,87 @@ public class UserAgentSoulCollector implements InfoCollector {
                 soulManager.saveSoul(state.getJobClawUserId(), soulMd);
                 log.info("[Soul] soul.md saved for user: {}", state.getJobClawUserId());
 
-                // Send completion message
-                sendProactiveMessage(state,
-                        "太好了!我已经了解你期望的AI人格了。接下来我会进一步了解你的基本信息,以便更好地帮助你~");
+                // Send completion message with streaming
+                sendProactiveMessageStream(state,
+                        Flux.just(new LlmRspCell(null, "太好了!我已经了解你期望的AI人格了。接下来我会进一步了解你的基本信息,以便更好地帮助你~", null)));
             }
 
             // Mark state as completed
             state.complete();
 
+            // Clean up resources
+            collectionStates.remove(state.getJobClawUserId());
+            conversationHistories.remove(state.getJobClawUserId());
+            conversationTurnCounts.remove(state.getJobClawUserId());
+
         } catch (Exception e) {
             log.error("[Soul] Failed to complete collection for user: {}", state.getJobClawUserId(), e);
-            sendProactiveMessage(state, "生成人格设定时出了点问题,但不影响后续对话,我们继续吧~");
+            sendProactiveMessageStream(state,
+                    Flux.just(new LlmRspCell(null, "生成人格设定时出了点问题,但不影响后续对话,我们继续吧~", null)));
             state.complete();
+
+            // Clean up resources even on error
+            collectionStates.remove(state.getJobClawUserId());
+            conversationHistories.remove(state.getJobClawUserId());
+            conversationTurnCounts.remove(state.getJobClawUserId());
         }
     }
 
     /**
-     * Send proactive message to user
+     * Send proactive message to user with streaming
+     *
+     * @param state collection state
+     * @param contentFlux streaming content flux
      */
-    private void sendProactiveMessage(CollectionState state, String content) {
+    private void sendProactiveMessageStream(CollectionState state, Flux<LlmRspCell> contentFlux) {
+        String responseId = "SOUL_" + System.currentTimeMillis();
+
         channelEventPublisher.publishProactiveMessage(
-                "SOUL_" + System.currentTimeMillis(),
+                responseId,
                 state.getJobClawUserId(),
                 state.getActiveChannel(),
-                content
+                contentFlux
         );
+
+        log.debug("[Soul] Sent streaming proactive message to user: {}, responseId={}",
+                state.getJobClawUserId(), responseId);
     }
 
     /**
-     * AI collection response structure
+     * Send proactive message with streaming and check for completion marker
+     *
+     * @param state collection state
+     * @param contentFlux streaming content flux
      */
-    public record SoulCollectionResponse(
-            @JsonPropertyDescription("Whether soul collection is complete")
-            boolean isComplete,
+    private void sendProactiveMessageStreamWithCompletionCheck(CollectionState state, Flux<LlmRspCell> contentFlux, List<Message> history) {
+        // Accumulate content to check for completion marker
+        StringBuilder contentAccumulator = new StringBuilder();
+        String jobClawUserId = state.getJobClawUserId();
 
-            @JsonPropertyDescription("Next question to ask user (empty if complete)")
-            String question,
+        // Create a flux that monitors for completion marker while streaming
+        Flux<LlmRspCell> monitoredFlux = contentFlux
+                .doOnNext(chunk -> {
+                    if (chunk.content() != null) {
+                        contentAccumulator.append(chunk.content());
 
-            @JsonPropertyDescription("Summary of collected information")
-            String collectedSummary
-    ) {
+                        // Check if completion marker is present
+                        if (contentAccumulator.toString().contains(SOUL_COLLECTION_COMPLETE_MARKER)) {
+                            log.info("[Soul] Completion marker detected for user: {}", jobClawUserId);
+                            completeCollection(state, conversationHistories.get(jobClawUserId));
+                        }
+                    }
+                })
+                .doOnComplete(() -> {
+                    // When streaming is complete, add AI's response to conversation history
+                    String fullResponse = contentAccumulator.toString();
+                    if (!fullResponse.isBlank()) {
+                        history.add(new AssistantMessage(fullResponse));
+                    }
+                })
+                .doOnError(error -> {
+                    log.error("[Soul] Streaming error for user: {}", jobClawUserId, error);
+                });
+
+        sendProactiveMessageStream(state, monitoredFlux);
     }
 }

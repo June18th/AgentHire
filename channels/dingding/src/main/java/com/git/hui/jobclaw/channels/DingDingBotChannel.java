@@ -20,6 +20,7 @@ import com.dingtalk.open.app.api.callback.OpenDingTalkCallbackListener;
 import com.dingtalk.open.app.api.chatbot.BotReplier;
 import com.dingtalk.open.app.api.models.bot.ChatbotMessage;
 import com.dingtalk.open.app.api.security.AuthClientCredential;
+import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.AbsChannel;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;
@@ -207,7 +208,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
 
                 return object -> {
                     if (object instanceof Flux<?>) {
-                        response.setStreamContents((Flux<String>) object);
+                        response.setStreamContents((Flux<LlmRspCell>) object);
                     } else {
                         response.setContent(String.valueOf(object));
                     }
@@ -251,28 +252,34 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
             }
 
             if (StringUtils.isBlank(cardId)) {
-                String content = stream.blockLast();
-                return directReply(originalMsg, content);
+                var content = stream.blockLast();
+                return directReply(originalMsg, content.content());
             } else {
+                StringBuilder thinking = new StringBuilder();
                 StringBuilder content = new StringBuilder();
                 String finalCardId = cardId;
                 stream.doOnNext(response -> {
                             log.debug("[DingDing] Received response chunk: {}", response);
-                            content.append(response);
-                            cardManager.streamUpdate(finalCardId, content.toString(), false);
+                            if (StringUtils.isNotBlank(response.thinking())) {
+                                thinking.append(response.thinking());
+                            }
+                            if (!StringUtils.isEmpty(response.content())) {
+                                content.append(response.content());
+                            }
+                            cardManager.streamUpdate(finalCardId, thinking.toString(), content.toString(), false);
                             aiCardStatus.answerAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
                         })
                         .doOnError(error -> {
                             log.error("[DingDing] Error in stream response for cardId: {}", finalCardId, error);
                             // 发生错误时，标记卡片为结束状态
-                            cardManager.streamUpdate(finalCardId, "抱歉，生成回复时遇到了错误。", true);
+                            cardManager.streamUpdate(finalCardId, thinking.toString(), "抱歉，生成回复时遇到了错误。", true);
                             aiCardStatus.finishAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
                         })
                         .doOnComplete(() -> {
                             log.info("[DingDing] Stream response completed for cardId: {}, total length: {}", finalCardId,
                                     content.length());
                             // 流式响应完成，标记卡片为结束状态
-                            cardManager.streamUpdate(finalCardId, content.toString(), true);
+                            cardManager.streamUpdate(finalCardId, thinking.toString(), content.toString(), true);
                             aiCardStatus.finishAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
                         }).subscribe();
             }
@@ -286,7 +293,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
             if (StringUtils.isBlank(cardId)) {
                 cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
                 if (cardId != null) {
-                    cardManager.streamUpdate(cardId, content, true);
+                    cardManager.streamUpdate(cardId, "", content, true);
                     return true;
                 }
 
@@ -301,7 +308,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                     return false;
                 }
             }
-            cardManager.streamUpdate(cardId, content, true);
+            cardManager.streamUpdate(cardId, "", content, true);
         }
         return true;
     }
@@ -553,8 +560,15 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
             }
         }
 
-        private void streamUpdate(String outTrackId, String content, boolean isFinalize) {
+        private void streamUpdate(String outTrackId, String thinking, String content, boolean isFinalize) {
             try {
+                String showValue;
+                if (StringUtils.isNotBlank(content)) {
+                    showValue =  content;
+                } else {
+                    showValue = "Thinking: " +thinking;
+                }
+
                 StreamingUpdateHeaders headers = new StreamingUpdateHeaders();
                 headers.xAcsDingtalkAccessToken = getAccessToken();
                 StreamingUpdateRequest request =
@@ -562,7 +576,7 @@ public class DingDingBotChannel extends AbsChannel<DingDingBotChannel.ChatbotMes
                                 .setOutTrackId(outTrackId)
                                 .setGuid(UUID.randomUUID().toString())
                                 .setKey("content")
-                                .setContent(content)
+                                .setContent(showValue)
                                 .setIsFull(true)
                                 .setIsFinalize(isFinalize);
                 var res = client.streamingUpdateWithOptions(request, headers, new RuntimeOptions());
