@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.router.intent.classifier;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.cli.SystemCommandDispatcher;
 import com.git.hui.jobclaw.core.router.intent.IntentClassifier;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class CompositeIntentClassifier implements IntentClassifier {
 
     private final KeywordIntentClassifier keywordClassifier;
     private final LLMIntentClassifier llmClassifier;
+    private final SystemCommandDispatcher commandDispatcher;
 
     // 置信度门槛
     private static final double HIGH_CONFIDENCE_THRESHOLD = 0.9;
@@ -35,9 +37,11 @@ public class CompositeIntentClassifier implements IntentClassifier {
 
     public CompositeIntentClassifier(
             KeywordIntentClassifier keywordClassifier,
-            LLMIntentClassifier llmClassifier) {
+            LLMIntentClassifier llmClassifier,
+            SystemCommandDispatcher commandDispatcher) {
         this.keywordClassifier = keywordClassifier;
         this.llmClassifier = llmClassifier;
+        this.commandDispatcher = commandDispatcher;
     }
 
     @Override
@@ -46,11 +50,11 @@ public class CompositeIntentClassifier implements IntentClassifier {
             return IntentClassificationRes.unknown("空消息");
         }
 
-        // L0: 命令匹配（最高优先级）
-        IntentClassificationRes commandResult = tryCommandMatch(message);
-        if (commandResult != null) {
-            log.debug("L0命令匹配: {}", commandResult.intentType());
-            return commandResult;
+        // L0: 系统命令匹配（最高优先级）- 使用统一的命令调度器
+        Optional<PresetAgentIntro> commandIntent = commandDispatcher.recognizeIntent(message);
+        if (commandIntent.isPresent()) {
+            log.debug("L0命令匹配: {}", commandIntent.get());
+            return IntentClassificationRes.highConfidence(commandIntent.get(), "命令匹配");
         }
 
         // L1: 关键词匹配
@@ -82,33 +86,4 @@ public class CompositeIntentClassifier implements IntentClassifier {
         return IntentClassificationRes.unknown("所有策略均未识别");
     }
 
-    private IntentClassificationRes tryCommandMatch(String message) {
-        String normalized = message.trim().toLowerCase();
-
-        // 系统命令
-        if (normalized.startsWith("/help")) {
-            return IntentClassificationRes.highConfidence(PresetAgentIntro.HELP, "命令匹配: /help");
-        }
-        if (normalized.startsWith("/agents")) {
-            return IntentClassificationRes.highConfidence(PresetAgentIntro.LIST_AGENTS, "命令匹配: /agents");
-        }
-        if (normalized.startsWith("/reset")) {
-            return IntentClassificationRes.highConfidence(PresetAgentIntro.RESET, "命令匹配: /reset");
-        }
-        if (normalized.startsWith("/agent")) {
-            return IntentClassificationRes.highConfidence(PresetAgentIntro.SWITCH_AGENT, "命令匹配: /agent");
-        }
-
-        return null;
-    }
-
-    @Override
-    public boolean isAgentSwitchCommand(String message) {
-        return keywordClassifier.isAgentSwitchCommand(message);
-    }
-
-    @Override
-    public Optional<String> parseAgentSwitchCommand(String message) {
-        return keywordClassifier.parseAgentSwitchCommand(message);
-    }
 }

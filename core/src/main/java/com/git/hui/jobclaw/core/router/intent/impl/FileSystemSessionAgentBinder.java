@@ -90,7 +90,8 @@ public class FileSystemSessionAgentBinder implements SessionAgentBinder {
     
     @Override
     public boolean needsIntentRecognition(String jobClawUserId, String sessionId, String userMessage) {
-        // 明确的重置指令
+        // 明确的重置指令 - 需要重新意图识别
+        // AIDEV-NOTE: 这里只是判断是否需要重置，实际执行由 SystemCommandDispatcher 处理
         if (userMessage != null && userMessage.trim().toLowerCase().startsWith("/reset")) {
             return true;
         }

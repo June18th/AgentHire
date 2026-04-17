@@ -4,7 +4,9 @@ import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
+import com.git.hui.jobclaw.core.cli.SystemCommandDispatcher;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -45,18 +47,14 @@ public class SimpleDefaultBizAgent implements BizAgent {
     public String process(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         String userMessage = message.getMessage();
 
-        // AIDEV-NOTE: 这里实际应该调用LLM来处理
-        // 简化实现：返回一个提示
+
         return switch (userMessage.toLowerCase()) {
-            case "help", "/help" -> """
+            case "help", "/help" -> String.format("""
                     您好！我是求职派助手，请问有什么可以帮助您的？
                                     
                     可用命令：
-                    /agents - 返回可用的agent列表
-                    /agent <名称> - 切换到指定Agent
-                    /reset - 重置会话状态
-                    /help - 显示帮助
-                    """;
+                    %s
+                    """, SpringUtil.getBean(SystemCommandDispatcher.class).getAllCommandDescriptions());
             default -> llmCaller.respondTo(userConversationInfo, userMessage);
         };
     }

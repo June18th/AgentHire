@@ -11,10 +11,10 @@ import com.git.hui.jobclaw.core.bus.event.UserConnectedEvent;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
+import com.git.hui.jobclaw.core.cli.SystemCommandDispatcher;
 import com.git.hui.jobclaw.core.router.intent.AgentRegistry;
 import com.git.hui.jobclaw.core.router.intent.AgentRouter;
 import com.git.hui.jobclaw.core.router.intent.IntentClassifier;
-import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import com.git.hui.jobclaw.core.router.intent.SessionAgentBinder;
 import com.git.hui.jobclaw.core.router.intent.classifier.IntentClassificationRes;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +48,7 @@ public class MsgRouter {
     private final AgentRouter agentRouter;
     private final SessionAgentBinder sessionBinder;
     private final AgentRegistry agentRegistry;
+    private final SystemCommandDispatcher commandDispatcher;
 
     public MsgRouter(ChannelRegistry channelRegistry,
                      ChannelEventPublisher channelEventPublisher,
@@ -56,7 +57,8 @@ public class MsgRouter {
                      IntentClassifier compositeIntentClassifier,
                      AgentRouter agentRouter,
                      SessionAgentBinder sessionBinder,
-                     AgentRegistry agentRegistry) {
+                     AgentRegistry agentRegistry,
+                     SystemCommandDispatcher commandDispatcher) {
         this.channelRegistry = channelRegistry;
         this.channelEventPublisher = channelEventPublisher;
         this.llmCaller = llmCaller;
@@ -65,6 +67,7 @@ public class MsgRouter {
         this.agentRouter = agentRouter;
         this.sessionBinder = sessionBinder;
         this.agentRegistry = agentRegistry;
+        this.commandDispatcher = commandDispatcher;
     }
 
     private LlmCaller getLlmCaller() {
@@ -84,7 +87,7 @@ public class MsgRouter {
         String channel = msg.getChannel();
         String userMessage = msg.getMessage();
         LlmCaller.UserConversationInfo conversationInfo = new LlmCaller.UserConversationInfo(jobClawUserId, channel, fromUserId);
-        String sessionId = conversationInfo.conversationId();
+        String conversationId = conversationInfo.conversationId();
 
         // Step 1: 根据用户是否存在偏好信息，来决定个是否主动触发用户信息采集Agent，当返回true时，中断当前对话流程，进入信息采集
         // This handles soul.md → user.md → info.md initialization
@@ -93,56 +96,36 @@ public class MsgRouter {
             return; // Don't send to normal agent during initialization
         }
 
-        // Step 2: 判断是否需要意图识别
-        if (!sessionBinder.needsIntentRecognition(jobClawUserId, sessionId, userMessage)) {
-            // 继续使用绑定的Agent
-            String agentId = sessionBinder.getBoundAgentId(jobClawUserId, sessionId).orElse(null);
-            routeToAgent(agentId, msg, conversationInfo);
-            return;
-        }
-
-        // Step 3: 检查Agent切换命令
-        if (intentClassifier.isAgentSwitchCommand(userMessage)) {
-            Optional<String> targetAgentId = intentClassifier.parseAgentSwitchCommand(userMessage);
-            if (targetAgentId.isPresent() && agentRegistry.hasAgent(targetAgentId.get())) {
-                sessionBinder.bind(jobClawUserId, sessionId, targetAgentId.get());
-                routeToAgent(targetAgentId.get(), msg, conversationInfo);
+        // Step 2: 系统命令处理 - 使用统一的命令调度器
+        if (commandDispatcher.isSystemCommand(userMessage)) {
+            if (commandDispatcher.executeCommand(msg, conversationInfo, userMessage, str -> sendTextResponse(msg, str))) {
+                log.info("System command executed for user: {} to Response: {}", jobClawUserId, userMessage);
                 return;
             }
-            // 无效的Agent ID，继续意图识别
+            // 如果命令调度器无法处理，继续后续流程
+        }
+
+        // Step 3: 判断是否需要意图识别
+        if (!sessionBinder.needsIntentRecognition(jobClawUserId, conversationId, userMessage)) {
+            // 继续使用绑定的Agent
+            String agentId = sessionBinder.getBoundAgentId(jobClawUserId, conversationId).orElse(null);
+            routeToAgent(agentId, msg, conversationInfo);
+            return;
         }
 
         // Step 4: 意图识别
         IntentClassificationRes classification = intentClassifier.classify(conversationInfo, userMessage, java.util.Collections.emptyList());
         log.info("Intent classification: {}", classification);
 
-        // Step 5: 重置指令
-        if (classification.intentType() == PresetAgentIntro.RESET) {
-            sessionBinder.unbind(jobClawUserId, sessionId);
-            sendTextResponse(msg, "会话状态已重置，请告诉我您想要做什么？");
-            return;
-        }
 
-        // Step 6: 帮助指令
-        if (classification.intentType() == PresetAgentIntro.HELP) {
-            sendHelpResponse(msg);
-            return;
-        }
-
-        // Step 7: 列出可用Agent指令
-        if (classification.intentType() == PresetAgentIntro.LIST_AGENTS) {
-            sendAgentsListResponse(msg);
-            return;
-        }
-
-        // Step 7: 路由到Agent
-        Optional<String> currentBoundAgent = sessionBinder.getBoundAgentId(jobClawUserId, sessionId);
+        // Step 5: 路由到Agent
+        Optional<String> currentBoundAgent = sessionBinder.getBoundAgentId(jobClawUserId, conversationId);
         AgentRouter.RouterResult routeResult = agentRouter.route(classification, currentBoundAgent);
 
         // Step 8: 绑定会话状态（如果是新会话）
         if (routeResult.isNewSession()) {
-            sessionBinder.bind(jobClawUserId, sessionId, routeResult.agentId());
-            sessionBinder.addIntentHistory(jobClawUserId, sessionId, classification.intentType(), classification.confidence());
+            sessionBinder.bind(jobClawUserId, conversationId, routeResult.agentId());
+            sessionBinder.addIntentHistory(jobClawUserId, conversationId, classification.intentType(), classification.confidence());
         }
 
         // Step 9: 执行Agent
@@ -204,14 +187,14 @@ public class MsgRouter {
         }
     }
 
-    private void sendTextResponse(ChannelReceiveMessage msg, String content) {
-        this.sendTextResponse(msg, content, null);
+    private boolean sendTextResponse(ChannelReceiveMessage msg, String content) {
+        return this.sendTextResponse(msg, content, null);
     }
 
     /**
      * 发送文本响应
      */
-    private void sendTextResponse(ChannelReceiveMessage msg, String content, Flux<LlmRspCell> streamContents) {
+    private boolean sendTextResponse(ChannelReceiveMessage msg, String content, Flux<LlmRspCell> streamContents) {
         ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
                 .jobClawUserId(msg.getJobClawUserId())
                 .toUserId(msg.getFromUserId())
@@ -227,68 +210,7 @@ public class MsgRouter {
                 msg.getChannel(),
                 responseMessage
         );
-    }
-
-    /**
-     * 发送帮助响应
-     */
-    private void sendHelpResponse(ChannelReceiveMessage msg) {
-        String helpText = """
-                您好！我是求职派助手，请问有什么可以帮助您的？
-
-                可用命令：
-                                
-                /agents - 返回所有的agents列表
-                                
-                /agent <名称> - 切换到指定Agent
-                                
-                /reset - 重置会话状态
-                                
-                /help - 显示帮助
-
-                我可以帮您：
-                - 推荐岗位 - 根据您的偏好推荐合适的岗位
-                - 订阅推送 - 订阅您感兴趣的岗位推送通知
-                - 查询状态 - 查看您的投递记录和面试状态
-                - 收集信息 - 帮您收集和整理岗位信息
-                """;
-
-        sendTextResponse(msg, helpText);
-    }
-
-    /**
-     * 发送可用Agent列表响应
-     */
-    private void sendAgentsListResponse(ChannelReceiveMessage msg) {
-        var agents = agentRegistry.getAllAgents();
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("📋 当前可用的 Agent 列表：\n\n");
-
-        if (agents.isEmpty()) {
-            sb.append("暂无可用的Agent。");
-        } else {
-            for (int i = 0; i < agents.size(); i++) {
-                BizAgent agent = agents.get(i);
-                if (agent.getAgentIntro().equals(PresetAgentIntro.DEFAULT)) {
-                    sb.append(String.format("%d. **%s**\n\n", i + 1, "ChatAgent"));
-                    sb.append(String.format("   %s\n\n", "你可以和我进行自由对话哦~"));
-                    if (i < agents.size() - 1) {
-                        sb.append("\n");
-                    }
-                } else {
-                    var intro = agent.getAgentIntro();
-                    sb.append(String.format("%d. **%s**\n\n", i + 1, intro.getAgentId()));
-                    sb.append(String.format("   %s\n\n", intro.getDescription()));
-                    if (i < agents.size() - 1) {
-                        sb.append("\n");
-                    }
-                }
-            }
-            sb.append("\n💡 提示：使用 `/agent <名称>` 命令可以切换到指定Agent");
-        }
-
-        sendTextResponse(msg, sb.toString());
+        return true;
     }
 
     /**

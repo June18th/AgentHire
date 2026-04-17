@@ -10,7 +10,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 基于大模型的意图分类器
@@ -36,6 +35,7 @@ public class LLMIntentClassifier implements IntentClassifier {
             - SUBSCRIBE: 订阅推送（用户想订阅某个岗位的推送通知）
             - QUERY: 信息查询（用户想查询岗位状态、投递记录等）
             - PROFILE: 用户画像管理（用户想修改个人信息、偏好设置）
+            - CHAT: 通用聊天Agent（当无法匹配上面意图时，采用这个通用的聊天Agent）
             - UNKNOWN: 无法确定
 
             用户消息：{{message}}
@@ -83,16 +83,5 @@ public class LLMIntentClassifier implements IntentClassifier {
             log.error("LLM意图识别失败: {}", message, e);
             return IntentClassificationRes.unknown("LLM调用失败: " + e.getMessage());
         }
-    }
-
-    @Override
-    public boolean isAgentSwitchCommand(String message) {
-        // LLM不处理命令，由KeywordClassifier处理
-        return false;
-    }
-
-    @Override
-    public Optional<String> parseAgentSwitchCommand(String message) {
-        return Optional.empty();
     }
 }
