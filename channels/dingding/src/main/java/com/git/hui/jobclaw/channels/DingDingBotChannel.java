@@ -294,6 +294,7 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
                 cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
                 if (cardId != null) {
                     cardManager.streamUpdate(cardId, "", content, true);
+                    aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), cardId);
                     return true;
                 }
 
@@ -309,6 +310,8 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
                 }
             }
             cardManager.streamUpdate(cardId, "", content, true);
+            // 主动结束这个流式卡片，避免被再次更新
+            aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), cardId);
         }
         return true;
     }

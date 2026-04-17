@@ -321,6 +321,7 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
                 cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
                 if (cardId != null) {
                     cardManager.updateStreamingCard(cardId, "", content, true);
+                    aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), cardId);
                     return true;
                 }
 
@@ -336,6 +337,8 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
                 }
             }
             cardManager.updateStreamingCard(cardId, "", content, true);
+            // 主动结束这个流式卡片，避免被再次更新
+            aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), cardId);
         }
         return true;
     }

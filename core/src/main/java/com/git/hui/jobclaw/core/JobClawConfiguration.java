@@ -1,12 +1,15 @@
 package com.git.hui.jobclaw.core;
 
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
-import com.git.hui.jobclaw.core.agent.llm.SpringAiBasedLlmCaller;
+import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.agent.llm.SpringAiBasedLlmCaller;
 import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.agent.memory.FileSystemChatMemoryRepository;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
+import com.git.hui.jobclaw.core.router.intent.AgentRegistry;
+import com.git.hui.jobclaw.core.router.intent.impl.DefaultAgentRegistry;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
@@ -65,5 +68,13 @@ public class JobClawConfiguration {
     @Bean
     public ChatMemory chatMemory(FileSystemChatMemoryRepository chatMemoryRepository) {
         return MessageWindowChatMemory.builder().chatMemoryRepository(chatMemoryRepository).build();
+    }
+
+
+    @Bean
+    public AgentRegistry agentRegistry(List<BizAgent> agents) {
+        AgentRegistry agentRegistry = new DefaultAgentRegistry();
+        agentRegistry.registerAll(agents);
+        return agentRegistry;
     }
 }
