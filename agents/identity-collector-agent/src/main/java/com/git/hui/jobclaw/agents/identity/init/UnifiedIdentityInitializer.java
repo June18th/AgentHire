@@ -113,11 +113,7 @@ public class UnifiedIdentityInitializer {
             log.debug("[Phase 1] Processing soul collection answer from user: {}", jobClawUserId);
 
             // Process user's answer
-            userAgentSoulCollector.processAnswer(conversationInfo, userMessage);
-
-            // Check if collection completed
-            var updatedState = userAgentSoulCollector.getCollectionState(jobClawUserId);
-            if (updatedState.isPresent() && updatedState.get().isCompleted()) {
+            userAgentSoulCollector.processAnswer(conversationInfo, userMessage, () -> {
                 log.info("[Phase 1] Soul collection completed for user: {}", jobClawUserId);
                 state.markCurrentPhaseCompleted();
 
@@ -126,9 +122,8 @@ public class UnifiedIdentityInitializer {
                 log.info("[Phase 1->2] Advancing to phase: {}", nextPhase);
 
                 // Immediately trigger next phase
-                return checkAndAdvance(conversationInfo, userMessage);
-            }
-
+                checkAndAdvance(conversationInfo, userMessage);
+            });
             return true; // Message handled by collector
         }
 
@@ -165,11 +160,7 @@ public class UnifiedIdentityInitializer {
             log.debug("[Phase 2] Processing user identity collection answer from user: {}", jobClawUserId);
 
             // Process user's answer
-            userIdentityCollector.processAnswer(conversationInfo, userMessage);
-
-            // Check if collection completed
-            var updatedState = userIdentityCollector.getCollectionState(jobClawUserId);
-            if (updatedState.isPresent() && updatedState.get().isCompleted()) {
+            userIdentityCollector.processAnswer(conversationInfo, userMessage, () -> {
                 log.info("[Phase 2] User identity collection completed for user: {}", jobClawUserId);
                 state.markCurrentPhaseCompleted();
 
@@ -178,8 +169,8 @@ public class UnifiedIdentityInitializer {
                 log.info("[Phase 2->3] Advancing to phase: {}", nextPhase);
 
                 // Immediately trigger next phase
-                return checkAndAdvance(conversationInfo, userMessage);
-            }
+                checkAndAdvance(conversationInfo, userMessage);
+            });
 
             return true; // Message handled by collector
         }

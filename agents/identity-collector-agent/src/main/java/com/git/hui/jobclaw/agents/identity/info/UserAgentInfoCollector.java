@@ -110,7 +110,7 @@ public class UserAgentInfoCollector implements InfoCollector {
     }
 
     @Override
-    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage) {
+    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
         // Info collector doesn't need user interaction
         // This method should not be called, but we handle it gracefully
         log.debug("[Info] processAnswer called but info collector doesn't require user interaction");

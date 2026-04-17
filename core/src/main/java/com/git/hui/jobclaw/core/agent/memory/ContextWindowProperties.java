@@ -38,6 +38,11 @@ public class ContextWindowProperties {
     private boolean summaryEnabled = false;
 
     /**
+     * Frequency of updating session summaries.
+     */
+    private int summaryUpdateFrequency = 10;
+
+    /**
      * Whether to update user identity automatically.
      */
     private boolean identityAutoUpdate = false;

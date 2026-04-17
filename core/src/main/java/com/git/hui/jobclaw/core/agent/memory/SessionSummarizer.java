@@ -2,7 +2,9 @@ package com.git.hui.jobclaw.core.agent.memory;
 
 import com.git.hui.jobclaw.core.agent.Agent;
 import com.git.hui.jobclaw.core.agent.ClientSelector;
+import com.git.hui.jobclaw.core.utils.FileUtils;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
+import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +19,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -46,10 +50,13 @@ public class SessionSummarizer {
 
     private final String promptTemplate;
     private final ContextWindowProperties properties;
+    private final Path conversationsDir;
 
     public SessionSummarizer(
+            @Value("${agent.workspace:Unknown}") Resource workspaceDir,
             ContextWindowProperties properties,
-            @Value("classpath:/prompts/session-summary-prompt.md") Resource promptResource) {
+            @Value("classpath:/prompts/session-summary-prompt.md") Resource promptResource) throws IOException {
+        this.conversationsDir = workspaceDir.getFile().toPath().resolve("conversations");
         this.properties = properties;
 
         // Load prompt template
@@ -74,48 +81,60 @@ public class SessionSummarizer {
             return;
         }
         CompletableFuture.runAsync(() -> {
-//            // Preserve createdAt from any existing file; set it fresh on first write
-//            var header = getLastHeader(file);
-//            String createdAt = header != null ? header.get("createdAt") : Instant.now().toString();
-//            String existingSummary = header != null ? header.get("summary") : "";
-//
-//
-//            // Generate new summary if needed
-//            String summary = existingSummary;
-//
-//            log.info("Generating summary for conversation: {} ({} messages)", conversationId, messages.size());
-//            try {
-//
-//                summary = summarize(jobClawUserId, messages);
-//                if (summary != null && !summary.isBlank()) {
-//                    log.info("Summary saved: {}", summary.substring(0, Math.min(50, summary.length())));
-//                }
-//            } catch (Exception e) {
-//                log.error("Failed to generate summary, keeping existing", e);
-//                // Keep existing summary on failure
-//            }
+            log.info("Generating summary for conversation: {} ({} messages)", conversation, messages.size());
+            try {
+
+                String summary = summarize(conversation.jobClawUserId(), messages);
+                if (summary != null && !summary.isBlank()) {
+                    // 将会话摘要，保存到对应的文件中
+                    Map<String, String> frontmatter = new LinkedHashMap<>();
+                    frontmatter.put("channel", conversation.channel());
+                    frontmatter.put("conversationId", conversation.conversationId());
+                    frontmatter.put("updatedAt", Instant.now().toString());
+                    frontmatter.put("summary", summary);
+
+                    // 保存会话摘要
+                    Path file = resolveFile(conversation);
+                    FileUtils.ensureDirectory(file.getParent());
+
+                    String body = "summary for " + messages.size() + " message!";
+                    String content = YamlParser.serialize(new YamlDocument(frontmatter, body));
+                    try {
+                        Files.writeString(file, content, StandardOpenOption.CREATE,
+                                StandardOpenOption.TRUNCATE_EXISTING);
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to save conversation: " + conversation, e);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Failed to generate summary, keeping existing", e);
+                // Keep existing summary on failure
+            }
         });
     }
 
-    public Map<String, String> getLastHeader(Path file) {
-        String createdAt = Instant.now().toString();
-        String existingSummary = "";
+    public String getSummaryInfo(Agent.UserConversationInfo conversation) {
+        Path file = resolveFile(conversation);
+
         if (Files.exists(file)) {
             try {
                 Map<String, String> existing = YamlParser.parse(Files.readString(file)).frontmatter();
-                if (existing.containsKey("createdAt")) createdAt = existing.get("createdAt");
-                // Preserve existing summary
-                if (existing.containsKey("summary")) {
-                    existingSummary = existing.get("summary");
-                }
+                return existing.get("createdAt");
             } catch (IOException ignored) {
             }
         }
-        return Map.of("createdAt", createdAt, "summary", existingSummary);
+        return null;
+    }
+
+    private Path resolveFile(Agent.UserConversationInfo conversation) {
+        return conversationsDir.resolve(conversation.jobClawUserId())
+                .resolve("summary-" + conversation.channel() + "-" + conversation.conversationId() + ".yaml");
     }
 
     /**
      * Check if summary should be generated based on conversation history.
+     *
+     * todo 可以借助大模型的能力，来判断新增的对话是否需要触发摘要重新生成；现在这里只根据长度 + 频率做了一个简单的控制
      *
      * @param messages current conversation messages
      * @return true if summary should be generated
@@ -129,7 +148,7 @@ public class SessionSummarizer {
         int messageCount = messages.size();
         int triggerThreshold = Math.max(properties.getKeepRecent() * 2, 10);
 
-        boolean shouldSummarize = messageCount > triggerThreshold;
+        boolean shouldSummarize = messageCount > triggerThreshold && messages.size() % properties.getSummaryUpdateFrequency() == 0;
 
         if (shouldSummarize) {
             log.debug("Should summarize: {} messages > threshold {}", messageCount, triggerThreshold);

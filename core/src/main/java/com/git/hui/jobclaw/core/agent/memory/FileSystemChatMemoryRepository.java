@@ -102,7 +102,7 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
             List<Message> managedMessages = smartWindow.manage(allMessages);
 
             // Inject summary if available
-            String summary = doc.frontmatter().get("summary");
+            String summary = sessionSummarizer.getSummaryInfo(Agent.UserConversationInfo.parse(conversationId));
             if (summary != null && !summary.isBlank()) {
                 Message summaryMessage = sessionSummarizer.createSummaryMessage(summary);
                 if (summaryMessage != null) {

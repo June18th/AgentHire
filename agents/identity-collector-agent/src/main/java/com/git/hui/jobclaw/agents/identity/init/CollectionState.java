@@ -64,7 +64,7 @@ public class CollectionState {
 
     // Collection state per user
     private final String jobClawUserId;
-    private Status status;
+    private volatile Status status;
     private final Instant startedAt;
     private Instant lastUpdatedAt;
     private Instant completedAt;

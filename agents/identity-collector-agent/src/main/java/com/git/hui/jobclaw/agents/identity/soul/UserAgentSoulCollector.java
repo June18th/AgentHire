@@ -136,7 +136,7 @@ public class UserAgentSoulCollector implements InfoCollector {
     }
 
     @Override
-    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage) {
+    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
         var jobClawUserId = userConversationInfo.jobClawUserId();
         CollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {
@@ -161,12 +161,12 @@ public class UserAgentSoulCollector implements InfoCollector {
         if (currentTurns >= contextWindowProperties.getMaxSoulCollectionTurns()) {
             log.warn("[Soul] Max conversation turns ({}) reached for user: {}, forcing completion",
                     contextWindowProperties.getMaxSoulCollectionTurns(), jobClawUserId);
-            completeCollection(state, history);
+            completeCollection(state, history, completeCallback);
             return;
         }
 
         // Continue AI conversation
-        continueAiConversation(state, history);
+        continueAiConversation(state, history, completeCallback);
     }
 
     @Override
@@ -189,10 +189,12 @@ public class UserAgentSoulCollector implements InfoCollector {
                 1. 【必填】agentName, communication_style, emotional_tone, proactive_level, detail_orientation, relationship_type
                 2. 【选填】formality_level, humor_frequency, values
                                 
-                请从基础信息开始(比如给AI起个名字),一次只问一个问题。
+                请从基础信息开始(比如给AI起个名字),一次的问题不要超过三个
                 语气要友好自然,像朋友聊天,不要像审问。
-                                
-                重要：当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接总结你收集到的信息展示给用户，并在最后单独一行添加标记：[SOUL_COLLECTION_COMPLETE]
+
+                重要：当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接根据用户的的输入，来总结你收集到的信息，并展示给用户，不需要再次提问
+                且在回复的最后一行添加标记
+                [SOUL_COLLECTION_COMPLETE]
                 """;
 
         List<Message> messages = new ArrayList<>();
@@ -206,12 +208,12 @@ public class UserAgentSoulCollector implements InfoCollector {
     /**
      * Continue AI conversation after user response with streaming
      */
-    private void continueAiConversation(CollectionState state, List<Message> history) {
+    private void continueAiConversation(CollectionState state, List<Message> history, Runnable completeCallback) {
         // Call AI and stream response
         Flux<LlmRspCell> responseFlux = callAiForCollectionStream(state, history);
 
         // Send streaming response and check for completion marker
-        sendProactiveMessageStreamWithCompletionCheck(state, responseFlux, history);
+        sendProactiveMessageStreamWithCompletionCheck(state, responseFlux, history, completeCallback);
     }
 
     /**
@@ -223,7 +225,12 @@ public class UserAgentSoulCollector implements InfoCollector {
     private Flux<LlmRspCell> callAiForCollectionStream(CollectionState state, List<Message> history) {
         try {
             // Build system prompt
-            String systemPrompt = promptTemplate + "\n\n重要：当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接总结你收集到的信息展示给用户，并在最后单独一行添加标记：[SOUL_COLLECTION_COMPLETE]";
+            String systemPrompt = promptTemplate + """
+                    \n\n
+                    重要：当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接根据用户的的输入，来总结你收集到的信息，并展示给用户
+                    且在回复的最后一行添加标记
+                    [SOUL_COLLECTION_COMPLETE]
+                    """;
 
             // Create messages list with system prompt
             List<Message> messages = new ArrayList<>();
@@ -254,7 +261,7 @@ public class UserAgentSoulCollector implements InfoCollector {
     /**
      * Complete the soul collection and generate soul.md
      */
-    private void completeCollection(CollectionState state, List<Message> history) {
+    private void completeCollection(CollectionState state, List<Message> history, Runnable completeCallback) {
         log.info("[Soul] Collection completed for user: {}, generating soul.md", state.getJobClawUserId());
 
         try {
@@ -284,6 +291,10 @@ public class UserAgentSoulCollector implements InfoCollector {
             conversationHistories.remove(state.getJobClawUserId());
             conversationTurnCounts.remove(state.getJobClawUserId());
 
+            // 执行回调
+            if (completeCallback != null) {
+                completeCallback.run();
+            }
         } catch (Exception e) {
             log.error("[Soul] Failed to complete collection for user: {}", state.getJobClawUserId(), e);
             sendProactiveMessageStream(state,
@@ -323,7 +334,10 @@ public class UserAgentSoulCollector implements InfoCollector {
      * @param state collection state
      * @param contentFlux streaming content flux
      */
-    private void sendProactiveMessageStreamWithCompletionCheck(CollectionState state, Flux<LlmRspCell> contentFlux, List<Message> history) {
+    private void sendProactiveMessageStreamWithCompletionCheck(CollectionState state,
+                                                               Flux<LlmRspCell> contentFlux,
+                                                               List<Message> history,
+                                                               Runnable completeCallback) {
         // Accumulate content to check for completion marker
         StringBuilder contentAccumulator = new StringBuilder();
         String jobClawUserId = state.getJobClawUserId();
@@ -337,7 +351,7 @@ public class UserAgentSoulCollector implements InfoCollector {
                         // Check if completion marker is present
                         if (contentAccumulator.toString().contains(SOUL_COLLECTION_COMPLETE_MARKER)) {
                             log.info("[Soul] Completion marker detected for user: {}", jobClawUserId);
-                            completeCollection(state, conversationHistories.get(jobClawUserId));
+                            completeCollection(state, conversationHistories.get(jobClawUserId), completeCallback);
                         }
                     }
                 })

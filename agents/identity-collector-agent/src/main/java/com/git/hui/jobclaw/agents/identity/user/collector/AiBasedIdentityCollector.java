@@ -1,12 +1,12 @@
 package com.git.hui.jobclaw.agents.identity.user.collector;
 
-import com.git.hui.jobclaw.core.agent.Agent;
-import com.git.hui.jobclaw.core.agent.ClientSelector;
-import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.agents.identity.init.CollectionState;
 import com.git.hui.jobclaw.agents.identity.init.InfoCollector;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityExtractor;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityManager;
+import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.agent.ClientSelector;
+import com.git.hui.jobclaw.core.agent.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
@@ -144,7 +144,7 @@ public class AiBasedIdentityCollector implements InfoCollector {
     }
 
     @Override
-    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage) {
+    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
         String jobClawUserId = userConversationInfo.jobClawUserId();
         CollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {
@@ -169,12 +169,12 @@ public class AiBasedIdentityCollector implements InfoCollector {
         if (currentTurns >= contextWindowProperties.getMaxIdentityCollectionTurns()) {
             log.warn("[UserIdentity] Max conversation turns ({}) reached for user: {}, forcing completion",
                     contextWindowProperties.getMaxIdentityCollectionTurns(), jobClawUserId);
-            completeCollection(state, history);
+            completeCollection(state, history, completeCallback);
             return;
         }
 
         // Continue AI conversation
-        continueAiConversation(state, history);
+        continueAiConversation(state, history, completeCallback);
     }
 
     @Override
@@ -215,21 +215,21 @@ public class AiBasedIdentityCollector implements InfoCollector {
     /**
      * Continue AI conversation after user response with streaming
      */
-    private void continueAiConversation(CollectionState state, List<Message> history) {
+    private void continueAiConversation(CollectionState state, List<Message> history, Runnable completeCallback) {
         String systemPrompt = promptTemplate + "\n\n当你认为已经获取到必要的信息，并且无需再次问答收集信息时，你需要直接总结你收集到的信息展示给用户，并在最后单独一行添加标记：[IDENTITY_COLLECTION_COMPLETE]";
 
         // Call AI and stream response
         Flux<LlmRspCell> responseFlux = callAiForCollectionStream(state, systemPrompt, history);
 
         // Send streaming response and check for completion marker
-        sendProactiveMessageStreamWithCompletionCheck(state, responseFlux, history);
+        sendProactiveMessageStreamWithCompletionCheck(state, responseFlux, history, completeCallback);
     }
 
 
     /**
      * Complete collection and generate identity.md
      */
-    private void completeCollection(CollectionState state, List<Message> history) {
+    private void completeCollection(CollectionState state, List<Message> history, Runnable completeCallback) {
         log.info("[UserIdentity] Completing AI-driven collection for user: {}", state.getJobClawUserId());
 
         // Use UserIdentityExtractor to generate identity.md from conversation
@@ -259,7 +259,9 @@ public class AiBasedIdentityCollector implements InfoCollector {
                 现在，有什么我可以帮你的吗？😊
                 """;
         sendProactiveMessageStream(state, Flux.just(new LlmRspCell(null, completionMsg, null)));
-
+        if (completeCallback != null) {
+            completeCallback.run();
+        }
         log.info("[UserIdentity] AI-driven collection completed for user: {}", state.getJobClawUserId());
     }
 
@@ -328,7 +330,7 @@ public class AiBasedIdentityCollector implements InfoCollector {
      * @param state collection state
      * @param contentFlux streaming content flux
      */
-    private void sendProactiveMessageStreamWithCompletionCheck(CollectionState state, Flux<LlmRspCell> contentFlux, List<Message> history) {
+    private void sendProactiveMessageStreamWithCompletionCheck(CollectionState state, Flux<LlmRspCell> contentFlux, List<Message> history, Runnable completeCallback) {
         // Accumulate content to check for completion marker
         StringBuilder contentAccumulator = new StringBuilder();
         String jobClawUserId = state.getJobClawUserId();
@@ -342,7 +344,7 @@ public class AiBasedIdentityCollector implements InfoCollector {
                         // Check if completion marker is present
                         if (contentAccumulator.toString().contains(IDENTITY_COLLECTION_COMPLETE_MARKER)) {
                             log.info("[UserIdentity] Completion marker detected for user: {}", jobClawUserId);
-                            completeCollection(state, conversationHistories.get(jobClawUserId));
+                            completeCollection(state, conversationHistories.get(jobClawUserId), completeCallback);
                         }
                     }
                 })

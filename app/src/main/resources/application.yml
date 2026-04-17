@@ -89,6 +89,7 @@ agent:
     window:
       trim-enabled: ${AGENT_CONTEXT_WINDOW_ENABLED:false}   # 上下文压缩开关
       summary-enabled: ${AGENT_CONTEXT_SUMMARY:false} # 自动提炼会话总结内容开关
+      summary-update-frequency: ${AGENT_CONTEXT_SUMMARY_UPDATE_FREQUENCY:10} # 刷新频率
       identity-auto-update: ${AGENT_CONTEXT_IDENTITY_AUTO_UPDATE:false} # 自动更新用户身份信息开关
       max-messages: ${AGENT_CONTEXT_MAX_MESSAGES:20} # 最大消息数
       keep-recent: ${AGENT_CONTEXT_KEEP_RECENT:10} # 保留最近消息数

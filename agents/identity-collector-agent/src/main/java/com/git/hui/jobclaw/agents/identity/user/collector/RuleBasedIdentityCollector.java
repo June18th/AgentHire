@@ -154,7 +154,7 @@ public class RuleBasedIdentityCollector implements InfoCollector {
     }
 
     @Override
-    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage) {
+    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
         String jobClawUserId = userConversationInfo.jobClawUserId();
         CollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {
