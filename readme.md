@@ -136,6 +136,8 @@ v2 版本，新增模块：
 
 - [x] 2026/04/17
   - [x] 新增消息路由模块，用于支持意图识别，多Agent切换，预设的`/`命令
+    - [x] 完成关键词、LLM的消息路由，支持Agent会话状态锁定
+    - [x] 支持 CLI 命令，支持通过实现 `SystemCommandHandler` 来扩展命令能力
   - [x] 新增Agent模块
     - [x] AI偏好设置、用户画像功能 封装为 identity-collector-agent
       - [x] 支持首次会话的引导信息收集
