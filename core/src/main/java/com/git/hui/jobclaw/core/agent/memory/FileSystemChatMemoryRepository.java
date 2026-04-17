@@ -1,11 +1,11 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
-import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityExtractor;
-import com.git.hui.jobclaw.core.agent.identity.user.UserIdentityManager;
+import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.agent.IIdentityAgent;
+import com.git.hui.jobclaw.core.utils.FileUtils;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
-import io.micrometer.common.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.AppendableChatMemoryRepository;
@@ -53,21 +53,19 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
     private final Path conversationsDir;
     private final SmartWindowChatMemory smartWindow;
     private final SessionSummarizer sessionSummarizer;
-    private final UserIdentityManager useridentityManager;
-    private final UserIdentityExtractor useridentityExtractor;
+    private final IIdentityAgent identityAgent;
     private final ContextWindowProperties contextWindowProperties;
 
     public FileSystemChatMemoryRepository(
             @Value("${agent.workspace:Unknown}") Resource workspaceDir,
             SmartWindowChatMemory smartWindow,
             SessionSummarizer sessionSummarizer,
-            UserIdentityManager useridentityManager,
-            UserIdentityExtractor useridentityExtractor, ContextWindowProperties contextWindowProperties) throws IOException {
+            IIdentityAgent identityAgent,
+            ContextWindowProperties contextWindowProperties) throws IOException {
         this.conversationsDir = workspaceDir.getFile().toPath().resolve("conversations");
         this.smartWindow = smartWindow;
         this.sessionSummarizer = sessionSummarizer;
-        this.useridentityManager = useridentityManager;
-        this.useridentityExtractor = useridentityExtractor;
+        this.identityAgent = identityAgent;
         this.contextWindowProperties = contextWindowProperties;
     }
 
@@ -80,9 +78,9 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
                 try (var sub = Files.list(p)) {
                     total.addAll(
                             sub.map(t -> t.getFileName().toString())
-                               .filter(name -> name.startsWith("chat-") && name.endsWith(".yaml"))
-                               .map(name -> name.substring("chat-".length(), name.length() - ".yaml".length()))
-                               .toList()
+                                    .filter(name -> name.startsWith("chat-") && name.endsWith(".yaml"))
+                                    .map(name -> name.substring("chat-".length(), name.length() - ".yaml".length()))
+                                    .toList()
                     );
                 }
             }
@@ -151,46 +149,23 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
 
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
+        Agent.UserConversationInfo conversation = Agent.UserConversationInfo.parse(conversationId);
         Path file = resolveFile(conversationId);
-        ensureDirectory(file.getParent());
+        FileUtils.ensureDirectory(file.getParent());
 
         // Preserve createdAt from any existing file; set it fresh on first write
         String createdAt = Instant.now().toString();
-        String existingSummary = "";
         if (Files.exists(file)) {
             try {
                 Map<String, String> existing = YamlParser.parse(Files.readString(file)).frontmatter();
                 if (existing.containsKey("createdAt")) createdAt = existing.get("createdAt");
-                // Preserve existing summary
-                if (existing.containsKey("summary")) {
-                    existingSummary = existing.get("summary");
-                }
             } catch (IOException ignored) {
-            }
-        }
-
-        // Generate new summary if needed
-        String summary = existingSummary;
-        if (sessionSummarizer.shouldSummarize(messages)) {
-            log.info("Generating summary for conversation: {} ({} messages)", conversationId, messages.size());
-            try {
-                UserConversation conversation = UserConversation.parse(conversationId);
-                summary = sessionSummarizer.summarize(conversation.jobClawUserId, messages);
-                if (summary != null && !summary.isBlank()) {
-                    log.info("Summary saved: {}", summary.substring(0, Math.min(50, summary.length())));
-                }
-            } catch (Exception e) {
-                log.error("Failed to generate summary, keeping existing", e);
-                // Keep existing summary on failure
             }
         }
 
         Map<String, String> frontmatter = new LinkedHashMap<>();
         frontmatter.put("createdAt", createdAt);
         frontmatter.put("updatedAt", Instant.now().toString());
-        if (summary != null && !summary.isBlank()) {
-            frontmatter.put("summary", summary);
-        }
 
         String body = ChatYamlSerializer.serialize(messages);
         String content = YamlParser.serialize(new YamlDocument(frontmatter, body));
@@ -201,62 +176,8 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
         }
 
         // Async: Update user identity profile
-        updateUserIdentityAsync(conversationId, messages);
-    }
-
-    /**
-     * Asynchronously update user identity profile based on conversation history.
-     *
-     * <p>This method handles incremental identity updates for existing users.
-     * Unlike active collection (for new users), this performs passive extraction
-     * from conversation history to keep the identity profile up-to-date.
-     *
-     * <p>Update strategy:
-     * <ul>
-     *   <li>Only triggers when conversation reaches certain size (avoid frequent AI calls)</li>
-     *   <li>Uses existing identity as baseline for incremental update</li>
-     *   <li>Runs asynchronously to avoid blocking conversation</li>
-     *   <li>Graceful fallback on failure (keeps existing identity)</li>
-     * </ul>
-     *
-     * @param conversationId conversation ID (contains jobClawUserId)
-     * @param messages conversation messages
-     */
-    private void updateUserIdentityAsync(String conversationId, List<Message> messages) {
-        try {
-            UserConversation userConv = UserConversation.parse(conversationId);
-            String jobClawUserId = userConv.jobClawUserId();
-
-            // Check if update should be triggered (avoid frequent AI calls)
-            if (!useridentityManager.shouldAutoUpdateIdentity(jobClawUserId, messages)) {
-                return;
-            }
-
-            log.info("Triggering incremental identity update for user: {} ({} messages)", jobClawUserId, messages.size());
-
-            // Load existing identity as baseline
-            String currentIdentity = useridentityManager.loadIdentity(jobClawUserId);
-
-            // Extract and update identity asynchronously
-            useridentityExtractor.extractAsync(jobClawUserId, currentIdentity, messages)
-                                 .thenAcceptAsync(updatedIdentity -> {
-                                     if (StringUtils.isNotBlank(updatedIdentity)) {
-                                         useridentityManager.saveIdentity(jobClawUserId, updatedIdentity);
-                                         log.info("User identity updated incrementally for: {}", jobClawUserId);
-                                     } else {
-                                         log.warn("identity extraction returned empty for user: {}, keeping existing", jobClawUserId);
-                                     }
-                                 })
-                                 .exceptionally(ex -> {
-                                     log.error("Failed to update user identity incrementally for: {}, keeping existing identity",
-                                             jobClawUserId, ex);
-                                     return null;
-                                 });
-
-        } catch (Exception e) {
-            log.error("Failed to trigger incremental identity update for conversation: {}", conversationId, e);
-            // Don't throw - identity update is non-critical
-        }
+        sessionSummarizer.autoAsyncSummarize(conversation, messages);
+        identityAgent.asyncUpdateUserIdentityAsync(conversation, messages);
     }
 
 
@@ -275,31 +196,9 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
      */
     private Path resolveFile(String conversationId) {
         // 按照约定，原始的conversationId 是按照 jobClawUerId-ConversationId 的格式进行组装的，所以我们首先进行解析，将会话的JobClawUserId依然保存，用于用户会话的隔离
-        UserConversation userConversation = UserConversation.parse(conversationId);
+        Agent.UserConversationInfo userConversation = Agent.UserConversationInfo.parse(conversationId);
         // 为了避免会话的字符串格式异常，我们统一进行md5操作
-        String md5 = MD5Utils.md5(userConversation.conversationId);
-        return conversationsDir.resolve(userConversation.jobClawUserId).resolve("chat-" + md5 + ".yaml");
-    }
-
-    private static Path ensureDirectory(Path dir) {
-        try {
-            Files.createDirectories(dir);
-            return dir;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to create directory: " + dir, e);
-        }
-    }
-
-
-    record UserConversation(String jobClawUserId, String conversationId) {
-        public static UserConversation parse(String conversationId) {
-            int index = conversationId.indexOf("-");
-            if (index > 0) {
-                String jobClawUserId = conversationId.substring(0, index);
-                String conversation = conversationId.substring(index + 1);
-                return new UserConversation(jobClawUserId, conversation);
-            }
-            return new UserConversation("Unknown", conversationId);
-        }
+        String md5 = MD5Utils.md5(userConversation.conversationId());
+        return conversationsDir.resolve(userConversation.jobClawUserId()).resolve("chat-" + userConversation.channel() + "-" + md5 + ".yaml");
     }
 }

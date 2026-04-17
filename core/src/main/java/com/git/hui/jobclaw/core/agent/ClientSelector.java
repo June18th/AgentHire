@@ -9,6 +9,7 @@ import com.git.hui.jobclaw.core.tools.CheckListTool;
 import com.git.hui.jobclaw.core.tools.McpTool;
 import com.git.hui.jobclaw.core.tools.TaskTool;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.springaicommunity.agent.tools.FileSystemTools;
 import org.springaicommunity.agent.tools.ShellTools;
 import org.springaicommunity.agent.tools.SkillsTool;
@@ -21,7 +22,6 @@ import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.model.Model;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -33,7 +33,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -60,9 +59,9 @@ public class ClientSelector {
     private Resource workspace;
 
     private final List<AutoDiscoveredTool<?>> autoDiscoveredTools;
-    
+
     public static final String AGENT_MD = "AGENT.private.md";
-    
+
     public ClientSelector(ModelProviders modelProviders,
                           ChatMemory chatMemory,
                           TaskManager taskManager,
@@ -78,12 +77,17 @@ public class ClientSelector {
     /**
      * 根据用户 + 会话，获取对应的LLM客户端
      * @param userId JobClaw 的用户，用于获取模型偏好配置
-     * @param conversationId 具体的会话，通常不同渠道、即便是同一个用户，这个会话ID也是不同的
+     * @param channel 对话通道，针对用户对不同的聊天渠道，设置不同的模型偏好
      * @param multiModal 是否支持多模态
      * @return
      */
-    public ChatClient getClient(String userId, String conversationId, boolean multiModal) {
-        String key = multiModal ? conversationId + "_m" : conversationId;
+    public ChatClient getClient(String userId, String channel, boolean multiModal) {
+        String key;
+        if (StringUtils.isBlank(channel)) {
+            key = multiModal ? userId + "_m" : userId;
+        } else {
+            key = multiModal ? userId + "_" + channel + "_m" : userId + "_" + channel;
+        }
         var client = userCacheClient.get(key);
         if (client == null) {
             client = initClient(userId, multiModal);

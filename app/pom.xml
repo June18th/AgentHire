@@ -53,6 +53,14 @@
         </dependency>
 
 
+        <!-- agents -->
+        <dependency>
+            <groupId>com.git.hui.jobclaw.agents</groupId>
+            <artifactId>identity-collector-agent</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

@@ -42,6 +42,7 @@
         <module>channels</module>
         <module>providers</module>
         <module>plugins</module>
+        <module>agents</module>
     </modules>
     <scm>
         <connection/>

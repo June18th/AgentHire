@@ -36,6 +36,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -140,11 +141,18 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
                             }
 
                             // 4. 上报消息
+                            var content = eventData.getMessage().getContent();
+                            if (content != null && content.startsWith("{") && content.endsWith("}")) {
+                                content = (String) Jsons.DEFAULT.fromJson(event.getEvent().getMessage().getContent(), HashMap.class).get("text");
+                                if (StringUtils.isBlank(content)) {
+                                    content = eventData.getMessage().getContent();
+                                }
+                            }
                             var ex = new ChatbotMessageEx().setRobotId(account.getAppId())
                                     .setAiCardId(cardId)
                                     .setOpenId(openId)
                                     .setMessageId(messageId)
-                                    .setContent(event.getEvent().getMessage().getContent());
+                                    .setContent(content);
                             processMessage(MsgWrapper.<ChatbotMessageEx>builder().jobClawUserId(jobClawUserId).msg(ex).build());
                         }
                     })
@@ -272,11 +280,18 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
                 StringBuilder content = new StringBuilder();
                 String finalCardId = cardId;
                 stream.doOnNext(response -> {
-                            log.debug("[FeiShu] Received response chunk: {}", response);
+                            if (log.isDebugEnabled()) {
+                                log.debug("[FeiShu] Received response chunk: {}", response);
+                            }
                             if (StringUtils.isNotBlank(response.thinking())) {
                                 thinking.append(response.thinking());
                             }
                             if (!StringUtils.isEmpty(response.content())) {
+                                if (content.isEmpty()) {
+                                    // 表示首次响应正文内容，此时为了更好的用户体验，我们可以调用飞书接口，将面板关闭
+                                    cardManager.autoCloseThinkingHeader(finalCardId);
+                                }
+
                                 content.append(response.content());
                             }
                             cardManager.updateStreamingCard(finalCardId, thinking.toString(), content.toString(), false);
@@ -504,6 +519,9 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
 
         private void updateStreamingCard(String cardId, String thinking, String content, boolean finish) {
             if (StringUtils.isBlank(content)) {
+                if (StringUtils.isBlank(thinking)) {
+                    return;
+                }
                 thinking = "> " + thinking.trim().replaceAll("\n", "\n> ");
                 updateStreamingCard(cardId, thinking, StreamCardUpdateContentType.THINKING);
             } else {
@@ -539,6 +557,11 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
             } catch (Exception e) {
                 log.error("[FeiShu] Update streaming card error", e);
             }
+        }
+
+        private void autoCloseThinkingHeader(String cardId) {
+            // todo 待实现
+            return;
         }
 
         private void completeCard(String cardId) {

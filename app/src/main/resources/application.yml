@@ -99,16 +99,22 @@ agent:
   channels:
     wechat:
       clawbot: # 微信的ClawBot Channel配置
-        enabled: false
+        enabled: ${AGENT_CHANNEL_WECHAT_CLAWBOT_ENABLED:false}
         accounts: { }  # 账号配置，通过页面绑定后自动填充
         cdn-base-url: https://novac2c.cdn.weixin.qq.com/c2c
         base-url: https://ilinkai.weixin.qq.com
     dingding:
-      enabled: false
+      enabled: ${AGENT_CHANNEL_DINGDING_ENABLED:false}
       accounts:
-        2: !!seq [ ] # 一个用户支持配置多个机器人
+        2: !!seq [ ]
+#          # 一个用户支持配置多个机器人
+#          - app-id: ${AGENT_CHANNEL_DINGDING_APP_ID:ding----4iez}
+#            app-secret: ${AGENT_CHANNEL_DINGDING_APP_SECRET:SEC******}
+#            mode: ${AGENT_CHANNEL_DINGDING_MODE:WEBSOCKET}
+#            state: ${AGENT_CHANNEL_DINGDING_STATE:NORMAL}
+#            ai-card-id: ${AGENT_CHANNEL_DINGDING_AI_CARD_ID:508d5bbf-b7d3-416a-828a-acdbf6803c65.schema}
     feishu:
-      enabled: false
+      enabled: ${AGENT_CHANNEL_FEISHU_ENABLED:false}
       accounts:
         2: !!seq [ ]
   tools:

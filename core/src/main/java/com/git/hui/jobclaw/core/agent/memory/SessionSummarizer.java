@@ -1,7 +1,9 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
+import com.git.hui.jobclaw.core.agent.Agent;
 import com.git.hui.jobclaw.core.agent.ClientSelector;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
+import com.git.hui.jobclaw.core.utils.files.YamlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
@@ -13,7 +15,11 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -56,6 +62,58 @@ public class SessionSummarizer {
         }
     }
 
+
+    /**
+     * Generate summary asynchronously.
+     *
+     * @param messages conversation messages to summarize
+     * @return CompletableFuture with summary text
+     */
+    public void autoAsyncSummarize(Agent.UserConversationInfo conversation, List<Message> messages) {
+        if (!shouldSummarize(messages)) {
+            return;
+        }
+        CompletableFuture.runAsync(() -> {
+//            // Preserve createdAt from any existing file; set it fresh on first write
+//            var header = getLastHeader(file);
+//            String createdAt = header != null ? header.get("createdAt") : Instant.now().toString();
+//            String existingSummary = header != null ? header.get("summary") : "";
+//
+//
+//            // Generate new summary if needed
+//            String summary = existingSummary;
+//
+//            log.info("Generating summary for conversation: {} ({} messages)", conversationId, messages.size());
+//            try {
+//
+//                summary = summarize(jobClawUserId, messages);
+//                if (summary != null && !summary.isBlank()) {
+//                    log.info("Summary saved: {}", summary.substring(0, Math.min(50, summary.length())));
+//                }
+//            } catch (Exception e) {
+//                log.error("Failed to generate summary, keeping existing", e);
+//                // Keep existing summary on failure
+//            }
+        });
+    }
+
+    public Map<String, String> getLastHeader(Path file) {
+        String createdAt = Instant.now().toString();
+        String existingSummary = "";
+        if (Files.exists(file)) {
+            try {
+                Map<String, String> existing = YamlParser.parse(Files.readString(file)).frontmatter();
+                if (existing.containsKey("createdAt")) createdAt = existing.get("createdAt");
+                // Preserve existing summary
+                if (existing.containsKey("summary")) {
+                    existingSummary = existing.get("summary");
+                }
+            } catch (IOException ignored) {
+            }
+        }
+        return Map.of("createdAt", createdAt, "summary", existingSummary);
+    }
+
     /**
      * Check if summary should be generated based on conversation history.
      *
@@ -80,15 +138,6 @@ public class SessionSummarizer {
         return shouldSummarize;
     }
 
-    /**
-     * Generate summary asynchronously.
-     *
-     * @param messages conversation messages to summarize
-     * @return CompletableFuture with summary text
-     */
-    public CompletableFuture<String> summarizeAsync(String jobClawUserId, List<Message> messages) {
-        return CompletableFuture.supplyAsync(() -> summarize(jobClawUserId, messages));
-    }
 
     /**
      * Generate summary synchronously.

@@ -1,6 +1,5 @@
 package com.git.hui.jobclaw.core.preference;
 
-import com.git.hui.jobclaw.core.agent.identity.InfoCollector;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -42,7 +41,7 @@ public class AiUserPreferenceProperties {
          */
         private String userId;
 
-        private InfoCollector.CollectorType collector;
+        private CollectorType collector;
 
         /**
          * 用户配置的优先接受后台推送消息的通道
@@ -53,6 +52,17 @@ public class AiUserPreferenceProperties {
          * 用户的模型偏好配置
          */
         private UserModelPreference models;
+    }
+
+
+    /**
+     * Collector type enum
+     */
+    public enum CollectorType {
+        /** Rule-based with predefined questions */
+        RULE_BASED,
+        /** AI-driven dynamic conversation */
+        AI_BASED
     }
 
     /**
