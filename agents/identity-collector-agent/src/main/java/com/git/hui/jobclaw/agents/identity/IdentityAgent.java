@@ -6,7 +6,7 @@ import com.git.hui.jobclaw.agents.identity.init.UnifiedIdentityInitializer;
 import com.git.hui.jobclaw.agents.identity.soul.UserAgentSoulManager;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityExtractor;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityManager;
-import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import io.micrometer.common.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +42,7 @@ public class IdentityAgent implements IIdentityAgent {
     }
 
 
-    public boolean triggerToCollectIdentity(Agent.UserConversationInfo conversationInfo, String userMessage) {
+    public boolean triggerToCollectIdentity(LlmCaller.UserConversationInfo conversationInfo, String userMessage) {
         // Step 1: Check and advance unified initialization sequence
         // This handles soul.md → user.md → info.md initialization
         if (unifiedInitializer.checkAndAdvance(conversationInfo, userMessage)) {
@@ -129,7 +129,7 @@ public class IdentityAgent implements IIdentityAgent {
      * @param conversationId conversation ID (contains jobClawUserId)
      * @param messages conversation messages
      */
-    public void asyncUpdateUserIdentityAsync(Agent.UserConversationInfo conversationInfo, List<Message> messages) {
+    public void asyncUpdateUserIdentityAsync(LlmCaller.UserConversationInfo conversationInfo, List<Message> messages) {
         String jobClawUserId = conversationInfo.jobClawUserId();
         String conversationId = conversationInfo.conversationId();
         try {

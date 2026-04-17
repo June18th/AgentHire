@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.channels;
 
-import com.git.hui.jobclaw.core.agent.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.AbsStreamChannel;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;

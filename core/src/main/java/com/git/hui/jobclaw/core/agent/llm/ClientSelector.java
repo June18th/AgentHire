@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent;
+package com.git.hui.jobclaw.core.agent.llm;
 
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.providers.ModelConfig;

@@ -4,7 +4,7 @@ import com.git.hui.jobclaw.agents.identity.init.CollectionState;
 import com.git.hui.jobclaw.agents.identity.init.InfoCollector;
 import com.git.hui.jobclaw.agents.identity.soul.UserAgentSoulManager;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityManager;
-import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,7 +89,7 @@ public class UserAgentInfoCollector implements InfoCollector {
     }
 
     @Override
-    public void initiateCollection(Agent.UserConversationInfo userConversationInfo) {
+    public void initiateCollection(LlmCaller.UserConversationInfo userConversationInfo) {
         String jobClawUserId = userConversationInfo.jobClawUserId();
         if (!shouldInitiateCollection(jobClawUserId)) {
             log.debug("[Info] Skipping collection initiation for user: {}", jobClawUserId);
@@ -110,7 +110,7 @@ public class UserAgentInfoCollector implements InfoCollector {
     }
 
     @Override
-    public void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
+    public void processAnswer(LlmCaller.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
         // Info collector doesn't need user interaction
         // This method should not be called, but we handle it gracefully
         log.debug("[Info] processAnswer called but info collector doesn't require user interaction");

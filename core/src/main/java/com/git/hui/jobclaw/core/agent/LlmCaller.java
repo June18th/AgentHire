@@ -1,10 +1,14 @@
 package com.git.hui.jobclaw.core.agent;
 
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 import reactor.core.publisher.Flux;
 
-public interface Agent {
+/**
+ * 定义与大模型之间的交互，支持是用 SpringAI/SpringAI alibaba/LangChain4j/LangGraph4J 来实现具体的交互
+ */
+public interface LlmCaller {
 
     /**
      * 简单的纯文本交互(向后兼容)

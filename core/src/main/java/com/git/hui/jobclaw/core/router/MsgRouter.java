@@ -1,8 +1,8 @@
-package com.git.hui.jobclaw.core.cli;
+package com.git.hui.jobclaw.core.router;
 
-import com.git.hui.jobclaw.core.agent.Agent;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
-import com.git.hui.jobclaw.core.agent.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
@@ -15,8 +15,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-
-import java.util.List;
 
 /**
  * 消息网关路由，所有channel传入的消息都需要先经过MsgRouter来实现路由转发到具体的Agent，执行相关业务操作，然后再将消息分发出去
@@ -32,19 +30,19 @@ public class MsgRouter {
 
     private final ChannelEventPublisher channelEventPublisher;
 
-    private final List<Agent> agent;
+    private final LlmCaller llmCaller;
 
     private final IIdentityAgent identityAgent;
 
-    public MsgRouter(ChannelRegistry channelRegistry, ChannelEventPublisher channelEventPublisher, List<Agent> agent, IIdentityAgent identityAgent) {
+    public MsgRouter(ChannelRegistry channelRegistry, ChannelEventPublisher channelEventPublisher, LlmCaller llmCaller, IIdentityAgent identityAgent) {
         this.channelRegistry = channelRegistry;
         this.channelEventPublisher = channelEventPublisher;
-        this.agent = agent;
+        this.llmCaller = llmCaller;
         this.identityAgent = identityAgent;
     }
 
-    private Agent getAgent() {
-        return agent.get(0);
+    private LlmCaller getLlmCaller() {
+        return llmCaller;
     }
 
     /**
@@ -59,7 +57,7 @@ public class MsgRouter {
         String fromUserId = msg.getFromUserId();
         String channel = msg.getChannel();
         String userMessage = msg.getMessage();
-        Agent.UserConversationInfo conversationInfo = new Agent.UserConversationInfo(jobClawUserId, channel, fromUserId);
+        LlmCaller.UserConversationInfo conversationInfo = new LlmCaller.UserConversationInfo(jobClawUserId, channel, fromUserId);
 
         // Step 1: 根据用户是否存在偏好信息，来决定个是否主动触发用户信息采集Agent，当返回true时，中断当前对话流程，进入信息采集
         // This handles soul.md → user.md → info.md initialization
@@ -73,9 +71,9 @@ public class MsgRouter {
             String response = null;
             Flux<LlmRspCell> streamRes = null;
             if (msg.isStream()) {
-                streamRes = getAgent().streamResponse(conversationInfo, msg);
+                streamRes = getLlmCaller().streamResponse(conversationInfo, msg);
             } else {
-                response = getAgent().respondToMultiModal(conversationInfo, msg);
+                response = getLlmCaller().respondToMultiModal(conversationInfo, msg);
             }
             ChannelResponseMessage responseMessage = ChannelResponseMessage.builder()
                     .jobClawUserId(jobClawUserId)

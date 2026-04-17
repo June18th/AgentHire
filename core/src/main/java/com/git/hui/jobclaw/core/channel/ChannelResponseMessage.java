@@ -1,9 +1,7 @@
 package com.git.hui.jobclaw.core.channel;
 
-import com.git.hui.jobclaw.core.agent.LlmRspCell;
-import com.git.hui.jobclaw.core.utils.json.JsonUtil;
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;

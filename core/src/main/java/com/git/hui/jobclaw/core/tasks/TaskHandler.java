@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.core.tasks;
 
-import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import org.jobrunr.jobs.annotations.Job;
@@ -14,14 +14,14 @@ public class TaskHandler {
 
     private static final Logger LOGGER = new JobRunrDashboardLogger(LoggerFactory.getLogger(TaskHandler.class));
 
-    private final Agent agent;
+    private final LlmCaller agent;
     private final TaskRepository taskRepository;
 
     private final AiUserPreferenceProperties aiUserPreferenceProperties;
 
     private final ChannelEventPublisher channelEventPublisher;
 
-    public TaskHandler(Agent agent, TaskRepository taskRepository, AiUserPreferenceProperties aiModelProperties, ChannelEventPublisher channelEventPublisher) {
+    public TaskHandler(LlmCaller agent, TaskRepository taskRepository, AiUserPreferenceProperties aiModelProperties, ChannelEventPublisher channelEventPublisher) {
         this.agent = agent;
         this.taskRepository = taskRepository;
         this.aiUserPreferenceProperties = aiModelProperties;
@@ -42,7 +42,7 @@ public class TaskHandler {
             LOGGER.info("Starting task: {}", task);
             String agentInput = formatTaskForAgent(inProgress);
             TaskResult result = agent.prompt(
-                    new Agent.UserConversationInfo(task.getJobClawUserId(), null, task.getId()),
+                    new LlmCaller.UserConversationInfo(task.getJobClawUserId(), null, task.getId()),
                     agentInput,
                     TaskResult.class);
             taskRepository.save(inProgress.withFeedback(result.feedback()).withStatus(result.newStatus()));

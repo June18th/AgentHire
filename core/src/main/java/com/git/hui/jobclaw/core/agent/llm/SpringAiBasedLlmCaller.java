@@ -1,5 +1,8 @@
-package com.git.hui.jobclaw.core.agent;
+package com.git.hui.jobclaw.core.agent.llm;
 
+import com.git.hui.jobclaw.core.agent.IIdentityAgent;
+import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -9,7 +12,6 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.Media;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
@@ -28,15 +30,14 @@ import java.util.Map;
  * @date 2026/4/9
  */
 @Slf4j
-@Component
-public class DefaultAgent implements Agent {
+public class SpringAiBasedLlmCaller implements LlmCaller {
 
     private final ClientSelector clientSelector;
 
     private final IIdentityAgent identityAgent;
 
-    public DefaultAgent(ClientSelector clientSelector,
-                        IIdentityAgent identityAgent) {
+    public SpringAiBasedLlmCaller(ClientSelector clientSelector,
+                                  IIdentityAgent identityAgent) {
         this.clientSelector = clientSelector;
         this.identityAgent = identityAgent;
     }

@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
-import com.git.hui.jobclaw.core.agent.Agent;
-import com.git.hui.jobclaw.core.agent.ClientSelector;
+import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.utils.FileUtils;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
@@ -76,7 +76,7 @@ public class SessionSummarizer {
      * @param messages conversation messages to summarize
      * @return CompletableFuture with summary text
      */
-    public void autoAsyncSummarize(Agent.UserConversationInfo conversation, List<Message> messages) {
+    public void autoAsyncSummarize(LlmCaller.UserConversationInfo conversation, List<Message> messages) {
         if (!shouldSummarize(messages)) {
             return;
         }
@@ -113,7 +113,7 @@ public class SessionSummarizer {
         });
     }
 
-    public String getSummaryInfo(Agent.UserConversationInfo conversation) {
+    public String getSummaryInfo(LlmCaller.UserConversationInfo conversation) {
         Path file = resolveFile(conversation);
 
         if (Files.exists(file)) {
@@ -126,7 +126,7 @@ public class SessionSummarizer {
         return null;
     }
 
-    private Path resolveFile(Agent.UserConversationInfo conversation) {
+    private Path resolveFile(LlmCaller.UserConversationInfo conversation) {
         return conversationsDir.resolve(conversation.jobClawUserId())
                 .resolve("summary-" + conversation.channel() + "-" + conversation.conversationId() + ".yaml");
     }

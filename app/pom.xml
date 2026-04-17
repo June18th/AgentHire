@@ -59,6 +59,11 @@
             <artifactId>identity-collector-agent</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.git.hui.jobclaw.agents</groupId>
+            <artifactId>job-fetch-agent</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
 
         <dependency>

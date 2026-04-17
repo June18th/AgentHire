@@ -20,7 +20,7 @@ import com.dingtalk.open.app.api.callback.OpenDingTalkCallbackListener;
 import com.dingtalk.open.app.api.chatbot.BotReplier;
 import com.dingtalk.open.app.api.models.bot.ChatbotMessage;
 import com.dingtalk.open.app.api.security.AuthClientCredential;
-import com.git.hui.jobclaw.core.agent.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.AbsStreamChannel;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;

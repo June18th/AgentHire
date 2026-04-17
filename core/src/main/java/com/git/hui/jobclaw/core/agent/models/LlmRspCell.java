@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.agent;
+package com.git.hui.jobclaw.core.agent.models;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;

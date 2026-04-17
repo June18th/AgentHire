@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.core.bus;
 
-import com.git.hui.jobclaw.core.agent.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;

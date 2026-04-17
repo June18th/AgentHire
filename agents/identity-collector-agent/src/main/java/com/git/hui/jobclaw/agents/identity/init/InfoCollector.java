@@ -1,10 +1,9 @@
 package com.git.hui.jobclaw.agents.identity.init;
 
-import com.git.hui.jobclaw.core.agent.Agent;
+import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 
 import java.util.Optional;
-import java.util.function.Consumer;
 
 /**
  * Common interface for identity/profile collectors.
@@ -33,7 +32,7 @@ public interface InfoCollector {
      *
      * @param userConversationInfo user conversation info
      */
-    void initiateCollection(Agent.UserConversationInfo userConversationInfo);
+    void initiateCollection(LlmCaller.UserConversationInfo userConversationInfo);
 
     /**
      * Process user's answer and continue collection.
@@ -41,7 +40,7 @@ public interface InfoCollector {
      * @param userConversationInfo user conversation info
      * @param userMessage user's message
      */
-    void processAnswer(Agent.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback);
+    void processAnswer(LlmCaller.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback);
 
     /**
      * Get collection state for a user.

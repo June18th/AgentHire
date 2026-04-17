@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.core.bus;
 
-import com.git.hui.jobclaw.core.agent.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
 import com.git.hui.jobclaw.core.bus.event.UserConnectedEvent;

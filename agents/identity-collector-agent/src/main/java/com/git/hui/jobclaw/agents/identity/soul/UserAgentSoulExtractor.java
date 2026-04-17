@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.agents.identity.soul;
 
-import com.git.hui.jobclaw.core.agent.ClientSelector;
+import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
