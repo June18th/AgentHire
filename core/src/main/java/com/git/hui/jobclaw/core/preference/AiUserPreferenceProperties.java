@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.preference;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -39,18 +40,26 @@ public class AiUserPreferenceProperties {
         /**
          * 用户ID
          */
+        @JsonPropertyDescription("用户ID")
         private String userId;
 
+        /**
+         * 个人画像收集，采用预设问题的方案，还是基于大模型的生成问题的方案
+         * 默认是：AI_BASED
+         */
+        @JsonPropertyDescription("用户画像收集，采用预设问题的方案，还是基于大模型的生成问题的方案")
         private CollectorType collector;
 
         /**
          * 用户配置的优先接受后台推送消息的通道
          */
+        @JsonPropertyDescription("用户配置的优先接受后台推送消息的通道")
         private List<String> channels;
 
         /**
          * 用户的模型偏好配置
          */
+        @JsonPropertyDescription("用户的模型偏好配置")
         private UserModelPreference models;
     }
 
@@ -80,16 +89,19 @@ public class AiUserPreferenceProperties {
         /**
          * 视觉模型配置，格式: provider#modelName (如: zhipu#GLM-4V-Flash)
          */
+        @JsonPropertyDescription("视觉模型配置，格式: provider#modelName (如: zhipu#GLM-4V-Flash)")
         private String vision;
 
         /**
          * 文本模型配置，格式: provider#modelName (如: zhipu#GLM-4.7-Flash)
          */
+        @JsonPropertyDescription("文本模型配置，格式: provider#modelName (如: zhipu#GLM-4.7-Flash)")
         private String text;
 
         /**
          * 用户级别的提供商 API Key 覆盖配置
          */
+        @JsonPropertyDescription("用户级别的提供商 API Key 覆盖配置")
         private Map<String, UserProviderConfig> providers;
     }
 
@@ -101,6 +113,7 @@ public class AiUserPreferenceProperties {
         /**
          * API Key
          */
+        @JsonPropertyDescription("API Key")
         private String apiKey;
 
         /**
@@ -108,6 +121,7 @@ public class AiUserPreferenceProperties {
          * key: 模型名称
          * value: API Key
          */
+        @JsonPropertyDescription("模型级别的 API Key 覆盖")
         private List<Map<String, String>> models;
     }
 

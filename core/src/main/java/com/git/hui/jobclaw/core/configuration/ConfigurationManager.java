@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.configuration;
 
 import com.git.hui.jobclaw.core.configuration.event.GlobalEnvConfigChangedEvent;
+import com.git.hui.jobclaw.core.configuration.event.PropertiesRefreshedEvent;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -252,13 +253,15 @@ public class ConfigurationManager implements CommandLineRunner {
 
         var applicationContext = SpringUtil.getContext();
         applicationContext.getBeansWithAnnotation(ConfigurationProperties.class).values().forEach(bean -> {
-            Bindable<?> target = Bindable.ofInstance(bean).withAnnotations(AnnotationUtils.findAnnotation(bean.getClass(),
+            var clz = bean.getClass();
+            Bindable<?> target = Bindable.ofInstance(bean).withAnnotations(AnnotationUtils.findAnnotation(clz,
                     ConfigurationProperties.class));
             if (this.dynamicBinder == null) {
                 this.dynamicBinder = new DynamicConfigBinder(applicationContext, environment.getPropertySources());
             }
             this.dynamicBinder.bind(target);
-            var run = this.refreshCallback.get(bean.getClass());
+            eventPublisher.publishEvent(new PropertiesRefreshedEvent(this, clz));
+            var run = this.refreshCallback.get(clz);
             if (run != null) {
                 run.run();
             }

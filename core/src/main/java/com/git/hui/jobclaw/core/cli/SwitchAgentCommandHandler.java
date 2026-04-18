@@ -39,10 +39,12 @@ public class SwitchAgentCommandHandler implements SystemCommandHandler {
     @Override
     public boolean handle(ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
         // 检查Agent切换命令，绑定到新的Agent，并返回
-        Optional<String> targetAgentId = parseAgentSwitchCommand(command);
+        Optional<String> targetAgentId = parseAgentSwitchCommand(msg.getMessage());
         if (targetAgentId.isPresent() && agentRegistry.hasAgent(targetAgentId.get())) {
             sessionBinder.bind(conversationInfo.jobClawUserId(), conversationInfo.conversationId(), targetAgentId.get());
-            return process.apply("已切换到Agent：" + targetAgentId.get());
+            var agentIntro = agentRegistry.getAgent(targetAgentId.get()).get().getAgentIntro();
+            String text = "已为您切换到 " + agentIntro.getAgentId() + "\n\n将为您提供以下支持:\n" + agentIntro.getDescription();
+            return process.apply(text);
         }
         // 无效的Agent ID，继续意图识别
         return false;

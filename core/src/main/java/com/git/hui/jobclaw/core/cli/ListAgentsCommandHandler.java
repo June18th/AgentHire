@@ -40,7 +40,7 @@ public class ListAgentsCommandHandler implements SystemCommandHandler {
                 BizAgent agent = agents.get(i);
                 var intro = agent.getAgentIntro();
                 sb.append(String.format("%d. **%s**\n\n", i + 1, intro.getAgentId()));
-                sb.append(String.format("   %s\n\n", intro.getDescription()));
+                sb.append(String.format("   %s\n\n", intro.getIntro()));
                 if (i < agents.size() - 1) {
                     sb.append("\n");
                 }

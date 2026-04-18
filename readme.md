@@ -134,10 +134,13 @@ v2 版本，新增模块：
 
 迭代计划：
 
+-[x]] 2026/04/18
+  - [x] 新增一个业务Agent实现副本，验证多Agent切换、Agent会话状态锁定、意图识别的相关逻辑
+  - [x] 新增个人偏好Agent，用于查询个人偏好设置、切换底层模型、新增机器人等逻辑
 - [x] 2026/04/17
   - [x] 新增消息路由模块，用于支持意图识别，多Agent切换，预设的`/`命令
     - [x] 完成关键词、LLM的消息路由，支持Agent会话状态锁定
-    - [x] 支持 CLI 命令，支持通过实现 `SystemCommandHandler` 来扩展命令能力
+    - [x] 支持 command 命令，支持通过实现 `SystemCommandHandler` 来扩展命令能力
   - [x] 新增Agent模块
     - [x] AI偏好设置、用户画像功能 封装为 identity-collector-agent
       - [x] 支持首次会话的引导信息收集

@@ -97,6 +97,14 @@ public interface BizAgent {
     interface AgentIntro {
         String getAgentId();
 
+        /**
+         * 获取Agent的一句话描述
+         */
+        String getIntro();
+
+        /**
+         * 获取Agent的详细描述
+         */
         String getDescription();
     }
 }

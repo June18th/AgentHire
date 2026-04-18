@@ -1,6 +1,8 @@
 package com.git.hui.jobclaw.core.agent.llm;
 
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.configuration.event.PropertiesRefreshedEvent;
+import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.core.tasks.TaskManager;
@@ -9,6 +11,7 @@ import com.git.hui.jobclaw.core.tools.CheckListTool;
 import com.git.hui.jobclaw.core.tools.McpTool;
 import com.git.hui.jobclaw.core.tools.TaskTool;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springaicommunity.agent.tools.FileSystemTools;
 import org.springaicommunity.agent.tools.ShellTools;
@@ -24,7 +27,9 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.model.Model;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.io.Resource;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -40,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author YiHui
  * @date 2026/4/9
  */
+@Slf4j
 @Component
 public class ClientSelector {
     private final ModelProviders modelProviders;
@@ -71,6 +77,17 @@ public class ClientSelector {
         this.taskManager = taskManager;
         this.userCacheClient = new ConcurrentHashMap<>();
         this.autoDiscoveredTools = autoDiscoveredTools != null ? autoDiscoveredTools : List.of();
+    }
+
+
+    @Async
+    @EventListener
+    public void registerUserPreferenceChangeCallback(PropertiesRefreshedEvent event) {
+        // 这里用于注册用户偏好配置变更之后的回调逻辑，比如当用户重置userCacheClient缓存
+        if (AiUserPreferenceProperties.class.equals(event.getPropertiesClz())) {
+            userCacheClient.clear();
+            log.info("[ClientSelector] User preference changed, clear user cache");
+        }
     }
 
 

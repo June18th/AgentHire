@@ -97,8 +97,4 @@ public class ModelProviders {
         modelCache.put(personModelInfo, model);
         return model;
     }
-
-    private void autoMergeConfig(ModelConfig.ModelInfo subConfig, ModelConfig.ModelInfo baseConfig) {
-
-    }
 }
