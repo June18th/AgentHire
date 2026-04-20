@@ -17,11 +17,14 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -145,11 +148,8 @@ public abstract class AbsJobExtractor implements JobExtractor {
                 );
         if (!CollectionUtils.isEmpty(message.getMedias())) {
             var img = message.getMedias().get(0);
-            org.springframework.ai.content.Media media = org.springframework.ai.content.Media.builder()
-                    .mimeType(MimeType.valueOf(img.getMimeType()))
-                    .data(img.getFilePath().toUri())
-                    .build();
-            builder.media(media);
+            var mime = img.getMimeType() != null ? MimeType.valueOf(img.getMimeType()) : MimeTypeUtils.IMAGE_PNG;
+            builder.media(new Media(mime, new FileSystemResource(img.getFilePath())));
         }
         return builder.build();
     }

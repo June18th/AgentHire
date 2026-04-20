@@ -26,7 +26,7 @@
         <spring-modulith.version>2.0.3</spring-modulith.version>
 
         <!-- Spring AI Agent Utils -->
-        <spring-ai-agent-utils.version>0.6.0-SNAPSHOT</spring-ai-agent-utils.version>
+        <spring-ai-agent-utils.version>0.7.0</spring-ai-agent-utils.version>
     </properties>
 
     <url/>
@@ -100,6 +100,14 @@
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
                 <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springaicommunity</groupId>
+                <artifactId>spring-ai-agent-utils-bom</artifactId>
+                <version>${spring-ai-agent-utils.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

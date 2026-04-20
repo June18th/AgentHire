@@ -15,7 +15,7 @@ import com.git.hui.jobclaw.gather.model.GatherTaskProcessBo;
 import com.git.hui.jobclaw.gather.model.GatherTaskResultBo;
 import com.git.hui.jobclaw.gather.model.GatherTaskSaveBo;
 import com.git.hui.jobclaw.gather.model.TaskChangeListener;
-import com.git.hui.jobclaw.agents.jobfetch.util.LocalStorageHelper;
+import com.git.hui.jobclaw.gather.service.helper.LocalStorageHelper;
 import com.git.hui.jobclaw.util.FileTypeUtil;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;

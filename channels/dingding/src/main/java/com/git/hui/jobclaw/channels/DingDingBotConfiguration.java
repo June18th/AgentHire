@@ -3,6 +3,7 @@ package com.git.hui.jobclaw.channels;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -28,8 +29,10 @@ public class DingDingBotConfiguration {
             DingDingBotProperties wxBotProperties,
             ChannelRegistry channelRegistry,
             ChannelEventPublisher channelEventPublisher,
-            ConfigurationManager configurationManager
+            ConfigurationManager configurationManager,
+            ChannelStorageHelper localStorageHelper
     ) {
-        return new DingDingBotChannel(agentWorkspace, channelRegistry, channelEventPublisher, wxBotProperties, configurationManager);
+        return new DingDingBotChannel(agentWorkspace, channelRegistry, channelEventPublisher, wxBotProperties, configurationManager,
+                localStorageHelper);
     }
 }

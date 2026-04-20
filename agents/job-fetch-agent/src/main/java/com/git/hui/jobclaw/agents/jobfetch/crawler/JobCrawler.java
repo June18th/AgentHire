@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.agents.jobfetch.crawler;
 
 import com.git.hui.jobclaw.agents.jobfetch.model.JobInfo;
+import com.git.hui.jobclaw.core.agent.LlmCaller;
 
 import java.util.List;
 
@@ -34,16 +35,5 @@ public interface JobCrawler {
      * @param url 目标URL
      * @return 职位信息列表
      */
-    List<JobInfo> crawl(String url);
-
-    /**
-     * 从指定URL爬取职位信息（带参数）
-     *
-     * @param url    目标URL
-     * @param params 额外参数（如分页、筛选条件等）
-     * @return 职位信息列表
-     */
-    default List<JobInfo> crawl(String url, Object params) {
-        return crawl(url);
-    }
+    List<JobInfo> crawl(LlmCaller.UserConversationInfo userConversationInfo, String url, String originMsg);
 }

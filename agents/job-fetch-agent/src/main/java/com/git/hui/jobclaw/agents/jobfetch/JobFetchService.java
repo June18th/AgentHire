@@ -6,6 +6,7 @@ import com.git.hui.jobclaw.agents.jobfetch.extract.impl.TextJobExtractor;
 import com.git.hui.jobclaw.agents.jobfetch.model.JobInfo;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -17,6 +18,7 @@ import java.util.List;
  * @author YiHui
  * @date 2026/4/20
  */
+@Slf4j
 @Service
 public class JobFetchService {
 
@@ -25,8 +27,8 @@ public class JobFetchService {
     @Autowired
     private List<JobExtractor> jobExtractorList;
 
-    public List<JobInfo> fetchFromUrl(String url, ChannelReceiveMessage msg) {
-        return jobCrawler.crawl(url);
+    public List<JobInfo> fetchFromUrl(LlmCaller.UserConversationInfo userConversationInfo, String url, ChannelReceiveMessage msg) {
+        return jobCrawler.crawl(userConversationInfo, url, msg.getMessage());
     }
 
     public List<JobInfo> fetchFromTextOrLocalFile(
@@ -36,6 +38,7 @@ public class JobFetchService {
         // 首先判断是否有附件
         var extractor = textExtractor(msg);
         if (extractor != null) {
+            log.info("将使用 {} 是实现信息提取", extractor.getName());
             return extractor.extractFromInput(userConversationInfo, msg);
         }
 

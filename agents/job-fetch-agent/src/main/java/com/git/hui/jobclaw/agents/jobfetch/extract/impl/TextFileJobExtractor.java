@@ -3,7 +3,7 @@ package com.git.hui.jobclaw.agents.jobfetch.extract.impl;
 import cn.hutool.core.io.IoUtil;
 import com.git.hui.jobclaw.agents.jobfetch.extract.AbsJobExtractor;
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
-import com.git.hui.jobclaw.agents.jobfetch.util.LocalStorageHelper;
+import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -26,14 +26,14 @@ import java.util.Map;
 @Component
 public class TextFileJobExtractor extends AbsJobExtractor {
 
-    private final LocalStorageHelper localStorageHelper;
+    private final ChannelStorageHelper channelStorageHelper;
 
     public TextFileJobExtractor(JobLlmCaller jobLlmCaller,
                                 @Value("classpath:/prompts/job-info-extraction-prompt.md")
                                 Resource promptResource,
-                                LocalStorageHelper localStorageHelper) {
+                                ChannelStorageHelper channelStorageHelper) {
         super(jobLlmCaller, promptResource);
-        this.localStorageHelper = localStorageHelper;
+        this.channelStorageHelper = channelStorageHelper;
     }
 
     @Override
@@ -58,7 +58,7 @@ public class TextFileJobExtractor extends AbsJobExtractor {
 
     public GatherFileBo loadTmpFile(ChannelReceiveMessage.FileMsg file) {
         try {
-            InputStream inputStream = localStorageHelper.loadFile(file.getFilePath().toString());
+            InputStream inputStream = channelStorageHelper.loadFile(file.getFilePath().toString());
             byte[] bytes = IoUtil.readBytes(inputStream);
             return new GatherFileBo(bytes, file.getMimeType());
         } catch (Exception e) {

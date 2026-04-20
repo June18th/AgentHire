@@ -1,8 +1,8 @@
-package com.git.hui.jobclaw.agents.jobfetch.util;
+package com.git.hui.jobclaw.gather.service.helper;
 
-import com.git.hui.jobclaw.agents.jobfetch.config.ImgConfig;
 import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
+import com.git.hui.jobclaw.web.config.WebFileConfig;
 import com.github.hui.quick.plugin.base.OSUtil;
 import com.github.hui.quick.plugin.base.file.FileReadUtil;
 import com.github.hui.quick.plugin.base.file.FileWriteUtil;
@@ -27,7 +27,7 @@ public class LocalStorageHelper {
     private static final Random random = new Random();
 
     @Autowired
-    private ImgConfig imgConfig;
+    private WebFileConfig imgConfig;
 
 
     /**

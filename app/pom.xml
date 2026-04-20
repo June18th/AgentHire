@@ -43,6 +43,11 @@
             <artifactId>openai</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.git.hui.jobclaw.provider</groupId>
+            <artifactId>zhipu</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
 
         <!--  plugins  -->

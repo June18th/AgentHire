@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.core.channel;
 
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.utils.ThrowableUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,14 +41,24 @@ public abstract class AbsChannel<T> implements Channel, ChannelMsgAdapter<T>, Co
 
     public void processMessage(MsgWrapper<T> msg) {
         var r = adaptToReceive(msg);
-
-        var tag = this.saveHeartBeatConfig(msg, channelRegistry.getChannelRspBuilderAdapter(r.getJobClawUserId(), r.getChannel()) == null);
-        if (tag) {
-            // 基于用户主动发起的对话，自动更新心跳信息，便于后台主动推送消息给用户
-            var func = buildHeartBeatCallback(msg.getJobClawUserId());
-            channelRegistry.refreshChannelHeartBeatInfoIgnoreNull(msg.getJobClawUserId(), r.getChannel(), func);
+        try {
+            var tag = this.saveHeartBeatConfig(msg, channelRegistry.getChannelRspBuilderAdapter(r.getJobClawUserId(), r.getChannel()) == null);
+            if (tag) {
+                // 基于用户主动发起的对话，自动更新心跳信息，便于后台主动推送消息给用户
+                var func = buildHeartBeatCallback(msg.getJobClawUserId());
+                channelRegistry.refreshChannelHeartBeatInfoIgnoreNull(msg.getJobClawUserId(), r.getChannel(), func);
+            }
+            reportToAgent(r);
+        } catch (Exception e) {
+            ChannelResponseMessage response = ChannelResponseMessage.builder()
+                    .jobClawUserId(msg.getJobClawUserId())
+                    .toUserId(r.getFromUserId())
+                    .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                    .content("系统异常，请稍后再试\n" + ThrowableUtil.getStackTrace(e))
+                    .passThrough(r.getPassThrough())
+                    .build();
+            responseToUser(response);
         }
-        reportToAgent(r);
     }
 
     @Override

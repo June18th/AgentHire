@@ -48,7 +48,7 @@ public class OpenAiModelProvider implements ModelProvider {
     public Model model(ModelConfig.ModelInfo info) {
         return switch (info.getType()) {
             case TEXT -> buildChatModel(info);
-            case VISION -> buildChatModel(info);
+            case VISION -> buildVisionModel(info);
             case IMAGE -> buildImageModel(info);
             case EMBEDDING -> buildEmbeddingModel(info);
             case VIDEO -> throw new IllegalArgumentException("unsupported model type: " + info.getType());
@@ -70,6 +70,27 @@ public class OpenAiModelProvider implements ModelProvider {
         OpenAiChatModel chatModel = OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
                 .defaultOptions(OpenAiChatOptions.builder().model(info.getModelName()).maxTokens(info.getMaxTokens()).build())
+                .build();
+        if (SpringUtil.getBeanOrNull(ChatModelObservationConvention.class) != null) {
+            chatModel.setObservationConvention(SpringUtil.getBean(ChatModelObservationConvention.class));
+        }
+        return chatModel;
+    }
+
+
+    private Model buildVisionModel(ModelConfig.ModelInfo info) {
+        OpenAiApi openAiApi = OpenAiApi.builder()
+                .baseUrl(info.getBaseUrl())
+                .completionsPath(info.getPath())
+                .apiKey(info.getApiKey())
+                .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
+                .webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))
+                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER))
+                .build();
+
+        OpenAiChatModel chatModel = OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(OpenAiChatOptions.builder().model(info.getModelName()).build())
                 .build();
         if (SpringUtil.getBeanOrNull(ChatModelObservationConvention.class) != null) {
             chatModel.setObservationConvention(SpringUtil.getBean(ChatModelObservationConvention.class));

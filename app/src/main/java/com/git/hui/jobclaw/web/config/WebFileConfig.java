@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.agents.jobfetch.config;
+package com.git.hui.jobclaw.web.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @Data
 @Component
 @ConfigurationProperties(prefix = "jobclaw.img")
-public class ImgConfig {
+public class WebFileConfig {
 
     /**
      * 存储绝对路径：指的是硬盘的绝对路径前缀

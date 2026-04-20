@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * 职位信息模型
@@ -135,7 +133,7 @@ public class JobInfo implements Serializable {
     /**
      * 抓取/提取时间
      */
-    private LocalDateTime fetchTime;
+    private String fetchTime;
 
     /**
      * 原始数据（可选，用于调试）
@@ -148,8 +146,8 @@ public class JobInfo implements Serializable {
      * @return true 如果至少包含公司名称或岗位名称
      */
     public boolean isValid() {
-        return (companyName != null && !companyName.isBlank()) 
-            || (position != null && !position.isBlank());
+        return (companyName != null && !companyName.isBlank())
+                || (position != null && !position.isBlank());
     }
 
     /**

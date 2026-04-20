@@ -9,7 +9,7 @@ import cn.idev.excel.read.listener.ReadListener;
 import com.git.hui.jobclaw.agents.jobfetch.extract.AbsJobExtractor;
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
 import com.git.hui.jobclaw.agents.jobfetch.model.JobInfo;
-import com.git.hui.jobclaw.agents.jobfetch.util.LocalStorageHelper;
+import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.google.common.base.Joiner;
@@ -35,15 +35,15 @@ import java.util.Map;
 @Slf4j
 @Component
 public class ExcelJobExtractor extends AbsJobExtractor {
-    private final LocalStorageHelper localStorageHelper;
+    private final ChannelStorageHelper channelStorageHelper;
     private final int pageSize = 8;
 
     public ExcelJobExtractor(JobLlmCaller jobLlmCaller,
                              @Value("classpath:/prompts/job-info-extraction-prompt.md")
                              Resource promptResource,
-                             LocalStorageHelper localStorageHelper) {
+                             ChannelStorageHelper channelStorageHelper) {
         super(jobLlmCaller, promptResource);
-        this.localStorageHelper = localStorageHelper;
+        this.channelStorageHelper = channelStorageHelper;
     }
 
     @Override
@@ -79,7 +79,7 @@ public class ExcelJobExtractor extends AbsJobExtractor {
 
     public TextFileJobExtractor.GatherFileBo loadTmpFile(ChannelReceiveMessage.FileMsg file) {
         try {
-            InputStream inputStream = localStorageHelper.loadFile(file.getFilePath().toString());
+            InputStream inputStream = channelStorageHelper.loadFile(file.getFilePath().toString());
             byte[] bytes = IoUtil.readBytes(inputStream);
             return new TextFileJobExtractor.GatherFileBo(bytes, file.getMimeType());
         } catch (Exception e) {

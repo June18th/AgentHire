@@ -38,6 +38,7 @@ import java.util.Objects;
  * @date 2026/4/10
  */
 public class ZhiPuModelProvider implements ModelProvider {
+    private final static String DEFAULT_BASE_URL = "https://open.bigmodel.cn";
     private final ObjectProvider<RestClient.Builder> restClientBuilderProvider;
     private final ObjectProvider<WebClient.Builder> webClientBuilderProvider;
     private final ObjectProvider<ResponseErrorHandler> responseErrorHandler;
@@ -73,7 +74,8 @@ public class ZhiPuModelProvider implements ModelProvider {
     }
 
     private ChatModel buildChatModel(ModelConfig.ModelInfo info) {
-        var zhiPuAiApi = ZhiPuAiApi.builder().baseUrl(info.getBaseUrl())
+        var zhiPuAiApi = ZhiPuAiApi.builder()
+                .baseUrl(DEFAULT_BASE_URL)
                 .apiKey(new SimpleApiKey(info.getApiKey()))
                 .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
                 .webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))
@@ -96,7 +98,7 @@ public class ZhiPuModelProvider implements ModelProvider {
     }
 
     private ImageModel buildImageModel(ModelConfig.ModelInfo info) {
-        ZhiPuAiImageApi zhiPuAiImageApi = new ZhiPuAiImageApi(info.getBaseUrl(),
+        ZhiPuAiImageApi zhiPuAiImageApi = new ZhiPuAiImageApi(DEFAULT_BASE_URL,
                 info.getApiKey(),
                 restClientBuilderProvider.getIfAvailable(RestClient::builder),
                 responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER));
@@ -107,7 +109,7 @@ public class ZhiPuModelProvider implements ModelProvider {
     }
 
     private EmbeddingModel buildEmbeddingModel(ModelConfig.ModelInfo info) {
-        var zhiPuAiApi = ZhiPuAiApi.builder().baseUrl(info.getBaseUrl())
+        var zhiPuAiApi = ZhiPuAiApi.builder().baseUrl(DEFAULT_BASE_URL)
                 .apiKey(new SimpleApiKey(info.getApiKey()))
                 .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
                 .webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))

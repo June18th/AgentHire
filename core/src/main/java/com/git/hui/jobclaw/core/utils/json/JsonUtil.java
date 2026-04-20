@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.hibernate.Hibernate;
 
 import java.io.IOException;
@@ -19,6 +20,8 @@ public class JsonUtil {
 
     static {
         mapper.findAndRegisterModules();
+        // 显式注册Java 8时间模块,支持LocalDateTime等类型的序列化/反序列化
+        mapper.registerModule(new JavaTimeModule());
         SimpleModule module = new SimpleModule();
         mapper.registerModule(module);
         mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);

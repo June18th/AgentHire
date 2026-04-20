@@ -144,7 +144,8 @@ public class JobFetchAgent extends AbsBizAgent {
             ToolContext toolContext) {
         log.info("工具调用：从URL爬取职位信息 - {}", url);
         ChannelReceiveMessage msg = (ChannelReceiveMessage) toolContext.getContext().get("msg");
-        return jobFetchService.fetchFromUrl(url, msg);
+        LlmCaller.UserConversationInfo userConversationInfo = (LlmCaller.UserConversationInfo) toolContext.getContext().get("conversation");
+        return jobFetchService.fetchFromUrl(userConversationInfo, url, msg);
     }
 
     @Tool(description = "从给入的文本内容、或者文件/图片中提取职位信息", returnDirect = true)

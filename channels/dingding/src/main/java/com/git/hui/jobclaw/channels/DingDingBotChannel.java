@@ -8,6 +8,7 @@ import com.aliyun.dingtalkcard_1_0.models.CreateAndDeliverRequest;
 import com.aliyun.dingtalkcard_1_0.models.CreateAndDeliverResponse;
 import com.aliyun.dingtalkcard_1_0.models.StreamingUpdateHeaders;
 import com.aliyun.dingtalkcard_1_0.models.StreamingUpdateRequest;
+import com.aliyun.tea.TeaException;
 import com.aliyun.teaopenapi.models.Config;
 import com.aliyun.teautil.models.RuntimeOptions;
 import com.dingtalk.api.DefaultDingTalkClient;
@@ -28,6 +29,7 @@ import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -39,6 +41,7 @@ import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +62,8 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
 
     private final DingDingBotProperties dingDingBotProperties;
 
+    private final ChannelStorageHelper localStorageHelper;
+
     /**
      * key = robotId, value = 构建AICard用于流式返回的卡片管理
      */
@@ -69,9 +74,10 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
                               ChannelRegistry channelRegistry,
                               ChannelEventPublisher channelEventPublisher,
                               DingDingBotProperties dingDingBotProperties,
-                              ConfigurationManager configurationManager) {
+                              ConfigurationManager configurationManager, ChannelStorageHelper localStorageHelper) {
         super(agentWorkspace, channelRegistry, channelEventPublisher, configurationManager);
         this.dingDingBotProperties = dingDingBotProperties;
+        this.localStorageHelper = localStorageHelper;
     }
 
     @Override
@@ -153,12 +159,67 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
             return null;
         }
 
-        ChatbotMessage msg = msgWrapper.getMsg();
-
+        String jobClawUserId = msgWrapper.getJobClawUserId();
+        ChatbotMessageEx msg = msgWrapper.getMsg();
+        var content = "";
+        ChannelReceiveMessage.MediaMsg mediaMsg = null;
+        ChannelReceiveMessage.FileMsg fileMsg = null;
+        if (msg.getMsgtype().equals("text")) {
+            content = msg.getText().getContent();
+        } else if (msg.getMsgtype().equals("audio")) {
+            // 语音，直接获取语音识别的内容
+            content = msg.getContent().getRecognition();
+        } else {
+            // 发送的是图片消息、语音消息、视频消息、文件消息、富文本消息时
+            if (msg.getMsgtype().equals("video")) {
+                var downloadCode = msg.getContent().getDownloadCode();
+                var fileType = "mp4";
+                var downUrl = cardManagers.get(msg.getRobotId()).downloadFile(downloadCode);
+                var tmpFile = localStorageHelper.autoDownloadFile(jobClawUserId, name(), downUrl, fileType);
+                mediaMsg = ChannelReceiveMessage.MediaMsg.builder()
+                        .mimeType("video/mp4")
+                        .filePath(Path.of(tmpFile))
+                        .build();
+            } else if (msg.getMsgtype().equals("picture")) {
+                var downloadCode = msg.getContent().getDownloadCode();
+                var fileType = "png";
+                var downUrl = cardManagers.get(msg.getRobotId()).downloadFile(downloadCode);
+                var tmpFile = localStorageHelper.autoDownloadFile(jobClawUserId, name(), downUrl, fileType);
+                mediaMsg = ChannelReceiveMessage.MediaMsg.builder()
+                        .mimeType("image/png")
+                        .filePath(Path.of(tmpFile))
+                        .build();
+            } else if (msg.getMsgtype().equals("file")) {
+                var downloadCode = msg.getContent().getDownloadCode();
+                String fileName = msg.getContent().getFileName();
+                var fileType = "txt";
+                if (fileName != null && fileName.contains(".")) {
+                    fileType = fileName.substring(fileName.lastIndexOf(".") + 1);
+                }
+                var downUrl = cardManagers.get(msg.getRobotId()).downloadFile(downloadCode);
+                var tmpFile = localStorageHelper.autoDownloadFile(jobClawUserId, name(), downUrl, fileType);
+                fileMsg = ChannelReceiveMessage.FileMsg.builder()
+                        .fileName(fileName)
+                        .filePath(Path.of(tmpFile))
+                        .build();
+            } else if (msg.getMsgtype().equals("richText")) {
+                // todo 富文本这里，先只处理文本
+                StringBuilder contentBuilder = new StringBuilder();
+                for (var item : msg.getContent().getRichText()) {
+                    contentBuilder.append(item.getContent());
+                }
+                content = contentBuilder.toString();
+            } else {
+                log.warn("[DingDing] Unsupported message type: {}", msg.getMsgtype());
+                return null;
+            }
+        }
 
         return ChannelReceiveMessage.builder()
                 .msgId(msg.getMsgId())
-                .message(msg.getText().getContent())
+                .message(content)
+                .medias(mediaMsg == null ? null : List.of(mediaMsg))
+                .files(fileMsg == null ? null : List.of(fileMsg))
                 .fromUserId(msg.getConversationId())
                 .jobClawUserId(msgWrapper.getJobClawUserId())
                 .channel(name())
@@ -367,6 +428,8 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
     public static class CardManager {
         private final DingDingBotProperties.DingDingBotAccount dingDingBotAccount;
         private Client client;
+
+        private com.aliyun.dingtalkrobot_1_0.Client robotClient;
         private String accessToken;
         private long expireTime;
 
@@ -376,6 +439,7 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
             // 使用虚拟线程进行异步初始化
             Thread.ofVirtual().start(() -> {
                 initCorpToken();
+                initRobotClient();
                 initClient();
             });
         }
@@ -390,6 +454,17 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
                 config.protocol = "https";
                 config.regionId = "central";
                 this.client = new com.aliyun.dingtalkcard_1_0.Client(config);
+            } catch (Exception e) {
+                log.error("[DingDing] createClient get exception, msg:{}", e.getMessage());
+            }
+        }
+
+        private void initRobotClient() {
+            try {
+                com.aliyun.teaopenapi.models.Config config = new com.aliyun.teaopenapi.models.Config();
+                config.protocol = "https";
+                config.regionId = "central";
+                this.robotClient = new com.aliyun.dingtalkrobot_1_0.Client(config);
             } catch (Exception e) {
                 log.error("[DingDing] createClient get exception, msg:{}", e.getMessage());
             }
@@ -417,6 +492,26 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
                 initCorpToken();
             }
             return accessToken;
+        }
+
+
+        private String downloadFile(String downloadCode) {
+            com.aliyun.dingtalkrobot_1_0.models.RobotMessageFileDownloadHeaders robotMessageFileDownloadHeaders = new com.aliyun.dingtalkrobot_1_0.models.RobotMessageFileDownloadHeaders();
+            robotMessageFileDownloadHeaders.xAcsDingtalkAccessToken = getAccessToken();
+            com.aliyun.dingtalkrobot_1_0.models.RobotMessageFileDownloadRequest robotMessageFileDownloadRequest = new com.aliyun.dingtalkrobot_1_0.models.RobotMessageFileDownloadRequest()
+                    .setDownloadCode(downloadCode)
+                    .setRobotCode(dingDingBotAccount.getAppId());
+            try {
+                var response = robotClient.robotMessageFileDownloadWithOptions(robotMessageFileDownloadRequest,
+                        robotMessageFileDownloadHeaders,
+                        new com.aliyun.teautil.models.RuntimeOptions());
+                return response.getBody().getDownloadUrl();
+            } catch (TeaException err) {
+                log.error("[DingDing] getCorpToken get exception, msg:{}", err.getMessage(), err);
+            } catch (Exception _err) {
+                log.error("[DingDing] getCorpToken get exception, msg:{}", _err.getMessage(), _err);
+            }
+            return null;
         }
 
 
