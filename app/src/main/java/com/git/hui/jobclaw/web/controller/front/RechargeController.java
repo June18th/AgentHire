@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.web.controller.front;
 
-import com.git.hui.jobclaw.components.bizexception.BizException;
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.constants.user.RechargeLevelEnum;
 import com.git.hui.jobclaw.core.permission.Permission;
 import com.git.hui.jobclaw.core.context.UserRoleEnum;

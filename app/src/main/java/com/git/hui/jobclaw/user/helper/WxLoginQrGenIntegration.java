@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.user.helper;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.git.hui.jobclaw.components.bizexception.NoVlaInGuavaException;
+import com.git.hui.jobclaw.core.bizexception.NoVlaInGuavaException;
 import com.git.hui.jobclaw.constants.user.LoginQrTypeEnum;
 import com.git.hui.jobclaw.util.net.HttpRequestHelper;
 import com.github.hui.quick.plugin.base.Base64Util;

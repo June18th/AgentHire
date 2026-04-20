@@ -9,7 +9,7 @@ import com.git.hui.jobclaw.gather.model.GatherOcDraftBo;
 import com.git.hui.jobclaw.gather.model.ModelSelectReq;
 import com.git.hui.jobclaw.gather.service.ai.OcAiModelContext;
 import com.git.hui.jobclaw.gather.service.ai.OcChatModelApi;
-import com.git.hui.jobclaw.gather.service.helper.GatherResFormat;
+import com.git.hui.jobclaw.agents.jobfetch.util.GatherResFormat;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import io.modelcontextprotocol.client.McpAsyncClient;
 import jakarta.annotation.PostConstruct;

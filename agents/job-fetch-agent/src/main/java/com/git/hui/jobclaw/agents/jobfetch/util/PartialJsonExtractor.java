@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.gather.service.helper;
+package com.git.hui.jobclaw.agents.jobfetch.util;
 
 import java.util.ArrayList;
 import java.util.List;

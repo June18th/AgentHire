@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.web.model;
 
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import lombok.Data;
 
 /**

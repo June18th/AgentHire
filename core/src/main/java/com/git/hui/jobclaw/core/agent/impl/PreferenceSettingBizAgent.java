@@ -1,7 +1,6 @@
 package com.git.hui.jobclaw.core.agent.impl;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
@@ -11,9 +10,7 @@ import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
-import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
@@ -33,9 +30,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author YiHui
  * @date 2026/4/18
  */
-@RequiredArgsConstructor
 @Component
-public class PreferenceSettingBizAgent implements BizAgent {
+public class PreferenceSettingBizAgent extends AbsBizAgent {
 
     private final List<ChannelBinder> channelBinders;
     private final ConfigurationManager configurationManager;
@@ -44,6 +40,17 @@ public class PreferenceSettingBizAgent implements BizAgent {
     private final ClientSelector clientSelector;
     private Map<String, ChatClient> chatClientMap = new ConcurrentHashMap<>();
 
+    public PreferenceSettingBizAgent(ClientSelector clientSelector,
+                                     List<ChannelBinder> channelBinders,
+                                     ConfigurationManager configurationManager,
+                                     AiUserPreferenceProperties aiUserPreferenceProperties,
+                                     ClientSelector clientSelector1) {
+        super(clientSelector);
+        this.channelBinders = channelBinders;
+        this.configurationManager = configurationManager;
+        this.aiUserPreferenceProperties = aiUserPreferenceProperties;
+        this.clientSelector = clientSelector1;
+    }
 
     @Override
     public AgentIntro getAgentIntro() {
@@ -55,24 +62,12 @@ public class PreferenceSettingBizAgent implements BizAgent {
         return List.of(PresetAgentIntro.PREFERENCE_SETTING, PresetAgentIntro.DEFAULT);
     }
 
-    private ChatClient getChatClient(String jobClawUserId) {
-        if (chatClientMap.containsKey(jobClawUserId)) {
-            return chatClientMap.get(jobClawUserId);
-        }
-        return refreshChatClient(jobClawUserId);
-    }
-
-    private ChatClient refreshChatClient(String jobClawUserId) {
-        ChatModel model = (ChatModel) clientSelector.getUserPreferredModel(jobClawUserId, false);
-        var client = ChatClient.builder(model)
-                .defaultTools(this)
-                .defaultSystem("""
-                        你专门为用户的设置服务，你可以通过提供的工具来查询、修改、新增用户的偏好配置
-                        请根据用户的意图，选择合适的工具来执行具体的设置相关请求
-                        """)
-                .build();
-        chatClientMap.put(jobClawUserId, client);
-        return client;
+    @Override
+    public String getSystemPrompt() {
+        return """
+                你专门为用户的设置服务，你可以通过提供的工具来查询、修改、新增用户的偏好配置
+                请根据用户的意图，选择合适的工具来执行具体的设置相关请求
+                """;
     }
 
     @Override

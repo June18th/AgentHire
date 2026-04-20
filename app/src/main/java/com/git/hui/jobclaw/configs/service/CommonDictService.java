@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.configs.service;
 
-import com.git.hui.jobclaw.components.bizexception.BizException;
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.configs.dao.entity.CommonDictEntity;
 import com.git.hui.jobclaw.configs.dao.repository.CommonDictRepository;
 import com.git.hui.jobclaw.constants.common.BaseStateEnum;

@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.user.service;
 
-import com.git.hui.jobclaw.components.bizexception.BizException;
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.core.context.ReqInfoContext;
 import com.git.hui.jobclaw.core.context.UserBo;
 import com.git.hui.jobclaw.components.id.IdUtil;

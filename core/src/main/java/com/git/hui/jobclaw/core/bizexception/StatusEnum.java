@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.components.bizexception;
+package com.git.hui.jobclaw.core.bizexception;
 
 import lombok.Getter;
 

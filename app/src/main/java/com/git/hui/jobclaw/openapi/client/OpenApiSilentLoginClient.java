@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.openapi.client;
 
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.openapi.model.OpenApiUserDTO;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import org.springframework.http.client.ClientHttpRequestInterceptor;

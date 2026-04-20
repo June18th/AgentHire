@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.util;
 
-import com.git.hui.jobclaw.components.bizexception.BizException;
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.constants.user.coupon.CouponTypeEnum;
 import org.apache.commons.lang3.StringUtils;
 

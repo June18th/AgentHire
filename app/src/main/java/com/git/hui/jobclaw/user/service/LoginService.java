@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.user.service;
 
-import com.git.hui.jobclaw.components.bizexception.NoVlaInGuavaException;
+import com.git.hui.jobclaw.core.bizexception.NoVlaInGuavaException;
 import com.git.hui.jobclaw.core.context.ReqInfoContext;
 import com.git.hui.jobclaw.constants.user.LoginConstants;
 import com.git.hui.jobclaw.user.helper.SessionHelper;

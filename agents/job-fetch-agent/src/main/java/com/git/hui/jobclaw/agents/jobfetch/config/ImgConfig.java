@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.web.config;
+package com.git.hui.jobclaw.agents.jobfetch.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

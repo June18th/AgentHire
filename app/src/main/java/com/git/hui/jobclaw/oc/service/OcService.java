@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.oc.service;
 
-import com.git.hui.jobclaw.components.bizexception.BizException;
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.constants.oc.OcStateEnum;
 import com.git.hui.jobclaw.oc.convert.OcConvert;
 import com.git.hui.jobclaw.oc.dao.entity.OcInfoEntity;

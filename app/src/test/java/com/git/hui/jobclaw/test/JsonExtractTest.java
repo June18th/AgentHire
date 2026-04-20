@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.test;
 
-import com.git.hui.jobclaw.gather.service.helper.GatherResFormat;
-import com.git.hui.jobclaw.gather.service.helper.PartialJsonExtractor;
+import com.git.hui.jobclaw.agents.jobfetch.util.GatherResFormat;
+import com.git.hui.jobclaw.agents.jobfetch.util.PartialJsonExtractor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

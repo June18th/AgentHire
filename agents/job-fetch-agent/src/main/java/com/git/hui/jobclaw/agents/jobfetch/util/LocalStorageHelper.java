@@ -1,8 +1,8 @@
-package com.git.hui.jobclaw.gather.service.helper;
+package com.git.hui.jobclaw.agents.jobfetch.util;
 
-import com.git.hui.jobclaw.components.bizexception.BizException;
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
-import com.git.hui.jobclaw.web.config.ImgConfig;
+import com.git.hui.jobclaw.agents.jobfetch.config.ImgConfig;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.github.hui.quick.plugin.base.OSUtil;
 import com.github.hui.quick.plugin.base.file.FileReadUtil;
 import com.github.hui.quick.plugin.base.file.FileWriteUtil;

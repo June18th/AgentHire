@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.gather.service.ai;
 
-import com.git.hui.jobclaw.components.bizexception.BizException;
-import com.git.hui.jobclaw.components.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.constants.gather.GatherModelEnum;
 import com.git.hui.jobclaw.constants.gather.GatherModelTypeEnum;
 import com.git.hui.jobclaw.gather.model.ModelSelectReq;
