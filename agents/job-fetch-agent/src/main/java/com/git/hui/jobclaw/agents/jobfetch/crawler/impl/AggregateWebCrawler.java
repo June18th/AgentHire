@@ -33,7 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 通用网页爬虫
+ * 从提供职位列表的聚合类网站爬去相关信息
  * 使用SmartWebFetchTool抓取网页内容,然后提取职位信息
  * 支持分页处理,当返回内容较多时会进行多轮对话获取完整数据
  *
@@ -42,7 +42,7 @@ import java.util.List;
  */
 @Slf4j
 @Component
-public class GenericWebCrawler implements JobCrawler {
+public class AggregateWebCrawler implements JobCrawler {
     private static final int MAX_CHAT_CNT = 20;
 
     protected final JobLlmCaller jobLlmCaller;
@@ -50,9 +50,9 @@ public class GenericWebCrawler implements JobCrawler {
     protected BeanOutputConverter<ArrayList<JobInfo>> gatherResConverter;
     protected final Resource promptResource;
 
-    public GenericWebCrawler(JobLlmCaller jobLlmCaller,
-                             @Value("classpath:prompts/job-info-crawler-prompt.md")
-                             Resource promptResource) {
+    public AggregateWebCrawler(JobLlmCaller jobLlmCaller,
+                               @Value("classpath:prompts/job-info-crawler-prompt.md")
+                               Resource promptResource) {
         this.jobLlmCaller = jobLlmCaller;
         this.promptResource = promptResource;
         gatherResConverter = new BeanOutputConverter<>(new ParameterizedTypeReference<>() {
@@ -61,7 +61,7 @@ public class GenericWebCrawler implements JobCrawler {
 
     @Override
     public String getName() {
-        return "GenericWebCrawler";
+        return "AggregateWebCrawler";
     }
 
     @Override
@@ -161,7 +161,7 @@ public class GenericWebCrawler implements JobCrawler {
         StringBuilder remain = new StringBuilder();
         int cnt = 0;
         int extractedCount = 0; // 已提取的职位数量
-        
+
         // 工具配置
         ChatOptions chatOptions = ToolCallingChatOptions.builder()
                 .toolCallbacks(tools)
@@ -169,7 +169,7 @@ public class GenericWebCrawler implements JobCrawler {
 
         while (true) {
             log.info("{}#第{}次大模型数据解析", conversationId, cnt + 1);
-            
+
             UserMessage msg;
             if (cnt == 0) {
                 // 首次请求:发送完整用户消息
@@ -188,7 +188,7 @@ public class GenericWebCrawler implements JobCrawler {
                         .messages(chatMemory.get(conversationId))
                         .chatOptions(chatOptions)
                         .build();
-                        
+
                 if (log.isDebugEnabled()) {
                     log.debug("{}#req: {}", conversationId, StringUtils.replaceChars(query.toString(), "\n", ""));
                 }
@@ -204,12 +204,12 @@ public class GenericWebCrawler implements JobCrawler {
 
                 String outText = assistantMessage.getText().trim();
                 List<String> currentBatch = GatherResFormat.extract(remain, outText);
-                
+
                 // 统计本次提取的数量
                 int batchCount = currentBatch.size();
                 extractedCount += batchCount;
                 itemList.addAll(currentBatch);
-                
+
                 log.info("{}#本轮提取{}条职位,累计{}条", conversationId, batchCount, extractedCount);
 
                 // 判断是否完成提取
@@ -241,16 +241,16 @@ public class GenericWebCrawler implements JobCrawler {
             // 如果上一轮没有提取到任何职位,可能是格式问题,要求重新检查
             return "上一轮未提取到有效职位信息。请重新仔细检查网页内容,按照分页提取规则,提取接下来的职位信息。";
         }
-        
+
         // 明确告知已提取数量,要求继续提取剩余内容
         return String.format(
                 "已成功提取%d个职位。请继续从网页中提取剩余的职位信息。\n" +
-                "要求:\n" +
-                "1. 不要重复提取已经返回的%d个职位\n" +
-                "2. 仔细查找网页中还未提取的职位\n" +
-                "3. 如果还有职位,请继续以JSON数组格式返回\n" +
-                "4. 如果已经没有更多职位,请返回空数组 []\n" +
-                "5. 在JSON后面添加注释说明是否还有更多职位",
+                        "要求:\n" +
+                        "1. 不要重复提取已经返回的%d个职位\n" +
+                        "2. 仔细查找网页中还未提取的职位\n" +
+                        "3. 如果还有职位,请继续以JSON数组格式返回\n" +
+                        "4. 如果已经没有更多职位,请返回空数组 []\n" +
+                        "5. 在JSON后面添加注释说明是否还有更多职位",
                 extractedCount, extractedCount
         );
     }
@@ -261,7 +261,7 @@ public class GenericWebCrawler implements JobCrawler {
      * @param outText      大模型输出文本
      * @param batchCount   本轮提取数量
      * @param roundCount   当前轮次
-     * @return true表示完成,false表示继续
+     * @return true表示完成, false表示继续
      */
     private boolean checkExtractionComplete(String outText, int batchCount, int roundCount) {
         // 1. 达到最大轮次限制

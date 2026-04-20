@@ -137,7 +137,10 @@ v2 版本，新增模块：
 - [x] 2026/04/20
   - [x] 封装提取岗位的 JobFetchAgent
   - [x] 完成text/markdown/html/excel/csv等文本自动提取职位信息
-  - [ ] 从网络中爬取相关的职位信息
+  - [x] 从网络中爬取相关的职位信息
+    - [x] 完成要给基于SmartWebFetchTool的网络提取方案
+    - [ ] BraveWebSearchTool 的网络搜索方案
+    - [ ] Playwright 的网络搜索方案
   - [ ] 改为异步解析方案，用户交互之后直接响应；然后再完成之后再告知用户结果
 - [x] 2026/04/18
   - [x] 新增一个业务Agent实现副本，验证多Agent切换、Agent会话状态锁定、意图识别的相关逻辑
