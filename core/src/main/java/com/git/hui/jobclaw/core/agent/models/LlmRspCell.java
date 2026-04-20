@@ -24,8 +24,28 @@ public record LlmRspCell(String thinking, String content, String tool) {
             return new LlmRspCell((String) r, null, null);
         }
 
+        // 兜底策略：处理未正确转换的换行符
+        text = normalizeNewlines(text);
+
         // fixme 工具的返回
         return new LlmRspCell(null, text, null);
+    }
+
+    /**
+     * 标准化换行符，将字面量 \n 转换为真正的换行符
+     * 用于处理大模型返回或工具调用结果中可能存在的转义问题
+     *
+     * @param text 原始文本
+     * @return 标准化后的文本
+     */
+    private static String normalizeNewlines(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        
+        // 将字面量的 \n (两个字符: 反斜杠 + n) 替换为真正的换行符
+        // 注意：这里使用 replaceAll 需要转义反斜杠
+        return text.replace("\\n", "\n");
     }
 
 }

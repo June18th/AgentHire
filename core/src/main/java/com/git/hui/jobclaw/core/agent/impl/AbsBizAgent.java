@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.tool.ToolCallback;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,7 +32,7 @@ public abstract class AbsBizAgent implements BizAgent {
     protected ChatClient refreshChatClient(String jobClawUserId) {
         ChatModel model = (ChatModel) clientSelector.getUserPreferredModel(jobClawUserId, false);
         var client = ChatClient.builder(model)
-                .defaultTools(this)
+                .defaultToolCallbacks(getTools())
                 .defaultSystem(getSystemPrompt())
                 .build();
         chatClientMap.put(jobClawUserId, client);
@@ -39,4 +40,8 @@ public abstract class AbsBizAgent implements BizAgent {
     }
 
     public abstract String getSystemPrompt();
+
+    public ToolCallback[] getTools() {
+        return new ToolCallback[0];
+    }
 }

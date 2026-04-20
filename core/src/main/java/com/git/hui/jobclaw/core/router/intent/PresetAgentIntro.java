@@ -130,6 +130,12 @@ public enum PresetAgentIntro implements BizAgent.AgentIntro {
     CURRENT_AGENT("current_agent", "查看当前Agent", "查看当前Agent", "/current"),
 
     /**
+     * TASK_QUERY: 查询任务状态
+     * 触发场景：用户通过/task命令查询职位抓取任务状态
+     */
+    TASK_QUERY("task_query", "查询任务状态", "查询职位抓取任务进度", "/task"),
+
+    /**
      * UNKNOWN: 未知意图
      * 触发场景：无法识别用户意图
      */
