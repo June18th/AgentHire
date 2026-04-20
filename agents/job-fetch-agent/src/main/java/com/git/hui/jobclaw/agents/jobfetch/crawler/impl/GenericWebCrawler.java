@@ -143,10 +143,12 @@ public class GenericWebCrawler implements JobCrawler {
     /**
      * 分页提取职位信息
      * 当大模型返回内容不完整时,进行多轮对话获取剩余内容
+     * 采用明确的行号范围指定方式,确保精确提取
      *
-     * @param chatMemory   系统提示词
+     * @param chatMemory     聊天内存
      * @param userMessage    用户消息(包含网页内容)
      * @param model          聊天模型
+     * @param tools          工具回调数组
      * @param conversationId 会话ID
      * @return 提取的原始JSON字符串列表
      */
@@ -158,27 +160,36 @@ public class GenericWebCrawler implements JobCrawler {
         List<String> itemList = new ArrayList<>();
         StringBuilder remain = new StringBuilder();
         int cnt = 0;
-        // 工具
+        int extractedCount = 0; // 已提取的职位数量
+        
+        // 工具配置
         ChatOptions chatOptions = ToolCallingChatOptions.builder()
                 .toolCallbacks(tools)
                 .build();
 
         while (true) {
             log.info("{}#第{}次大模型数据解析", conversationId, cnt + 1);
+            
             UserMessage msg;
             if (cnt == 0) {
+                // 首次请求:发送完整用户消息
                 msg = new UserMessage(userMessage);
             } else {
-                msg = new UserMessage("你之前返回的结果不完整，继续返回剩余的内容");
+                // 后续请求:明确指定继续提取的位置和数量
+                String continuePrompt = buildContinuePrompt(extractedCount, cnt);
+                msg = new UserMessage(continuePrompt);
+                log.info("{}#继续提取提示: {}", conversationId, continuePrompt);
             }
 
             chatMemory.add(conversationId, msg);
 
-
             try {
-                Prompt query = Prompt.builder().messages(chatMemory.get(conversationId)).chatOptions(chatOptions).build();
+                Prompt query = Prompt.builder()
+                        .messages(chatMemory.get(conversationId))
+                        .chatOptions(chatOptions)
+                        .build();
+                        
                 if (log.isDebugEnabled()) {
-                    // 一行显示日志
                     log.debug("{}#req: {}", conversationId, StringUtils.replaceChars(query.toString(), "\n", ""));
                 }
 
@@ -192,22 +203,22 @@ public class GenericWebCrawler implements JobCrawler {
                 cnt += 1;
 
                 String outText = assistantMessage.getText().trim();
-                itemList.addAll(GatherResFormat.extract(remain, outText));
+                List<String> currentBatch = GatherResFormat.extract(remain, outText);
+                
+                // 统计本次提取的数量
+                int batchCount = currentBatch.size();
+                extractedCount += batchCount;
+                itemList.addAll(currentBatch);
+                
+                log.info("{}#本轮提取{}条职位,累计{}条", conversationId, batchCount, extractedCount);
 
                 // 判断是否完成提取
-                if (outText.endsWith("```") || outText.endsWith("]") || cnt >= MAX_CHAT_CNT) {
-                    log.info("{}#经过{}轮对话,完成大模型调用", conversationId, cnt);
+                boolean isComplete = checkExtractionComplete(outText, batchCount, cnt);
+                if (isComplete) {
+                    log.info("{}#经过{}轮对话,共提取{}条职位,完成大模型调用", conversationId, cnt, extractedCount);
                     break;
                 }
 
-                // 检测大模型是否重新开始返回完整数据
-                if (cnt > 1 && outText.startsWith("```json")) {
-                    int jsonBeginIndex = outText.indexOf("[");
-                    if (jsonBeginIndex > 0 && jsonBeginIndex < 15) {
-                        log.info("{}#大模型重复返回完整解析数据,主动退出多轮对话", conversationId);
-                        break;
-                    }
-                }
             } catch (Exception e) {
                 log.error("{}#gather error", conversationId, e);
                 break;
@@ -215,6 +226,88 @@ public class GenericWebCrawler implements JobCrawler {
         }
 
         return itemList;
+    }
+
+    /**
+     * 构建继续提取的提示词
+     * 明确告诉大模型从哪个位置继续提取
+     *
+     * @param extractedCount 已提取的职位数量
+     * @param roundCount     当前轮次
+     * @return 提示词
+     */
+    private String buildContinuePrompt(int extractedCount, int roundCount) {
+        if (extractedCount == 0) {
+            // 如果上一轮没有提取到任何职位,可能是格式问题,要求重新检查
+            return "上一轮未提取到有效职位信息。请重新仔细检查网页内容,按照分页提取规则,提取接下来的职位信息。";
+        }
+        
+        // 明确告知已提取数量,要求继续提取剩余内容
+        return String.format(
+                "已成功提取%d个职位。请继续从网页中提取剩余的职位信息。\n" +
+                "要求:\n" +
+                "1. 不要重复提取已经返回的%d个职位\n" +
+                "2. 仔细查找网页中还未提取的职位\n" +
+                "3. 如果还有职位,请继续以JSON数组格式返回\n" +
+                "4. 如果已经没有更多职位,请返回空数组 []\n" +
+                "5. 在JSON后面添加注释说明是否还有更多职位",
+                extractedCount, extractedCount
+        );
+    }
+
+    /**
+     * 检查提取是否完成
+     *
+     * @param outText      大模型输出文本
+     * @param batchCount   本轮提取数量
+     * @param roundCount   当前轮次
+     * @return true表示完成,false表示继续
+     */
+    private boolean checkExtractionComplete(String outText, int batchCount, int roundCount) {
+        // 1. 达到最大轮次限制
+        if (roundCount >= MAX_CHAT_CNT) {
+            log.warn("达到最大对话轮次限制({}),强制结束", MAX_CHAT_CNT);
+            return true;
+        }
+
+        // 2. 本轮没有提取到任何职位,说明可能已经提取完毕
+        if (batchCount == 0) {
+            log.info("本轮未提取到新职位,判断为提取完毕");
+            return true;
+        }
+
+        // 3. 检测完整性标记
+        if (outText.contains("// 已提取完毕") || outText.contains("//已提取完毕")) {
+            log.info("检测到大模型返回'已提取完毕'标记");
+            return true;
+        }
+
+        // 4. JSON数组正常结束
+        if (outText.endsWith("]") || outText.endsWith("```") || outText.endsWith("]")) {
+            // 检查是否还有"还有更多"的标记
+            if (outText.contains("// 还有更多") || outText.contains("//还有更多")) {
+                log.info("检测到'还有更多职位'标记,继续提取");
+                return false;
+            }
+            // 如果没有明确标记,但JSON完整且本轮有数据,再尝试一轮确认
+            if (roundCount < 3) {
+                log.info("JSON完整但未检测到明确标记,再尝试一轮确认");
+                return false;
+            }
+            return true;
+        }
+
+        // 5. 检测大模型是否重新开始返回完整数据
+        if (roundCount > 1 && outText.startsWith("```json")) {
+            int jsonBeginIndex = outText.indexOf("[");
+            if (jsonBeginIndex > 0 && jsonBeginIndex < 15) {
+                log.info("大模型重复返回完整解析数据,主动退出多轮对话");
+                return true;
+            }
+        }
+
+        // 默认继续提取
+        return false;
     }
 
 
