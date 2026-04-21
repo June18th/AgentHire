@@ -8,7 +8,12 @@ import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.utils.MimeUtils;
+import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.lark.oapi.core.utils.Jsons;
 import com.lark.oapi.event.EventDispatcher;
 import com.lark.oapi.service.cardkit.v1.model.ContentCardElementReq;
@@ -24,6 +29,8 @@ import com.lark.oapi.service.im.ImService;
 import com.lark.oapi.service.im.v1.model.CreateMessageReq;
 import com.lark.oapi.service.im.v1.model.CreateMessageReqBody;
 import com.lark.oapi.service.im.v1.model.CreateMessageResp;
+import com.lark.oapi.service.im.v1.model.GetMessageResourceReq;
+import com.lark.oapi.service.im.v1.model.GetMessageResourceResp;
 import com.lark.oapi.service.im.v1.model.P1MessageReadV1;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
 import com.lark.oapi.ws.Client;
@@ -36,7 +43,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
-import java.util.HashMap;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,22 +57,24 @@ import java.util.function.Function;
  * @date 2026/4/13
  */
 @Slf4j
-public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotMessageEx> {
+public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotMessageEx> {
 
     private final FeiShuBotProperties FeiShuBotProperties;
+    private final ChannelStorageHelper channelStorageHelper;
 
     /**
      * key = robotId, value = 构建AICard用于流式返回的卡片管理
      */
     private final Map<String, StreamCardManager> cardManagers = new ConcurrentHashMap<>();
 
-    public FeishuBotChannel(Resource agentWorkspace,
+    public FeiShuBotChannel(Resource agentWorkspace,
                             ChannelRegistry channelRegistry,
                             ChannelEventPublisher channelEventPublisher,
                             FeiShuBotProperties FeiShuBotProperties,
-                            ConfigurationManager configurationManager) {
+                            ConfigurationManager configurationManager, ChannelStorageHelper channelStorageHelper) {
         super(agentWorkspace, channelRegistry, channelEventPublisher, configurationManager);
         this.FeiShuBotProperties = FeiShuBotProperties;
+        this.channelStorageHelper = channelStorageHelper;
     }
 
     @Override
@@ -101,6 +111,11 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
         private String messageId;
 
         private String content;
+
+        /**
+         * 消息类型
+         */
+        private String msgType;
     }
 
     /**
@@ -142,16 +157,12 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
 
                             // 4. 上报消息
                             var content = eventData.getMessage().getContent();
-                            if (content != null && content.startsWith("{") && content.endsWith("}")) {
-                                content = (String) Jsons.DEFAULT.fromJson(event.getEvent().getMessage().getContent(), HashMap.class).get("text");
-                                if (StringUtils.isBlank(content)) {
-                                    content = eventData.getMessage().getContent();
-                                }
-                            }
-                            var ex = new ChatbotMessageEx().setRobotId(account.getAppId())
+                            var ex = new ChatbotMessageEx()
+                                    .setRobotId(account.getAppId())
                                     .setAiCardId(cardId)
                                     .setOpenId(openId)
                                     .setMessageId(messageId)
+                                    .setMsgType(eventData.getMessage().getMessageType())
                                     .setContent(content);
                             processMessage(MsgWrapper.<ChatbotMessageEx>builder().jobClawUserId(jobClawUserId).msg(ex).build());
                         }
@@ -181,11 +192,80 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
         }
 
         ChatbotMessageEx msg = msgWrapper.getMsg();
+        JsonElement node = Jsons.DEFAULT.toJsonTree(Jsons.DEFAULT.fromJson(msg.getContent(), Map.class));
+        String content = "";
+        ChannelReceiveMessage.MediaMsg mediaMsg = null;
+        ChannelReceiveMessage.FileMsg fileMsg = null;
+        if ("text".equals(msg.getMsgType())) {
+            // 文本消息
+            content = node.getAsJsonObject().get("text").getAsString();
+        } else if ("post".equals(msg.getMsgType())) {
+            // 富文本
+            // fixme 对于富文本，这里先只实现提取文本内容，忽略图片、文件
+            JsonArray ary = node.getAsJsonObject().get("content").getAsJsonArray();
+            StringBuilder contents = new StringBuilder();
+            for (var tmp : ary) {
+                for (var t : tmp.getAsJsonArray()) {
+                    JsonObject obj = t.getAsJsonObject();
+                    if (obj.get("tag").getAsString().equals("text")) {
+                        contents.append(obj.get("text").getAsString()).append("\n");
+                    }
+                }
+            }
+            content = contents.toString();
+        } else if ("image".equals(msg.getMsgType())) {
+            // 图片
+            var imgKey = node.getAsJsonObject().get("image_key").getAsString();
+            var bytes = cardManagers.get(msg.getRobotId()).downloadResource(msg.getMessageId(), imgKey, "image");
+            var tmpFile = channelStorageHelper.autoSaveFile(msgWrapper.getJobClawUserId(), name(), bytes, "png");
+            mediaMsg = ChannelReceiveMessage.MediaMsg.builder().filePath(Path.of(tmpFile)).mimeType("image/png").build();
+        } else if ("file".equals(msg.getMsgType()) || "sticker".equals(msg.getMsgType())) {
+            // 文件 or 表情包
+            var fileKey = node.getAsJsonObject().get("file_key").getAsString();
+            var fileName = node.getAsJsonObject().get("file_name").getAsString();
+            var fileType = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf(".") + 1) : "txt";
+            var bytes = cardManagers.get(msg.getRobotId()).downloadResource(msg.getMessageId(), fileKey, msg.getMsgType());
+            var tmpFile = channelStorageHelper.autoSaveFile(msgWrapper.getJobClawUserId(), name(), bytes, fileType);
+            fileMsg = ChannelReceiveMessage.FileMsg.builder().filePath(Path.of(tmpFile)).fileName(fileName).mimeType(MimeUtils.mimeByExt(fileType)).build();
+        } else if ("audio".equals(msg.getMsgType())) {
+            // 音频
+            responseToUser(ChannelResponseMessage.builder()
+                    .passThrough(Map.of("input", msg))
+                    .toUserId(msg.getOpenId())
+                    .jobClawUserId(msgWrapper.getJobClawUserId())
+                    .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                    .streamContents(Flux.just(new LlmRspCell(null, "暂不支持语音消息的处理哦~", null)))
+                    .build());
+        } else if ("video".equals(msg.getMsgType())) {
+            // 视频
+            responseToUser(ChannelResponseMessage.builder()
+                    .passThrough(Map.of("input", msg))
+                    .toUserId(msg.getOpenId())
+                    .jobClawUserId(msgWrapper.getJobClawUserId())
+                    .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                    .streamContents(Flux.just(new LlmRspCell(null, "暂不支持视频消息的处理哦~", null)))
+                    .build());
+            return null;
+        } else {
+            // 表示不支持的消息类型
+            responseToUser(ChannelResponseMessage.builder()
+                    .passThrough(Map.of("input", msg))
+                    .toUserId(msg.getOpenId())
+                    .jobClawUserId(msgWrapper.getJobClawUserId())
+                    .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                    .streamContents(Flux.just(new LlmRspCell(null, "现在JobClaw还不支持处理这种类型的消息哦~", null)))
+                    .build());
+            return null;
+        }
+
+
         return ChannelReceiveMessage.builder()
                 .msgId(msg.getMessageId())
-                .message(msg.getContent())
+                .message(content)
                 .fromUserId(msg.getOpenId())
                 .jobClawUserId(msgWrapper.getJobClawUserId())
+                .files(fileMsg != null ? List.of(fileMsg) : null)
+                .medias(mediaMsg != null ? List.of(mediaMsg) : null)
                 .channel(name())
                 .stream(true)
                 .passThrough(Map.of("input", msg))
@@ -399,6 +479,7 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
     public static class StreamCardManager {
 
         private com.lark.oapi.Client client;
+        // 每个卡片的计数序号，用于更新卡片时传入这个序号，要求单调递增
         private Map<String, Integer> aiCardSeq = new ConcurrentHashMap<>();
 
         public StreamCardManager(FeiShuBotProperties.FeiShuBotAccount account) {
@@ -626,6 +707,30 @@ public class FeishuBotChannel extends AbsStreamChannel<FeishuBotChannel.ChatbotM
 
         private void removeSeq(String cardId) {
             aiCardSeq.remove(cardId);
+        }
+
+
+        /**
+         * 资源文件下载
+         * @param msgId
+         * @param fileKey
+         * @param type
+         */
+        public byte[] downloadResource(String msgId, String fileKey, String type) {
+            // 创建请求对象
+            GetMessageResourceReq req = GetMessageResourceReq.newBuilder()
+                    .messageId(msgId)
+                    .fileKey(fileKey)
+                    .type(type)
+                    .build();
+            // 发起请求
+            try {
+                GetMessageResourceResp resp = client.im().v1().messageResource().get(req);
+                return resp.getData().toByteArray();
+            } catch (Exception e) {
+                log.error("[FeiShu] Download resource error: {}.{}", fileKey, type, e);
+                return null;
+            }
         }
     }
 }

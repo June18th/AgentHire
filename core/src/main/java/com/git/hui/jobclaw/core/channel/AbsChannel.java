@@ -41,6 +41,10 @@ public abstract class AbsChannel<T> implements Channel, ChannelMsgAdapter<T>, Co
 
     public void processMessage(MsgWrapper<T> msg) {
         var r = adaptToReceive(msg);
+        if (r == null) {
+            return;
+        }
+
         try {
             var tag = this.saveHeartBeatConfig(msg, channelRegistry.getChannelRspBuilderAdapter(r.getJobClawUserId(), r.getChannel()) == null);
             if (tag) {

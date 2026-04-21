@@ -29,6 +29,7 @@ import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.utils.MimeUtils;
 import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.Data;
@@ -201,6 +202,7 @@ public class DingDingBotChannel extends AbsStreamChannel<DingDingBotChannel.Chat
                 fileMsg = ChannelReceiveMessage.FileMsg.builder()
                         .fileName(fileName)
                         .filePath(Path.of(tmpFile))
+                        .mimeType(MimeUtils.mimeByExt(fileType))
                         .build();
             } else if (msg.getMsgtype().equals("richText")) {
                 // todo 富文本这里，先只处理文本

@@ -3,6 +3,7 @@ package com.git.hui.jobclaw.core.utils.json;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -85,6 +86,14 @@ public class JsonUtil {
     public static <T> T toObj(String s, TypeReference<T> typeReference) {
         try {
             return mapper.readValue(s, typeReference);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static JsonNode toJsonNode(String s) {
+        try {
+            return mapper.readTree(s);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

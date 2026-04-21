@@ -41,10 +41,15 @@ public class ChannelStorageHelper {
 
     public String autoDownloadFile(String jobClawUserId, String channel, String url, String fileType) {
         var inputBytes = loadFileBytes(url);
+        return autoSaveFile(jobClawUserId, channel, inputBytes, fileType);
+    }
+
+
+    public String autoSaveFile(String jobClawUserId, String channel, byte[] inputBytes, String fileType) {
         var tmpSavePath = parent.resolve(jobClawUserId).resolve("files");
         FileUtils.ensureDirectory(tmpSavePath);
 
-        String fileName = channel + "_" + MD5Utils.md5(url) + "." + fileType;
+        String fileName = channel + "_" + MD5Utils.md5(inputBytes) + "." + fileType;
         Path filePath = tmpSavePath.resolve(fileName);
 
         try {
