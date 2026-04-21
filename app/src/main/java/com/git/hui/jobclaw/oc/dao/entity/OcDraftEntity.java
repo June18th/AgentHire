@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.oc.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -94,6 +95,25 @@ public class OcDraftEntity {
      */
     @Column(name = "remarks")
     private String remarks;
+
+
+    /**
+     * 薪资范围
+     */
+    @JsonPropertyDescription("薪资范围，如 15k-25k、面议等")
+    private String salary;
+
+    /**
+     * 学历要求
+     */
+    @JsonPropertyDescription("学历要求，如 本科、硕士、博士等")
+    private String education;
+
+    /**
+     * 工作经验要求
+     */
+    @JsonPropertyDescription("工作经验要求，如 应届生、1-3年、3-5年等")
+    private String experience;
 
     /**
      * 状态:

@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.agents.jobfetch.extract;
 
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
-import com.git.hui.jobclaw.agents.jobfetch.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.util.GatherResFormat;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;

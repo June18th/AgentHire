@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.agents.jobfetch.model;
+package com.git.hui.jobclaw.agents.jobfetch.service.model;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import lombok.Data;

@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.utils.json;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +26,10 @@ public class JsonUtil {
         SimpleModule module = new SimpleModule();
         mapper.registerModule(module);
         mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-
+        
+        // 允许解析包含未转义控制字符(如Tab、换行符)的JSON字符串
+        // 解决大模型返回数据中包含制表符等控制字符导致的解析失败问题
+        mapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);
     }
 
 

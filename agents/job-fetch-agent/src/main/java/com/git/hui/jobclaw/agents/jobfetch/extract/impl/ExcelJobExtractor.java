@@ -8,7 +8,7 @@ import cn.idev.excel.metadata.data.ReadCellData;
 import cn.idev.excel.read.listener.ReadListener;
 import com.git.hui.jobclaw.agents.jobfetch.extract.AbsJobExtractor;
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
-import com.git.hui.jobclaw.agents.jobfetch.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
 import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;

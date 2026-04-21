@@ -1,6 +1,6 @@
-package com.git.hui.jobclaw.agents.jobfetch.task.repository;
+package com.git.hui.jobclaw.agents.jobfetch.service.repository;
 
-import com.git.hui.jobclaw.agents.jobfetch.task.model.JobFetchTaskEntity;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

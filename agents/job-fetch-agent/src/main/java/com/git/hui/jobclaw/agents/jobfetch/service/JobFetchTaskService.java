@@ -1,13 +1,13 @@
-package com.git.hui.jobclaw.agents.jobfetch.task.service;
+package com.git.hui.jobclaw.agents.jobfetch.service;
 
 import com.git.hui.jobclaw.agents.jobfetch.crawler.JobCrawler;
 import com.git.hui.jobclaw.agents.jobfetch.extract.JobExtractor;
 import com.git.hui.jobclaw.agents.jobfetch.extract.impl.TextJobExtractor;
-import com.git.hui.jobclaw.agents.jobfetch.model.JobInfo;
-import com.git.hui.jobclaw.agents.jobfetch.task.model.JobFetchTaskEntity;
-import com.git.hui.jobclaw.agents.jobfetch.task.model.JobFetchTaskResponse;
-import com.git.hui.jobclaw.agents.jobfetch.task.model.JobFetchTaskStatus;
-import com.git.hui.jobclaw.agents.jobfetch.task.repository.JobFetchTaskRepository;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskEntity;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskStatus;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.repository.JobFetchTaskRepository;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
@@ -42,6 +42,9 @@ public class JobFetchTaskService {
 
     @Autowired
     private ChannelEventPublisher channelEventPublisher;
+
+    @Autowired
+    private JobInfoSaveService jobInfoSaveService;
 
     /**
      * 创建URL抓取任务
@@ -311,23 +314,76 @@ public class JobFetchTaskService {
 
     /**
      * 推送任务结果
-     * TODO: 实现SSE或WebSocket推送
      */
     private void pushTaskResult(JobFetchTaskEntity task, List<JobInfo> jobs) {
-        // 暂时只记录日志,后续实现SSE推送
         log.info("任务结果就绪,待推送: taskId={}, jobCount={}", task.getTaskId(),
                 jobs != null ? jobs.size() : 0);
-
-        // 可以将结果序列化后存储,供前端查询
+    
+        // 保存职位信息并获取统计结果
         if (jobs != null && !jobs.isEmpty()) {
-            String resultJson = JsonUtil.toStr(jobs);
-            log.debug("任务结果JSON长度: {}", resultJson.length());
-
+            JobInfoSaveService.SaveRes res = jobInfoSaveService.save(jobs);
+                
+            // 构建友好的提示消息
+            String resultMessage = buildTaskCompletionMessage(task, res);
+                
+            log.info("推送任务完成通知: taskId={}, message={}", task.getTaskId(), resultMessage);
+                
             channelEventPublisher.publishProactiveMessage("JOB_TASK_" + task.getTaskId(),
                     task.getJobClawUserId(),
                     task.getChannel(),
-                    resultJson
+                    resultMessage
+            );
+        } else {
+            // 没有提取到职位信息
+            String emptyMessage = buildEmptyResultMessage(task);
+            channelEventPublisher.publishProactiveMessage("JOB_TASK_" + task.getTaskId(),
+                    task.getJobClawUserId(),
+                    task.getChannel(),
+                    emptyMessage
             );
         }
+    }
+    
+    /**
+     * 构建任务完成的友好提示消息
+     */
+    private String buildTaskCompletionMessage(JobFetchTaskEntity task, JobInfoSaveService.SaveRes res) {
+        StringBuilder sb = new StringBuilder();
+            
+        sb.append("✅ 任务执行完成\n\n");
+        sb.append(String.format("📋 任务ID: `%s`\n\n", task.getTaskId()));
+        sb.append(String.format("📊 提取职位数: %d 个\n\n", res.insertCnt() + res.updateCnt()));
+            
+        // 详细统计
+        sb.append("📈 数据处理结果:\n\n");
+        sb.append(String.format("  • 新增: %d 条\n\n", res.insertCnt()));
+        sb.append(String.format("  • 更新: %d 条\n\n", res.updateCnt()));
+            
+        sb.append("\n💡 提示:\n\n");
+        sb.append("• 职位信息已保存到数据库\n\n");
+        sb.append("• 您可以在管理后台查看和管理这些职位\n\n");
+        sb.append("• 如需继续抓取，请发送新的URL或文件\n\n");
+            
+        return sb.toString();
+    }
+    
+    /**
+     * 构建空结果的提示消息
+     */
+    private String buildEmptyResultMessage(JobFetchTaskEntity task) {
+        StringBuilder sb = new StringBuilder();
+            
+        sb.append("⚠️ 任务执行完成，但未提取到职位信息\n\n");
+        sb.append(String.format("📋 任务ID: `%s`\n\n", task.getTaskId()));
+        sb.append("可能的原因:\n\n");
+        sb.append("• 网页中没有找到符合格式的职位信息\n\n");
+        sb.append("• 文本内容中不包含有效的招聘数据\n\n");
+        sb.append("• 文件格式不支持或内容为空\n\n");
+        sb.append("💡 建议:\n\n");
+        sb.append("• 检查URL是否正确指向招聘页面\n\n");
+        sb.append("• 确认文本/文件中包含完整的招聘信息\n\n");
+        sb.append("• 尝试其他来源或格式\n\n");
+            
+        return sb.toString();
     }
 }

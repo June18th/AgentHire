@@ -36,6 +36,22 @@ public record GatherOcDraftBo(
         @JsonPropertyDescription("内推码")
         String internalReferralCode,// 内推码
         @JsonPropertyDescription("备注")
-        String remarks             // 备注
+        String remarks,             // 备注
+        /**
+         * 薪资范围
+         */
+        @JsonPropertyDescription("薪资范围，如 15k-25k、面议等 没有则为null")
+        String salary,
+        /**
+         * 学历要求
+         */
+        @JsonPropertyDescription("学历要求，如 本科、硕士、博士等 没有则为null")
+        String education,
+
+        /**
+         * 工作经验要求
+         */
+        @JsonPropertyDescription("工作经验要求，如 应届生、1-3年、3-5年等 没有则为null")
+        String experience
 ) {
 }

@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.agents.jobfetch.task.model;
+package com.git.hui.jobclaw.agents.jobfetch.service.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

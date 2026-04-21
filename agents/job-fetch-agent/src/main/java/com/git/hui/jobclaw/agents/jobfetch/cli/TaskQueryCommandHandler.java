@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.agents.jobfetch.cli;
 
 import com.git.hui.jobclaw.agents.jobfetch.service.JobFetchService;
-import com.git.hui.jobclaw.agents.jobfetch.task.model.JobFetchTaskResponse;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.cli.SystemCommandHandler;
@@ -156,8 +156,8 @@ public class TaskQueryCommandHandler implements SystemCommandHandler {
             sb.append(String.format("... 还有 %d 个任务未显示\n\n", tasks.size() - 10));
         }
 
-        sb.append("💡 提示:\n");
-        sb.append("• 使用 `/task <任务ID>` 可查看任务详情\n");
+        sb.append("💡 提示:\n\n");
+        sb.append("• 使用 `/task <任务ID>` 可查看任务详情\n\n");
         sb.append("• 任务完成后会主动推送结果给您\n");
 
         return sb.toString();
@@ -201,16 +201,16 @@ public class TaskQueryCommandHandler implements SystemCommandHandler {
         }
 
         // 操作提示
-        sb.append("\n---\n💡 提示:\n");
+        sb.append("\n---\n💡 提示:\n\n");
         if ("PENDING".equals(task.getStatus()) || "RUNNING".equals(task.getStatus())) {
-            sb.append("• 任务正在执行中，请稍后再次查询\n");
-            sb.append(String.format("• 查询命令: `/task %s`\n", task.getTaskId()));
+            sb.append("• 任务正在执行中，请稍后再次查询\n\n");
+            sb.append(String.format("• 查询命令: `/task %s`\n\n", task.getTaskId()));
         } else if ("SUCCESS".equals(task.getStatus())) {
-            sb.append("• 任务已完成，结果将主动推送给您\n");
-            sb.append("• 如需重新抓取，请发送新的URL或文件\n");
+            sb.append("• 任务已完成，结果将主动推送给您\n\n");
+            sb.append("• 如需重新抓取，请发送新的URL或文件\n\n");
         } else if ("FAILED".equals(task.getStatus())) {
-            sb.append("• 任务执行失败，请检查输入是否正确\n");
-            sb.append("• 可以重新发起任务尝试\n");
+            sb.append("• 任务执行失败，请检查输入是否正确\n\n");
+            sb.append("• 可以重新发起任务尝试\n\n");
         }
 
         return sb.toString();

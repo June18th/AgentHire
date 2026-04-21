@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.oc.convert;
 
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
 import com.git.hui.jobclaw.gather.model.GatherOcDraftBo;
 import com.git.hui.jobclaw.oc.dao.entity.OcDraftEntity;
 import org.springframework.util.CollectionUtils;
@@ -40,6 +41,29 @@ public class DraftConvert {
         }
         // 注意下面返回的是不可编辑的列表
         return bos.stream().map(DraftConvert::convert).toList();
+    }
+
+
+    public static OcDraftEntity covert(JobInfo jobInfo) {
+        return new OcDraftEntity()
+                .setCompanyName(jobInfo.getCompanyName())
+                .setCompanyType(jobInfo.getCompanyType())
+                .setCompanyIndustry(jobInfo.getCompanyIndustry())
+                .setJobLocation(jobInfo.getJobLocation())
+                .setRecruitmentType(jobInfo.getRecruitmentType())
+                .setRecruitmentTarget(jobInfo.getRecruitmentTarget())
+                .setPosition(jobInfo.getPosition())
+                .setDeliveryProgress(jobInfo.getDeliveryProgress())
+                .setLastUpdatedTime(jobInfo.getLastUpdatedTime())
+                .setDeadline(jobInfo.getDeadline())
+                .setRelatedLink(jobInfo.getRelatedLink())
+                .setJobAnnouncement(jobInfo.getJobAnnouncement())
+                .setInternalReferralCode(jobInfo.getInternalReferralCode())
+                .setRemarks(jobInfo.getRemarks())
+                .setSalary(jobInfo.getSalary())
+                .setEducation(jobInfo.getEducation())
+                .setExperience(jobInfo.getExperience());
+
     }
 
 }

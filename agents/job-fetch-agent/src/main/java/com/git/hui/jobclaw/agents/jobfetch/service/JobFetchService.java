@@ -1,7 +1,6 @@
 package com.git.hui.jobclaw.agents.jobfetch.service;
 
-import com.git.hui.jobclaw.agents.jobfetch.task.model.JobFetchTaskResponse;
-import com.git.hui.jobclaw.agents.jobfetch.task.service.JobFetchTaskService;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import lombok.extern.slf4j.Slf4j;

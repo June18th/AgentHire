@@ -2,7 +2,7 @@ package com.git.hui.jobclaw.agents.jobfetch;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.agents.jobfetch.service.JobFetchService;
-import com.git.hui.jobclaw.agents.jobfetch.task.model.JobFetchTaskResponse;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.impl.AbsBizAgent;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
@@ -208,14 +208,14 @@ public class JobFetchAgent extends AbsBizAgent {
      * @return 友好的提示消息
      */
     private String buildTaskCreatedMessage(JobFetchTaskResponse taskResponse, String sourceType) {
-        return "✅ 已创建" + sourceType + "职位提取任务\n\n" +
-                "📋 任务ID: `" + taskResponse.getTaskId() + "`\n" +
+        return "\n\n✅ 已创建" + sourceType + "职位提取任务\n\n" +
+                "📋 任务ID: `" + taskResponse.getTaskId() + "`\n\n" +
                 "📊 当前状态: " + getStatusEmoji(taskResponse.getStatus()) + " " + getStatusText(taskResponse.getStatus()) + "\n\n" +
-                "💡 提示:\n" +
-                "• 任务正在后台执行中,请稍候...\n" +
-                "• 您可以通过任务ID查询进度\n" +
+                "💡 提示:\n\n" +
+                "• 任务正在后台执行中,请稍候...\n\n" +
+                "• 您可以通过任务ID查询进度\n\n" +
                 "• 提取完成后会主动通知您\n\n" +
-                "🔍 查询命令: `/task " + taskResponse.getTaskId() + "`";
+                "🔍 查询命令: `/task " + taskResponse.getTaskId() + "`\n\n";
     }
 
     /**

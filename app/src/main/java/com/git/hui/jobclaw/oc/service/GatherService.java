@@ -1,8 +1,11 @@
 package com.git.hui.jobclaw.oc.service;
 
+import com.git.hui.jobclaw.agents.jobfetch.service.JobInfoSaveService;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
 import com.git.hui.jobclaw.constants.oc.DraftProcessEnum;
 import com.git.hui.jobclaw.constants.oc.DraftStateEnum;
 import com.git.hui.jobclaw.constants.oc.OcStateEnum;
+import com.git.hui.jobclaw.oc.convert.DraftConvert;
 import com.git.hui.jobclaw.oc.dao.entity.OcDraftEntity;
 import com.git.hui.jobclaw.oc.dao.entity.OcInfoEntity;
 import com.git.hui.jobclaw.oc.dao.repository.OcDraftRepository;
@@ -32,7 +35,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-public class GatherService {
+public class GatherService implements JobInfoSaveService {
 
     private final OcDraftRepository draftRepository;
     private final OcRepository ocRepository;
@@ -54,6 +57,15 @@ public class GatherService {
         return draftRepository.findList(req);
     }
 
+    @Override
+    public SaveRes save(List<JobInfo> jobInfos) {
+        if (jobInfos == null || jobInfos.isEmpty()) {
+            return new SaveRes(0, 0);
+        }
+        List<OcDraftEntity> draftList = jobInfos.stream().map(DraftConvert::covert).collect(Collectors.toList());
+        GatherVo vo = saveDraftDataList(draftList);
+        return new SaveRes(vo.getInsertList().size(), vo.getUpdateList().size());
+    }
 
     /**
      * 保存草稿数据列表

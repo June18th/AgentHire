@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.agents.jobfetch.task.model;
+package com.git.hui.jobclaw.agents.jobfetch.service.model;
 
 /**
  * 职位抓取任务状态枚举
