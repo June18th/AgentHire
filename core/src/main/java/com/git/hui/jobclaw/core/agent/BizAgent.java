@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.agent;
 
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import reactor.core.publisher.Flux;
 
@@ -50,7 +51,7 @@ public interface BizAgent {
      * @param userConversationInfo 用户会话信息
      * @return 是否处理成功，返回false表示无法处理该消息
      */
-    String process(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message);
+    String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message);
 
     /**
      * 流式处理用户消息
@@ -59,7 +60,7 @@ public interface BizAgent {
      * @param userConversationInfo 用户会话信息
      * @return 是否处理成功，返回false表示无法处理该消息
      */
-    Flux<LlmRspCell> stream(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message);
+    Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message);
 
     /**
      * 获取Agent优先级（用于多Agent场景下的选择）

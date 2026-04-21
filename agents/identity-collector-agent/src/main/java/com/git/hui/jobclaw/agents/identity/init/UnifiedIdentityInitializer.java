@@ -3,7 +3,7 @@ package com.git.hui.jobclaw.agents.identity.init;
 import com.git.hui.jobclaw.agents.identity.info.UserAgentInfoCollector;
 import com.git.hui.jobclaw.agents.identity.soul.UserAgentSoulCollector;
 import com.git.hui.jobclaw.agents.identity.user.IdentityCollectorSelector;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -59,7 +59,7 @@ public class UnifiedIdentityInitializer {
      * @return true if message was handled by initializer (don't send to normal agent),
      *         false if initialization is complete (proceed to normal agent)
      */
-    public boolean checkAndAdvance(LlmCaller.UserConversationInfo conversationInfo, String userMessage) {
+    public boolean checkAndAdvance(UserConversationInfo conversationInfo, String userMessage) {
         // Get or create unified state
         UnifiedCollectionState state = stateManager.getOrCreateState(conversationInfo.jobClawUserId());
 
@@ -92,7 +92,7 @@ public class UnifiedIdentityInitializer {
      * Handle soul collection phase
      */
     private boolean handleSoulCollection(UnifiedCollectionState state,
-                                         LlmCaller.UserConversationInfo conversationInfo,
+                                         UserConversationInfo conversationInfo,
                                          String userMessage) {
         String jobClawUserId = conversationInfo.jobClawUserId();
         // Check if we should initiate soul collection
@@ -138,7 +138,7 @@ public class UnifiedIdentityInitializer {
     /**
      * Handle user identity collection phase
      */
-    private boolean handleUserIdentityCollection(UnifiedCollectionState state, LlmCaller.UserConversationInfo conversationInfo,
+    private boolean handleUserIdentityCollection(UnifiedCollectionState state, UserConversationInfo conversationInfo,
                                                  String userMessage) {
         // Check if we should initiate user identity collection
         String jobClawUserId = conversationInfo.jobClawUserId();
@@ -186,7 +186,7 @@ public class UnifiedIdentityInitializer {
     /**
      * Handle info generation phase
      */
-    private boolean handleInfoGeneration(UnifiedCollectionState state, LlmCaller.UserConversationInfo userConversationInfo) {
+    private boolean handleInfoGeneration(UnifiedCollectionState state, UserConversationInfo userConversationInfo) {
         // Check if we should initiate info generation
         String jobClawUserId = userConversationInfo.jobClawUserId();
         if (userAgentInfoCollector.shouldInitiateCollection(jobClawUserId)) {

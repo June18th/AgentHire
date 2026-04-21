@@ -2,15 +2,15 @@ package com.git.hui.jobclaw.web.hook.interceptor;
 
 
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
-import com.git.hui.jobclaw.core.context.UserBo;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.UserBo;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.core.permission.Permission;
-import com.git.hui.jobclaw.core.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.UserService;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.web.hook.filter.BodyReaderHttpServletRequestWrapper;
-import com.git.hui.jobclaw.web.model.ResVo;
+import com.git.hui.jobclaw.core.apis.ResVo;
 import io.micrometer.common.util.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

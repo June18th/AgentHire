@@ -1,10 +1,10 @@
 package com.git.hui.jobclaw.web.controller.admin;
 
 import com.git.hui.jobclaw.core.permission.Permission;
-import com.git.hui.jobclaw.core.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.UserService;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.UserSearchReq;
 import com.git.hui.jobclaw.web.model.res.UserVo;
 import org.springframework.util.Assert;

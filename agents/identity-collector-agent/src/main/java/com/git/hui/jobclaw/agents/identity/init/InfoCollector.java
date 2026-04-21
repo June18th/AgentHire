@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.agents.identity.init;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 
 import java.util.Optional;
@@ -32,7 +33,7 @@ public interface InfoCollector {
      *
      * @param userConversationInfo user conversation info
      */
-    void initiateCollection(LlmCaller.UserConversationInfo userConversationInfo);
+    void initiateCollection(UserConversationInfo userConversationInfo);
 
     /**
      * Process user's answer and continue collection.
@@ -40,7 +41,7 @@ public interface InfoCollector {
      * @param userConversationInfo user conversation info
      * @param userMessage user's message
      */
-    void processAnswer(LlmCaller.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback);
+    void processAnswer(UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback);
 
     /**
      * Get collection state for a user.

@@ -3,7 +3,8 @@ package com.git.hui.jobclaw.agents.jobfetch.extract.impl;
 import cn.hutool.core.io.IoUtil;
 import com.git.hui.jobclaw.agents.jobfetch.extract.AbsJobExtractor;
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
@@ -40,7 +41,7 @@ public class CsvJobExtractor extends AbsJobExtractor {
     }
 
     @Override
-    public List<JobInfo> extractFromInput(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+    public List<FetchedJobInfo> extractFromInput(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         // 获取文件内容
         Pair<String, List<String>> pair = parseContentsFromCsv(loadTmpFile(message.getFiles().get(0)));
 
@@ -52,7 +53,7 @@ public class CsvJobExtractor extends AbsJobExtractor {
             contentsList.add(contents.subList(i, Math.min(i + pageSize, contents.size())));
         }
 
-        List<JobInfo> res = new ArrayList<>();
+        List<FetchedJobInfo> res = new ArrayList<>();
         for (List<String> sub : contentsList) {
             String builder = pair.getFirst() + "\n" + Joiner.on("\n").join(sub);
             var msgBuilder = ChannelReceiveMessage.builder()

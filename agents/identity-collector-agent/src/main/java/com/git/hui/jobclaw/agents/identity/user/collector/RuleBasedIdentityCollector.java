@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.agents.identity.init.CollectionState;
 import com.git.hui.jobclaw.agents.identity.init.InfoCollector;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityManager;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import org.slf4j.Logger;
@@ -132,7 +133,7 @@ public class RuleBasedIdentityCollector implements InfoCollector {
     }
 
     @Override
-    public void initiateCollection(LlmCaller.UserConversationInfo userConversationInfo) {
+    public void initiateCollection(UserConversationInfo userConversationInfo) {
         String jobClawUserId = userConversationInfo.jobClawUserId();
         if (!shouldInitiateCollection(jobClawUserId)) {
             log.debug("Skipping identity collection initiation for user: {}", jobClawUserId);
@@ -154,7 +155,7 @@ public class RuleBasedIdentityCollector implements InfoCollector {
     }
 
     @Override
-    public void processAnswer(LlmCaller.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
+    public void processAnswer(UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
         String jobClawUserId = userConversationInfo.jobClawUserId();
         CollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {

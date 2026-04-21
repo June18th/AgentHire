@@ -6,6 +6,7 @@ import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
@@ -109,7 +110,7 @@ public class UserAgentSoulCollector implements InfoCollector {
     }
 
     @Override
-    public void initiateCollection(LlmCaller.UserConversationInfo userConversationInfo) {
+    public void initiateCollection(UserConversationInfo userConversationInfo) {
         String jobClawUserId = userConversationInfo.jobClawUserId();
         String channel = userConversationInfo.channel();
         if (!shouldInitiateCollection(jobClawUserId)) {
@@ -136,7 +137,7 @@ public class UserAgentSoulCollector implements InfoCollector {
     }
 
     @Override
-    public void processAnswer(LlmCaller.UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
+    public void processAnswer(UserConversationInfo userConversationInfo, String userMessage, Runnable completeCallback) {
         var jobClawUserId = userConversationInfo.jobClawUserId();
         CollectionState state = collectionStates.get(jobClawUserId);
         if (state == null || !state.isInProgress()) {

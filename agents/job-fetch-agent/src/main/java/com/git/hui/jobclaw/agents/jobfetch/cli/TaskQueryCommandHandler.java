@@ -3,6 +3,7 @@ package com.git.hui.jobclaw.agents.jobfetch.cli;
 import com.git.hui.jobclaw.agents.jobfetch.service.JobFetchService;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.cli.SystemCommandHandler;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
@@ -34,7 +35,7 @@ public class TaskQueryCommandHandler implements SystemCommandHandler {
 
     @Override
     public boolean handle(ChannelReceiveMessage msg,
-                          LlmCaller.UserConversationInfo conversationInfo,
+                          UserConversationInfo conversationInfo,
                           String command,
                           Function<String, Boolean> process) {
         // 解析命令参数: /task [list|<taskId>]
@@ -59,7 +60,7 @@ public class TaskQueryCommandHandler implements SystemCommandHandler {
     /**
      * 处理任务列表查询
      */
-    private boolean handleListTasks(LlmCaller.UserConversationInfo conversationInfo,
+    private boolean handleListTasks(UserConversationInfo conversationInfo,
                                     Function<String, Boolean> process) {
         try {
             List<JobFetchTaskResponse> tasks = jobFetchService.listTasks(conversationInfo.jobClawUserId());
@@ -73,7 +74,7 @@ public class TaskQueryCommandHandler implements SystemCommandHandler {
     /**
      * 处理单个任务查询
      */
-    private boolean handleQueryTask(LlmCaller.UserConversationInfo conversationInfo,
+    private boolean handleQueryTask(UserConversationInfo conversationInfo,
                                     String taskId,
                                     Function<String, Boolean> process) {
         log.info("查询任务状态: userId={}, taskId={}", conversationInfo.jobClawUserId(), taskId);

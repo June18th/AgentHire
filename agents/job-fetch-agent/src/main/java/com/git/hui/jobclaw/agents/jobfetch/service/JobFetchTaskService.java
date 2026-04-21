@@ -3,12 +3,13 @@ package com.git.hui.jobclaw.agents.jobfetch.service;
 import com.git.hui.jobclaw.agents.jobfetch.crawler.JobCrawler;
 import com.git.hui.jobclaw.agents.jobfetch.extract.JobExtractor;
 import com.git.hui.jobclaw.agents.jobfetch.extract.impl.TextJobExtractor;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskEntity;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskStatus;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.service.repository.JobFetchTaskRepository;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +49,7 @@ public class JobFetchTaskService {
     /**
      * 创建URL抓取任务
      */
-    public JobFetchTaskResponse createUrlTask(LlmCaller.UserConversationInfo userConversationInfo,
+    public JobFetchTaskResponse createUrlTask(UserConversationInfo userConversationInfo,
                                               String url,
                                               ChannelReceiveMessage msg) {
         String taskId = generateTaskId();
@@ -76,7 +77,7 @@ public class JobFetchTaskService {
     /**
      * 创建文本/文件提取任务
      */
-    public JobFetchTaskResponse createTextOrFileTask(LlmCaller.UserConversationInfo userConversationInfo,
+    public JobFetchTaskResponse createTextOrFileTask(UserConversationInfo userConversationInfo,
                                                      String text,
                                                      String path,
                                                      ChannelReceiveMessage msg) {
@@ -127,7 +128,7 @@ public class JobFetchTaskService {
      */
     @Async
     public void executeUrlTaskAsync(JobFetchTaskEntity task,
-                                    LlmCaller.UserConversationInfo userConversationInfo,
+                                    UserConversationInfo userConversationInfo,
                                     String url,
                                     ChannelReceiveMessage msg) {
         String taskId = task.getTaskId();
@@ -138,7 +139,7 @@ public class JobFetchTaskService {
             log.info("开始执行URL抓取任务: {}", taskId);
 
             // 执行抓取
-            List<JobInfo> jobs = jobCrawler.crawl(userConversationInfo, url, msg.getMessage());
+            List<FetchedJobInfo> jobs = jobCrawler.crawl(userConversationInfo, url, msg.getMessage());
 
             // 更新任务成功
             int jobCount = jobs != null ? jobs.size() : 0;
@@ -160,7 +161,7 @@ public class JobFetchTaskService {
      */
     @Async
     public void executeTextOrFileTaskAsync(JobFetchTaskEntity task,
-                                           LlmCaller.UserConversationInfo userConversationInfo,
+                                           UserConversationInfo userConversationInfo,
                                            String text,
                                            String path,
                                            ChannelReceiveMessage msg) {
@@ -178,7 +179,7 @@ public class JobFetchTaskService {
             }
 
             // 执行提取
-            List<JobInfo> jobs = extractor.extractFromInput(userConversationInfo, msg);
+            List<FetchedJobInfo> jobs = extractor.extractFromInput(userConversationInfo, msg);
 
             // 更新任务成功
             int jobCount = jobs != null ? jobs.size() : 0;
@@ -314,7 +315,7 @@ public class JobFetchTaskService {
     /**
      * 推送任务结果
      */
-    private void pushTaskResult(JobFetchTaskEntity task, List<JobInfo> jobs) {
+    private void pushTaskResult(JobFetchTaskEntity task, List<FetchedJobInfo> jobs) {
         log.info("任务结果就绪,待推送: taskId={}, jobCount={}", task.getTaskId(),
                 jobs != null ? jobs.size() : 0);
     

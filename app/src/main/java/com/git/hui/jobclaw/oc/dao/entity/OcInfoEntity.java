@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.oc.dao.entity;
 
+import com.git.hui.jobclaw.core.apis.models.OcJobInfo;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -22,7 +23,7 @@ import java.util.Date;
 // 动态更新字段
 @DynamicUpdate
 @Entity(name = "oc_info")
-public class OcInfoEntity {
+public class OcInfoEntity implements OcJobInfo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

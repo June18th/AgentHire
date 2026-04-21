@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.tasks;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import org.jobrunr.jobs.annotations.Job;
@@ -42,7 +43,7 @@ public class TaskHandler {
             LOGGER.info("Starting task: {}", task);
             String agentInput = formatTaskForAgent(inProgress);
             TaskResult result = agent.prompt(
-                    new LlmCaller.UserConversationInfo(task.getJobClawUserId(), null, task.getId()),
+                    new UserConversationInfo(task.getJobClawUserId(), null, task.getId()),
                     agentInput,
                     TaskResult.class);
             taskRepository.save(inProgress.withFeedback(result.feedback()).withStatus(result.newStatus()));

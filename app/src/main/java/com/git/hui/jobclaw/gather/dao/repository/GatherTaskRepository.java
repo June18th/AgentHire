@@ -2,7 +2,7 @@
 package com.git.hui.jobclaw.gather.dao.repository;
 
 import com.git.hui.jobclaw.gather.dao.entity.GatherTaskEntity;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.GatherTaskSearchReq;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;

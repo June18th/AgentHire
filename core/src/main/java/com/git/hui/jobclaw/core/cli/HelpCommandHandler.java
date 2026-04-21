@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.cli;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
@@ -20,7 +21,7 @@ import java.util.function.Function;
 public class HelpCommandHandler implements SystemCommandHandler {
 
     @Override
-    public boolean handle(ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
+    public boolean handle(ChannelReceiveMessage msg, UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
         String helpText = SpringUtil.getBean(SystemCommandDispatcher.class).getAllCommandDescriptions();
         return process.apply(String.format("""
                 您好！我是求职派助手，请问有什么可以帮助您的？

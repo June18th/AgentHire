@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelBinder;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
@@ -69,7 +70,7 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
     }
 
     @Override
-    public String process(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+    public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         ChatClient client = getChatClient(userConversationInfo.jobClawUserId());
         return client.prompt(message.getMessage())
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
@@ -79,7 +80,7 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
     }
 
     @Override
-    public Flux<LlmRspCell> stream(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+    public Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         ChatClient client = getChatClient(userConversationInfo.jobClawUserId());
         return client.prompt(message.getMessage())
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))

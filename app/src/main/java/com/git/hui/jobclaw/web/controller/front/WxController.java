@@ -3,7 +3,7 @@ package com.git.hui.jobclaw.web.controller.front;
 import cn.hutool.core.util.NumberUtil;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.core.permission.Permission;
-import com.git.hui.jobclaw.core.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.helper.WxLoginProperties;
 import com.git.hui.jobclaw.user.service.LoginService;
 import com.git.hui.jobclaw.user.service.RechargeService;

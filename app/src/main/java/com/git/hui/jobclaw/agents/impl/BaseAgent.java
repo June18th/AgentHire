@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.agents.impl;
 
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 

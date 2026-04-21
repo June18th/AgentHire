@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.web.model.res;
 
-import com.git.hui.jobclaw.core.context.UserBo;
+import com.git.hui.jobclaw.core.apis.context.UserBo;
 
 /**
  * @author YiHui

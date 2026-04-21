@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.core.cli;
 
 import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.AgentRegistry;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
@@ -33,7 +34,7 @@ public class CurrentAgentCommandHandler implements SystemCommandHandler {
     }
 
     @Override
-    public boolean handle(ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
+    public boolean handle(ChannelReceiveMessage msg, UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
         Optional<SessionAgentBinder.BoundAgentInfo> boundAgent = sessionBinder.getBoundAgent(conversationInfo.jobClawUserId(),
                 conversationInfo.conversationId());
 

@@ -2,7 +2,7 @@
 package com.git.hui.jobclaw.user.dao.repository;
 
 import com.git.hui.jobclaw.user.dao.entity.UserEntity;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.UserSearchReq;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;

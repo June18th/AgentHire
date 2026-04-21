@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.utils.FileUtils;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
@@ -102,7 +102,7 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
             List<Message> managedMessages = smartWindow.manage(allMessages);
 
             // Inject summary if available
-            String summary = sessionSummarizer.getSummaryInfo(LlmCaller.UserConversationInfo.parse(conversationId));
+            String summary = sessionSummarizer.getSummaryInfo(UserConversationInfo.parse(conversationId));
             if (summary != null && !summary.isBlank()) {
                 Message summaryMessage = sessionSummarizer.createSummaryMessage(summary);
                 if (summaryMessage != null) {
@@ -149,7 +149,7 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
 
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
-        LlmCaller.UserConversationInfo conversation = LlmCaller.UserConversationInfo.parse(conversationId);
+        UserConversationInfo conversation = UserConversationInfo.parse(conversationId);
         Path file = resolveFile(conversationId);
         FileUtils.ensureDirectory(file.getParent());
 
@@ -196,7 +196,7 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
      */
     private Path resolveFile(String conversationId) {
         // 按照约定，原始的conversationId 是按照 jobClawUerId-ConversationId 的格式进行组装的，所以我们首先进行解析，将会话的JobClawUserId依然保存，用于用户会话的隔离
-        LlmCaller.UserConversationInfo userConversation = LlmCaller.UserConversationInfo.parse(conversationId);
+        UserConversationInfo userConversation = UserConversationInfo.parse(conversationId);
         // 为了避免会话的字符串格式异常，我们统一进行md5操作
         String md5 = MD5Utils.md5(userConversation.conversationId());
         return conversationsDir.resolve(userConversation.jobClawUserId()).resolve("chat-" + userConversation.channel() + "-" + md5 + ".yaml");

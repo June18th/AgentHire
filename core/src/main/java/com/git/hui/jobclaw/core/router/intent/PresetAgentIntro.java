@@ -136,6 +136,12 @@ public enum PresetAgentIntro implements BizAgent.AgentIntro {
     TASK_QUERY("task_query", "查询任务状态", "查询职位抓取任务进度", "/task"),
 
     /**
+     * DRAFT_PUBLISH: 发布职位草稿
+     * 触发场景：用户通过/publishDrafts命令发布审核通过的职位草稿
+     */
+    DRAFT_PUBLISH("draft_publish", "发布职位草稿", "将审核通过的职位草稿发布到正式库", "/publishDrafts"),
+
+    /**
      * UNKNOWN: 未知意图
      * 触发场景：无法识别用户意图
      */

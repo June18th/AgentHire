@@ -20,5 +20,6 @@
     </properties>
     <modules>
         <module>playwright</module>
+        <module>job-library</module>
     </modules>
 </project>

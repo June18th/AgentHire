@@ -1,12 +1,14 @@
 package com.git.hui.jobclaw.configs.service;
 
-import com.git.hui.jobclaw.core.bizexception.BizException;
-import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.configs.dao.entity.CommonDictEntity;
 import com.git.hui.jobclaw.configs.dao.repository.CommonDictRepository;
 import com.git.hui.jobclaw.constants.common.BaseStateEnum;
 import com.git.hui.jobclaw.constants.common.SiteConstants;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
+import com.git.hui.jobclaw.core.apis.models.CommonDict;
+import com.git.hui.jobclaw.core.apis.service.ICommonDictService;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.web.model.req.DictSaveReq;
 import com.git.hui.jobclaw.web.model.req.DictSearchReq;
 import com.git.hui.jobclaw.web.model.res.CommonDictVo;
@@ -28,7 +30,7 @@ import java.util.Optional;
  */
 @Slf4j
 @Service
-public class CommonDictService {
+public class CommonDictService implements ICommonDictService {
 
     private final CommonDictRepository commonDictRepository;
 
@@ -154,5 +156,14 @@ public class CommonDictService {
             return false;
         }
         return SiteConstants.ENV_PROD.equalsIgnoreCase(dict.items().get(0).value());
+    }
+
+    @Override
+    public List<CommonDict> queryByApp(String app) {
+        List<CommonDictEntity> list = commonDictRepository.findByAppAndState(app, BaseStateEnum.NORMAL_STATE.getValue());
+        if (list != null && !list.isEmpty()) {
+            return new ArrayList<>(list);
+        }
+        return List.of();
     }
 }

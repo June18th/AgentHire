@@ -1,9 +1,10 @@
 package com.git.hui.jobclaw.agents.jobfetch.extract;
 
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.util.GatherResFormat;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +45,7 @@ public abstract class AbsJobExtractor implements JobExtractor {
 
     protected final Resource promptResource;
 
-    protected BeanOutputConverter<ArrayList<JobInfo>> gatherResConverter;
+    protected BeanOutputConverter<ArrayList<FetchedJobInfo>> gatherResConverter;
 
     public AbsJobExtractor(JobLlmCaller jobLlmCaller,
                            Resource promptResource) {
@@ -59,7 +60,7 @@ public abstract class AbsJobExtractor implements JobExtractor {
      * 实现原理：基于 chatModel, 借助 ChatMemory 自动实现多轮对话，
      */
     @Override
-    public List<JobInfo> extractFromInput(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+    public List<FetchedJobInfo> extractFromInput(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         // 创建 memory 实例，保存上下文
         ChatMemory chatMemory = MessageWindowChatMemory
                 .builder()
@@ -155,9 +156,9 @@ public abstract class AbsJobExtractor implements JobExtractor {
     }
 
 
-    private JobInfo toBo(String item) {
+    private FetchedJobInfo toBo(String item) {
         try {
-            return JsonUtil.toObj(item, JobInfo.class);
+            return JsonUtil.toObj(item, FetchedJobInfo.class);
         } catch (Exception e) {
             log.warn("解析异常: {}", item, e);
         }

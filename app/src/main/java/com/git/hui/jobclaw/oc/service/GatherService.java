@@ -1,8 +1,8 @@
 package com.git.hui.jobclaw.oc.service;
 
 import com.git.hui.jobclaw.agents.jobfetch.service.JobInfoPersistService;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.DraftEntity;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedDraftEntity;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.constants.oc.DraftProcessEnum;
 import com.git.hui.jobclaw.constants.oc.DraftStateEnum;
 import com.git.hui.jobclaw.constants.oc.OcStateEnum;
@@ -12,7 +12,7 @@ import com.git.hui.jobclaw.oc.dao.entity.OcInfoEntity;
 import com.git.hui.jobclaw.oc.dao.repository.OcDraftRepository;
 import com.git.hui.jobclaw.oc.dao.repository.OcRepository;
 import com.git.hui.jobclaw.oc.helper.OcInfoTransfer;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.DraftOcUpdateReq;
 import com.git.hui.jobclaw.web.model.req.DraftSearchReq;
 import com.git.hui.jobclaw.web.model.res.GatherVo;
@@ -61,7 +61,7 @@ public class GatherService implements JobInfoPersistService {
 
 
     @Override
-    public List<DraftEntity> listToBePublished(int size) {
+    public List<FetchedDraftEntity> listToBePublished(int size) {
         // 从db中，找到最近一个需要审核的数据
         DraftSearchReq req = new DraftSearchReq();
         req.setPage(1);
@@ -73,7 +73,7 @@ public class GatherService implements JobInfoPersistService {
     }
 
     @Override
-    public boolean updateDraft(long id, JobInfo jobInfo) {
+    public boolean updateDraft(long id, FetchedJobInfo jobInfo) {
         OcDraftEntity entity = draftRepository.findById(id).orElse(null);
         if (entity != null) {
             // 覆盖数据，只有jobInfo的字段有数据时，才进行覆盖
@@ -138,7 +138,7 @@ public class GatherService implements JobInfoPersistService {
     }
 
     @Override
-    public SaveRes save(List<JobInfo> jobInfos) {
+    public SaveRes save(List<FetchedJobInfo> jobInfos) {
         if (jobInfos == null || jobInfos.isEmpty()) {
             return new SaveRes(0, 0);
         }

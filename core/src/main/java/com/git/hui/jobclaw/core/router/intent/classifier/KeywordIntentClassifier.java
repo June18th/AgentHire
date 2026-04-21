@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.router.intent.classifier;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.cli.SystemCommandDispatcher;
 import com.git.hui.jobclaw.core.router.intent.IntentClassifier;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
@@ -87,7 +88,7 @@ public class KeywordIntentClassifier implements IntentClassifier {
     }
 
     @Override
-    public IntentClassificationRes classify(LlmCaller.UserConversationInfo userConversationInfo, String message, List<String> conversationHistory) {
+    public IntentClassificationRes classify(UserConversationInfo userConversationInfo, String message, List<String> conversationHistory) {
         if (message == null || message.isBlank()) {
             return IntentClassificationRes.unknown("空消息");
         }

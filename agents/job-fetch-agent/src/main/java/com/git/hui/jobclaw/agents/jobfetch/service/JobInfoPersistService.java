@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.agents.jobfetch.service;
 
-import com.git.hui.jobclaw.agents.jobfetch.service.model.DraftEntity;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedDraftEntity;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 
 import java.util.List;
 
@@ -13,11 +13,11 @@ import java.util.List;
  */
 public interface JobInfoPersistService {
 
-    SaveRes save(List<JobInfo> jobInfos);
+    SaveRes save(List<FetchedJobInfo> jobInfos);
 
-    List<DraftEntity> listToBePublished(int size);
+    List<FetchedDraftEntity> listToBePublished(int size);
 
-    boolean updateDraft(long id, JobInfo jobInfo);
+    boolean updateDraft(long id, FetchedJobInfo jobInfo);
 
     /**
      * 将草稿发布到正式库

@@ -15,6 +15,7 @@
     <modules>
         <module>identity-collector-agent</module>
         <module>job-fetch-agent</module>
+        <module>job-recommend-agent</module>
     </modules>
 
     <properties>

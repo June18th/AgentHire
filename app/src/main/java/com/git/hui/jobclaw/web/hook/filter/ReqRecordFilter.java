@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.web.hook.filter;
 
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
-import com.git.hui.jobclaw.core.context.UserBo;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.UserBo;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.constants.user.LoginConstants;
 import com.git.hui.jobclaw.openapi.PaiCodingLoginHelper;

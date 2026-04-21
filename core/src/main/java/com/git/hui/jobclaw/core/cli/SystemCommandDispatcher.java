@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.cli;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import lombok.extern.slf4j.Slf4j;
@@ -78,7 +79,7 @@ public class SystemCommandDispatcher {
      * @param message 用户消息
      * @return 响应文本，如果无法处理则返回空
      */
-    public boolean executeCommand(ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo, String message, Function<String, Boolean> process) {
+    public boolean executeCommand(ChannelReceiveMessage msg, UserConversationInfo conversationInfo, String message, Function<String, Boolean> process) {
         if (!isSystemCommand(message)) {
             return false;
         }

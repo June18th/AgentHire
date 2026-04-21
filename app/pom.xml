@@ -56,6 +56,11 @@
             <artifactId>playwright</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.git.hui.jobclaw.plugins</groupId>
+            <artifactId>job-library</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
 
         <!-- agents -->
@@ -67,6 +72,11 @@
         <dependency>
             <groupId>com.git.hui.jobclaw.agents</groupId>
             <artifactId>job-fetch-agent</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.git.hui.jobclaw.agents</groupId>
+            <artifactId>job-recommend-agent</artifactId>
             <version>${project.version}</version>
         </dependency>
 

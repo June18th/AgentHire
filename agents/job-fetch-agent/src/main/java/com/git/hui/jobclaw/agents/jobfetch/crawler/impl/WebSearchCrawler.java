@@ -2,8 +2,9 @@ package com.git.hui.jobclaw.agents.jobfetch.crawler.impl;
 
 import com.git.hui.jobclaw.agents.jobfetch.crawler.JobCrawler;
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.converter.BeanOutputConverter;
@@ -25,7 +26,7 @@ public class WebSearchCrawler implements JobCrawler {
 
     protected final JobLlmCaller jobLlmCaller;
 
-    protected BeanOutputConverter<ArrayList<JobInfo>> gatherResConverter;
+    protected BeanOutputConverter<ArrayList<FetchedJobInfo>> gatherResConverter;
     protected final Resource promptResource;
 
     public WebSearchCrawler(JobLlmCaller jobLlmCaller,
@@ -52,7 +53,7 @@ public class WebSearchCrawler implements JobCrawler {
     }
 
     @Override
-    public List<JobInfo> crawl(LlmCaller.UserConversationInfo userConversationInfo, String url, String originMsg) {
+    public List<FetchedJobInfo> crawl(UserConversationInfo userConversationInfo, String url, String originMsg) {
         log.info("开始爬取URL! {} -> {}", originMsg, url);
         return List.of();
     }

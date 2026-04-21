@@ -1,6 +1,8 @@
 package com.git.hui.jobclaw.core.cli;
 
+import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.AgentRegistry;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
@@ -37,17 +39,40 @@ public class SwitchAgentCommandHandler implements SystemCommandHandler {
     }
 
     @Override
-    public boolean handle(ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
+    public boolean handle(ChannelReceiveMessage msg, UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
         // 检查Agent切换命令，绑定到新的Agent，并返回
         Optional<String> targetAgentId = parseAgentSwitchCommand(msg.getMessage());
+        if (targetAgentId.isPresent() && "list".equalsIgnoreCase(targetAgentId.get())) {
+            return process.apply(showAgentList());
+        }
+
         if (targetAgentId.isPresent() && agentRegistry.hasAgent(targetAgentId.get())) {
             sessionBinder.bind(conversationInfo.jobClawUserId(), conversationInfo.conversationId(), targetAgentId.get());
             var agentIntro = agentRegistry.getAgent(targetAgentId.get()).get().getAgentIntro();
             String text = "已为您切换到 " + agentIntro.getAgentId() + "\n\n将为您提供以下支持:\n" + agentIntro.getDescription();
             return process.apply(text);
         }
-        // 无效的Agent ID，继续意图识别
-        return false;
+
+        // 无效的Agent ID，返回当前的Agent列表，让用户重新选择
+        return process.apply(showAgentList());
+    }
+
+    private String showAgentList() {
+        // 表示查询所有Agent
+        var agents = agentRegistry.getAllAgents();
+        StringBuilder sb = new StringBuilder();
+        sb.append("📋 当前可用的 Agent 列表：\n\n");
+        for (int i = 0; i < agents.size(); i++) {
+            BizAgent agent = agents.get(i);
+            var intro = agent.getAgentIntro();
+            sb.append(String.format("%d. **%s**\n\n", i + 1, intro.getAgentId()));
+            sb.append(String.format("   %s\n\n", intro.getIntro()));
+            if (i < agents.size() - 1) {
+                sb.append("\n");
+            }
+        }
+        sb.append("\n💡 提示：使用 `/agent <名称>` 命令可以切换到指定Agent");
+        return sb.toString();
     }
 
     @Override

@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.web.model.req;
+package com.git.hui.jobclaw.core.apis;
 
 import lombok.Data;
 

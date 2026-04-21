@@ -3,7 +3,7 @@ package com.git.hui.jobclaw.channels;
 import com.git.hui.jobclaw.core.channel.ChannelBinder;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
-import com.git.hui.jobclaw.core.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.core.permission.Permission;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RequestMapping;

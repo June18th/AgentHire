@@ -1,10 +1,10 @@
 package com.git.hui.jobclaw.oc.mcp;
 
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import com.git.hui.jobclaw.oc.mcp.model.McpReqDto;
 import com.git.hui.jobclaw.oc.service.OcService;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.OcSearchReq;
 import com.git.hui.jobclaw.web.model.res.OcVo;
 import lombok.extern.slf4j.Slf4j;

@@ -4,7 +4,7 @@ package com.git.hui.jobclaw.user.dao.repository;
 import com.git.hui.jobclaw.constants.user.RechargeStatusEnum;
 import com.git.hui.jobclaw.user.dao.entity.RechargeEntity;
 import com.git.hui.jobclaw.user.model.RechargeCnt;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.CouponSearchReq;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.criteria.Predicate;

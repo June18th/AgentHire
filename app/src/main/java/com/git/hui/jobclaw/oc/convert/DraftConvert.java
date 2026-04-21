@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.oc.convert;
 
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.gather.model.GatherOcDraftBo;
 import com.git.hui.jobclaw.oc.dao.entity.OcDraftEntity;
 import org.springframework.util.CollectionUtils;
@@ -44,7 +44,7 @@ public class DraftConvert {
     }
 
 
-    public static OcDraftEntity covert(JobInfo jobInfo) {
+    public static OcDraftEntity covert(FetchedJobInfo jobInfo) {
         return new OcDraftEntity()
                 .setCompanyName(jobInfo.getCompanyName())
                 .setCompanyType(jobInfo.getCompanyType())

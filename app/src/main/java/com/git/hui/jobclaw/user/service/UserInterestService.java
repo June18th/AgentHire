@@ -1,14 +1,14 @@
 package com.git.hui.jobclaw.user.service;
 
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import com.git.hui.jobclaw.gather.service.ai.OcAiModelContext;
 import com.git.hui.jobclaw.oc.helper.OcInfoTransfer;
 import com.git.hui.jobclaw.user.convert.UserConvert;
 import com.git.hui.jobclaw.user.dao.entity.UserInterestEntity;
 import com.git.hui.jobclaw.user.dao.repository.UserInterestRepository;
 import com.git.hui.jobclaw.user.model.UserInterestBo;
-import com.git.hui.jobclaw.web.model.req.PageReq;
-import com.git.hui.jobclaw.web.model.req.UserInterestRecommendReq;
+import com.git.hui.jobclaw.core.apis.PageReq;
+import com.git.hui.jobclaw.core.apis.req.UserInterestRecommendReq;
 import com.git.hui.jobclaw.web.model.res.UserInterestVo;
 import com.google.common.base.Splitter;
 import io.micrometer.common.util.StringUtils;

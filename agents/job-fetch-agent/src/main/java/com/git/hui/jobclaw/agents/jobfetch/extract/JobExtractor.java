@@ -1,7 +1,8 @@
 package com.git.hui.jobclaw.agents.jobfetch.extract;
 
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 
 import java.util.List;
@@ -36,6 +37,6 @@ public interface JobExtractor {
      * @param message 文本内容
      * @return 职位信息列表
      */
-    List<JobInfo> extractFromInput(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message);
+    List<FetchedJobInfo> extractFromInput(UserConversationInfo userConversationInfo, ChannelReceiveMessage message);
 
 }

@@ -13,7 +13,7 @@ import java.io.Serializable;
  * @date 2026/4/18
  */
 @Data
-public class JobInfo implements Serializable {
+public class FetchedJobInfo implements Serializable {
 
     /**
      * 公司名称

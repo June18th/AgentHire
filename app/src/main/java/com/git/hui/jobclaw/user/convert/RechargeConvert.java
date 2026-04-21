@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.user.convert;
 
-import com.git.hui.jobclaw.core.context.UserBo;
+import com.git.hui.jobclaw.core.apis.context.UserBo;
 import com.git.hui.jobclaw.user.dao.entity.RechargeEntity;
 import com.git.hui.jobclaw.util.PriceUtil;
 import com.git.hui.jobclaw.web.model.res.CouponUseRecordVo;

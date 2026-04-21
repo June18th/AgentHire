@@ -2,9 +2,9 @@ package com.git.hui.jobclaw.oc.dao.repository;
 
 import com.git.hui.jobclaw.constants.common.BaseStateEnum;
 import com.git.hui.jobclaw.oc.dao.entity.OcInfoEntity;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.OcSearchReq;
-import com.git.hui.jobclaw.web.model.req.UserInterestRecommendReq;
+import com.git.hui.jobclaw.core.apis.req.UserInterestRecommendReq;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

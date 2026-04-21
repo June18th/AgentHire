@@ -2,8 +2,8 @@ package com.git.hui.jobclaw.web.hook.extend;
 
 import cn.hutool.core.exceptions.ExceptionUtil;
 import com.git.hui.jobclaw.core.bizexception.BizException;
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
-import com.git.hui.jobclaw.web.model.ResVo;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.ResVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;

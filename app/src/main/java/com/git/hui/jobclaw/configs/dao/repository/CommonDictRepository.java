@@ -1,10 +1,9 @@
 
 package com.git.hui.jobclaw.configs.dao.repository;
 
-import ch.qos.logback.core.util.StringCollectionUtil;
 import com.git.hui.jobclaw.configs.dao.entity.CommonDictEntity;
 import com.git.hui.jobclaw.constants.common.BaseStateEnum;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.DictSearchReq;
 import io.micrometer.common.util.StringUtils;
 import jakarta.persistence.criteria.Predicate;
@@ -32,6 +31,7 @@ public interface CommonDictRepository extends JpaRepository<CommonDictEntity, Lo
 
     CommonDictEntity findFirstByAppAndKeyAndValue(String app, String key, String value);
 
+    List<CommonDictEntity> findByAppAndState(String app, Integer state);
 
 
     default PageListVo<CommonDictEntity> findList(DictSearchReq req) {

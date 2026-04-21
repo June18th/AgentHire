@@ -4,7 +4,7 @@ import com.git.hui.jobclaw.agents.impl.DraftPublishAgent;
 import com.git.hui.jobclaw.agents.impl.DraftWasherAgent;
 import com.git.hui.jobclaw.agents.impl.TaskClassifyAgent;
 import com.git.hui.jobclaw.agents.impl.TaskGatherAgent;
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import com.git.hui.jobclaw.gather.dao.entity.GatherTaskEntity;
 import com.git.hui.jobclaw.web.model.res.GatherVo;
 import lombok.extern.slf4j.Slf4j;

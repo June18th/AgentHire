@@ -66,7 +66,18 @@ public class DefaultAgentRegistry implements AgentRegistry {
         if (agentId == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(agents.get(agentId));
+        agentId = agentId.trim();
+        var agent = agents.get(agentId);
+        if (agent != null) {
+            return Optional.of(agent);
+        }
+        // 忽略大小写，看是否能找到对应的Agent
+        for (Map.Entry<String, BizAgent> entry : agents.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(agentId)) {
+                return Optional.of(entry.getValue());
+            }
+        }
+        return Optional.empty();
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.git.hui.jobclaw.core.agent.impl;
 import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.cli.SystemCommandDispatcher;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
@@ -44,7 +45,7 @@ public class SimpleDefaultBizAgent implements BizAgent {
     }
 
     @Override
-    public String process(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+    public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         String userMessage = message.getMessage();
 
 
@@ -60,7 +61,7 @@ public class SimpleDefaultBizAgent implements BizAgent {
     }
 
     @Override
-    public Flux<LlmRspCell> stream(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+    public Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         return llmCaller.streamResponse(userConversationInfo, message);
     }
 

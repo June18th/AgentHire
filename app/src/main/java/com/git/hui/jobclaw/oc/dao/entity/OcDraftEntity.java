@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.oc.dao.entity;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.DraftEntity;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedDraftEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -11,7 +11,6 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.util.Date;
-import java.util.Optional;
 
 /**
  * ai获取的草稿数据，通常需要进一步进行处理
@@ -22,7 +21,7 @@ import java.util.Optional;
 @Data
 @Accessors(chain = true)
 @Entity(name = "draft_oc")
-public class OcDraftEntity implements DraftEntity {
+public class OcDraftEntity implements FetchedDraftEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

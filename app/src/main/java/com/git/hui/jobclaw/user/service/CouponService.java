@@ -7,7 +7,7 @@ import com.git.hui.jobclaw.user.convert.CouponConvert;
 import com.git.hui.jobclaw.user.dao.entity.CouponEntity;
 import com.git.hui.jobclaw.user.dao.repository.CouponRepository;
 import com.git.hui.jobclaw.util.RandUtil;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.CouponSaveReq;
 import com.git.hui.jobclaw.web.model.req.CouponSearchReq;
 import com.git.hui.jobclaw.web.model.res.CouponVo;

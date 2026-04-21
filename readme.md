@@ -135,9 +135,11 @@ v2 版本，新增模块：
 迭代计划：
 
 - [x] 2026/04/21
-  - [x] 飞书支持传图、文件
+  - [x] 飞书支持传图、传文件，然后基于图片、文件做职位信息提取
   - [x] JobFetchAgent 抓取结果保存到 oc_draft
-  - [ ] 新增抓取数据审核，自动入库的业务Agent
+  - [x] JobFetchAgent 新增抓取数据审核，自动入库的交互流程
+  - [x] 新增 JobLibraryTool，支持基于oc库的岗位信息检索
+  - [x] 封装 jobRecommendAgent 用于岗位推荐
 - [x] 2026/04/20
   - [x] 封装提取岗位的 JobFetchAgent
   - [x] 完成text/markdown/html/excel/csv等文本自动提取职位信息

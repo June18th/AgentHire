@@ -3,10 +3,11 @@ package com.git.hui.jobclaw.agents.jobfetch;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.git.hui.jobclaw.agents.jobfetch.service.JobFetchService;
 import com.git.hui.jobclaw.agents.jobfetch.service.JobInfoPersistService;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.DraftEntity;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedDraftEntity;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
@@ -76,7 +77,7 @@ public class JobAgentTools {
             ToolContext toolContext) {
         log.info("工具调用：从 URL爬取职位信息 - {}", url);
         ChannelReceiveMessage msg = (ChannelReceiveMessage) toolContext.getContext().get("msg");
-        LlmCaller.UserConversationInfo userConversationInfo = (LlmCaller.UserConversationInfo) toolContext.getContext().get("conversation");
+        UserConversationInfo userConversationInfo = (UserConversationInfo) toolContext.getContext().get("conversation");
         JobFetchTaskResponse taskResponse = jobFetchService.fetchFromUrl(userConversationInfo, url, msg);
         return buildTaskCreatedMessage(taskResponse, "网页");
     }
@@ -137,7 +138,7 @@ public class JobAgentTools {
             ToolContext toolContext) {
         log.info("工具调用：从文本提取职位信息，文本: {}, 文件: {}", text == null ? "-" : text.length(), path);
         ChannelReceiveMessage msg = (ChannelReceiveMessage) toolContext.getContext().get("msg");
-        LlmCaller.UserConversationInfo userConversationInfo = (LlmCaller.UserConversationInfo) toolContext.getContext().get("conversation");
+        UserConversationInfo userConversationInfo = (UserConversationInfo) toolContext.getContext().get("conversation");
         JobFetchTaskResponse taskResponse = jobFetchService.fetchFromTextOrLocalFile(userConversationInfo, text, path, msg);
         String sourceType = (text != null && !text.isBlank()) ? "文本" : "文件/图片";
         var ans = buildTaskCreatedMessage(taskResponse, sourceType);
@@ -184,7 +185,7 @@ public class JobAgentTools {
         log.info("工具调用：查询待发布草稿, size={}", size);
 
         // 为了简化操作，最多只返回2条
-        List<DraftEntity> drafts = jobInfoPersistService.listToBePublished(Math.min(size, 2));
+        List<FetchedDraftEntity> drafts = jobInfoPersistService.listToBePublished(Math.min(size, 2));
 
         if (drafts == null || drafts.isEmpty()) {
             return "✅ 暂无待审核的职位草稿\n\n💡 提示:\n\n• 当前没有新抓取的职位信息\n\n• 可以发送URL或文件来抓取新的职位";
@@ -194,26 +195,69 @@ public class JobAgentTools {
         sb.append(String.format("📋 待审核职位草稿 (共 %d 条)\n\n", drafts.size()));
 
         for (int i = 0; i < drafts.size(); i++) {
-            DraftEntity draft = drafts.get(i);
+            FetchedDraftEntity draft = drafts.get(i);
             sb.append(String.format("%d. **ID: %d**\n\n", i + 1, draft.getId()));
-            sb.append(String.format("   公司: %s\n\n", draft.getCompanyName()));
-            sb.append(String.format("   岗位: %s\n\n", draft.getPosition()));
-            sb.append(String.format("   地点: %s\n\n", draft.getJobLocation()));
-            sb.append(String.format("   类型: %s | 对象: %s\n\n", draft.getRecruitmentType(), draft.getRecruitmentTarget()));
-            if (draft.getSalary() != null && !draft.getSalary().isBlank()) {
-                sb.append(String.format("   薪资: %s\n\n", draft.getSalary()));
+
+            // 基本信息
+            sb.append("📌 **基本信息**:\n\n");
+            sb.append(String.format("   • 公司: %s\n\n", draft.getCompanyName() != null ? draft.getCompanyName() : "-"));
+            sb.append(String.format("   • 类型: %s\n\n", draft.getCompanyType() != null && !draft.getCompanyType().isBlank() ? draft.getCompanyType() : "-"));
+            sb.append(String.format("   • 行业: %s\n\n",
+                    draft.getCompanyIndustry() != null && !draft.getCompanyIndustry().isBlank() ? draft.getCompanyIndustry() : "-"));
+            sb.append("\n\n");
+
+            // 职位信息
+            sb.append("💼 **职位信息**:\n\n");
+            sb.append(String.format("   • 岗位: %s\n\n", draft.getPosition() != null ? draft.getPosition() : "-"));
+            sb.append(String.format("   • 地点: %s\n\n", draft.getJobLocation() != null ? draft.getJobLocation() : "-"));
+            sb.append(String.format("   • 薪资: %s\n\n", draft.getSalary() != null && !draft.getSalary().isBlank() ? draft.getSalary() : "-"));
+            sb.append("\n\n");
+
+            // 招聘要求
+            sb.append("🎯 **招聘要求**:\n\n");
+            sb.append(String.format("   • 类型: %s\n\n", draft.getRecruitmentType() != null ? draft.getRecruitmentType() : "-"));
+            sb.append(String.format("   • 对象: %s\n\n", draft.getRecruitmentTarget() != null ? draft.getRecruitmentTarget() : "-"));
+            sb.append(String.format("   • 学历: %s\n\n", draft.getEducation() != null && !draft.getEducation().isBlank() ? draft.getEducation() : "-"));
+            sb.append(String.format("   • 经验: %s\n\n", draft.getExperience() != null && !draft.getExperience().isBlank() ? draft.getExperience() : "-"));
+            sb.append("\n\n");
+
+            // 时间信息
+            sb.append("📅 **时间信息**:\n\n");
+            sb.append(String.format("   • 更新: %s\n\n",
+                    draft.getLastUpdatedTime() != null && !draft.getLastUpdatedTime().isBlank() ? draft.getLastUpdatedTime() : "-"));
+            sb.append(String.format("   • 截止: %s\n\n", draft.getDeadline() != null && !draft.getDeadline().isBlank() ? draft.getDeadline() : "-"));
+            sb.append(String.format("   • 进度: %s\n\n",
+                    draft.getDeliveryProgress() != null && !draft.getDeliveryProgress().isBlank() ? draft.getDeliveryProgress() : "-"));
+            sb.append("\n\n");
+
+            // 其他信息
+            StringBuilder otherInfo = new StringBuilder();
+            if (draft.getRelatedLink() != null && !draft.getRelatedLink().isBlank()) {
+                otherInfo.append(String.format("   • 链接: %s\n\n", draft.getRelatedLink()));
+            } else {
+                otherInfo.append("   • 链接: 无%s\n\n");
             }
-            if (draft.getEducation() != null && !draft.getEducation().isBlank()) {
-                sb.append(String.format("   学历: %s\n\n", draft.getEducation()));
+            if (draft.getInternalReferralCode() != null && !draft.getInternalReferralCode().isBlank()) {
+                otherInfo.append(String.format("   • 内推码: %s\n\n", draft.getInternalReferralCode()));
+            } else {
+                otherInfo.append("   • 内推码: 无%s\n\n");
             }
+            if (draft.getRemarks() != null && !draft.getRemarks().isBlank()) {
+                otherInfo.append(String.format("   • 备注: %s\n\n", draft.getRemarks()));
+            }
+
+            sb.append("\n📝 **其他信息**:\n\n");
+            sb.append(otherInfo);
             sb.append("\n");
+
+            // 分隔线
+            sb.append("---\n\n");
         }
 
-        sb.append("---\n\n");
-        sb.append("💡 操作提示:\n");
+        sb.append("💡 操作提示:\n\n");
         sb.append("• 使用 `/updateDraft <ID>` 修改某条草稿信息\n\n");
         sb.append("• 使用 `/publishDrafts <ID1,ID2,...>` 发布选中的草稿\n\n");
-        sb.append("• 例如: `/publishDrafts 1,2,3` 发布前3条草稿");
+        sb.append("• 例如: `/publishDrafts 2,3` 发布id=2,3的岗位");
 
         return sb.toString();
     }
@@ -226,11 +270,13 @@ public class JobAgentTools {
             - 补充字段: "补充学历要求"、"添加工作地点"、"完善信息"
             - 纠正错误: "公司名错了"、"岗位名称不对"、"地点有误"
             - 调整内容: "改一下这个"、"调整为..."、"换成..."
+            - 命令触发: 用户使用 `/updateDraft <ID>` 命令
                         
             **使用场景**:
             1. 审查草稿时发现信息有误需要修正
             2. 大模型提取的信息不完整需要补充
             3. 用户主动要求修改某条草稿的特定字段
+            4. 用户通过命令直接触发更新操作
                         
             **参数说明**:
             - draftId: 要修改的草稿ID(数字)
@@ -244,6 +290,7 @@ public class JobAgentTools {
             - 更新后可以再次调用此工具继续修改其他字段
             - 确认无误后应调用 publishDraftsToOfficial 发布
             - 如果draftId不存在,会返回错误提示
+            - 如果是通过 `/updateDraft <ID>` 命令触发,需要先询问用户要修改哪些字段
                         
             **典型对话**:
             用户: "修改第1条,公司名改为XXX"
@@ -251,12 +298,15 @@ public class JobAgentTools {
                         
             用户: "第2条的薪资改成20k-30k,学历改成本科"
             → 调用此工具,传入 draftId=2, jobInfo={"salary": "20k-30k", "education": "本科"}
+            
+            用户: "/updateDraft 3"
+            → 先询问用户要修改哪些字段,然后根据回复调用此工具
             """, returnDirect = true)
     public String updateDraftJobInfo(
             @JsonPropertyDescription("草稿ID")
             long draftId,
             @JsonPropertyDescription("要更新的职位信息,只需传入需要修改的字段")
-            JobInfo jobInfo,
+            FetchedJobInfo jobInfo,
             ToolContext toolContext) {
         log.info("工具调用：更新草稿, draftId={}, jobInfo={}", draftId, jobInfo);
 

@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.web.model.req;
 
 import com.git.hui.jobclaw.constants.gather.GatherTargetTypeEnum;
 import com.git.hui.jobclaw.constants.gather.GatherTaskStateEnum;
+import com.git.hui.jobclaw.core.apis.PageReq;
 import lombok.Data;
 
 /**

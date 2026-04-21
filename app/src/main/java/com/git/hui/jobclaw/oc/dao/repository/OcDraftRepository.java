@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.oc.dao.repository;
 
 import com.git.hui.jobclaw.oc.dao.entity.OcDraftEntity;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.DraftSearchReq;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;

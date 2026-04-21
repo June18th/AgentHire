@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.agent;
 
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import org.springframework.ai.chat.messages.Message;
 
 import java.util.List;
@@ -18,7 +19,7 @@ public interface IIdentityAgent {
      * @param userMessage 用户输入
      * @return true 表示成功触发用户信息收集，会自动进入采集模式，false 表示未触发，请自行处理
      */
-    boolean triggerToCollectIdentity(LlmCaller.UserConversationInfo conversation, String userMessage);
+    boolean triggerToCollectIdentity(UserConversationInfo conversation, String userMessage);
 
     /**
      * 基于用户偏好设置，构建专有的系统提示语
@@ -35,5 +36,5 @@ public interface IIdentityAgent {
      * @param conversation 会话信息
      * @param messages 会话内容
      */
-    void asyncUpdateUserIdentityAsync(LlmCaller.UserConversationInfo conversation, List<Message> messages);
+    void asyncUpdateUserIdentityAsync(UserConversationInfo conversation, List<Message> messages);
 }

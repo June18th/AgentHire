@@ -1,7 +1,7 @@
 package com.git.hui.jobclaw.user.convert;
 
-import com.git.hui.jobclaw.core.context.UserBo;
-import com.git.hui.jobclaw.core.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.context.UserBo;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.dao.entity.UserEntity;
 import com.git.hui.jobclaw.user.dao.entity.UserInterestEntity;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;

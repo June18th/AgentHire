@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.oc.mcp.server.session;
 
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpServerSession;

@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.bus.event.MessageReceivedEvent;
 import com.git.hui.jobclaw.core.bus.event.MessageResponseEvent;
@@ -86,7 +87,7 @@ public class MsgRouter {
         String fromUserId = msg.getFromUserId();
         String channel = msg.getChannel();
         String userMessage = msg.getMessage();
-        LlmCaller.UserConversationInfo conversationInfo = new LlmCaller.UserConversationInfo(jobClawUserId, channel, fromUserId);
+        UserConversationInfo conversationInfo = new UserConversationInfo(jobClawUserId, channel, fromUserId);
         String conversationId = conversationInfo.conversationId();
 
         // Step 1: 根据用户是否存在偏好信息，来决定个是否主动触发用户信息采集Agent，当返回true时，中断当前对话流程，进入信息采集
@@ -135,7 +136,7 @@ public class MsgRouter {
     /**
      * 路由到指定Agent执行
      */
-    private void routeToAgent(String agentId, ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo) {
+    private void routeToAgent(String agentId, ChannelReceiveMessage msg, UserConversationInfo conversationInfo) {
         // 获取Agent
         BizAgent agent = agentRegistry.getAgent(agentId).orElseGet(() -> agentRegistry.getDefaultAgent().orElse(null));
 
@@ -172,7 +173,7 @@ public class MsgRouter {
     /**
      * 回退到LLM响应
      */
-    private void fallbackToLlm(ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo) {
+    private void fallbackToLlm(ChannelReceiveMessage msg, UserConversationInfo conversationInfo) {
         try {
             if (msg.isStream()) {
                 Flux<LlmRspCell> streamRes = getLlmCaller().streamResponse(conversationInfo, msg);

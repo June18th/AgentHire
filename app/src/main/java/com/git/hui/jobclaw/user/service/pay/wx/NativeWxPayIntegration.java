@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.user.service.pay.wx;
 
-import com.git.hui.jobclaw.core.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import com.git.hui.jobclaw.constants.user.ThirdPayWayEnum;
 import com.git.hui.jobclaw.user.model.PayCallbackBo;
 import com.git.hui.jobclaw.user.model.ThirdPayOrderReqBo;

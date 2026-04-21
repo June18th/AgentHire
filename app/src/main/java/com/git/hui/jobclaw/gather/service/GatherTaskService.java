@@ -19,7 +19,7 @@ import com.git.hui.jobclaw.gather.service.helper.LocalStorageHelper;
 import com.git.hui.jobclaw.util.FileTypeUtil;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.GatherTaskSearchReq;
 import com.git.hui.jobclaw.web.model.res.TaskVo;
 import lombok.extern.slf4j.Slf4j;

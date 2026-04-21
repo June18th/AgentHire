@@ -1,5 +1,6 @@
-package com.git.hui.jobclaw.web.model.req;
+package com.git.hui.jobclaw.core.apis.req;
 
+import com.git.hui.jobclaw.core.apis.PageReq;
 import lombok.Data;
 
 import java.util.List;

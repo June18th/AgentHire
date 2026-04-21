@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.configs.dao.entity;
 
+import com.git.hui.jobclaw.core.apis.models.CommonDict;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -21,7 +22,7 @@ import java.util.Date;
 @Accessors(chain = true)
 @DynamicUpdate
 @Entity(name = "common_dict")
-public class CommonDictEntity {
+public class CommonDictEntity implements CommonDict {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

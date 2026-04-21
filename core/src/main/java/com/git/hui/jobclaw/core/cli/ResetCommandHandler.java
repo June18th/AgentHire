@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.cli;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import com.git.hui.jobclaw.core.router.intent.SessionAgentBinder;
@@ -27,7 +28,7 @@ public class ResetCommandHandler implements SystemCommandHandler {
 
 
     @Override
-    public boolean handle(ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
+    public boolean handle(ChannelReceiveMessage msg, UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
         sessionBinder.unbind(conversationInfo.jobClawUserId(), conversationInfo.conversationId());
         return process.apply("会话状态已重置，请告诉我您想要做什么？");
     }

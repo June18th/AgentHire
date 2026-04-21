@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.cli;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 
@@ -37,7 +38,7 @@ public interface SystemCommandHandler {
      * @param process 命令处理完成回调
      * @return true 表示命中，且正确处理了回调，false 表示未命中
      */
-    boolean handle(ChannelReceiveMessage msg, LlmCaller.UserConversationInfo conversationInfo, String command, Function<String, Boolean> process);
+    boolean handle(ChannelReceiveMessage msg, UserConversationInfo conversationInfo, String command, Function<String, Boolean> process);
 
     /**
      * 获取命令对应的意图类型

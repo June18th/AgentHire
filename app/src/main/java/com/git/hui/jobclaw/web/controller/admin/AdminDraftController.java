@@ -1,11 +1,11 @@
 package com.git.hui.jobclaw.web.controller.admin;
 
 import com.git.hui.jobclaw.core.permission.Permission;
-import com.git.hui.jobclaw.core.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.oc.dao.entity.OcDraftEntity;
 import com.git.hui.jobclaw.oc.dao.entity.OcInfoEntity;
 import com.git.hui.jobclaw.oc.service.GatherService;
-import com.git.hui.jobclaw.web.model.PageListVo;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.DraftOcUpdateReq;
 import com.git.hui.jobclaw.web.model.req.DraftSearchReq;
 import lombok.extern.slf4j.Slf4j;

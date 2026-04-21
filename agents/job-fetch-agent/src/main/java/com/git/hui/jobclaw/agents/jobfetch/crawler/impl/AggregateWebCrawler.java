@@ -3,9 +3,10 @@ package com.git.hui.jobclaw.agents.jobfetch.crawler.impl;
 import com.git.hui.jobclaw.agents.jobfetch.crawler.JobCrawler;
 import com.git.hui.jobclaw.agents.jobfetch.crawler.impl.tool.SmartWebFetchTool;
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
-import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.util.GatherResFormat;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -47,7 +48,7 @@ public class AggregateWebCrawler implements JobCrawler {
 
     protected final JobLlmCaller jobLlmCaller;
 
-    protected BeanOutputConverter<ArrayList<JobInfo>> gatherResConverter;
+    protected BeanOutputConverter<ArrayList<FetchedJobInfo>> gatherResConverter;
     protected final Resource promptResource;
 
     public AggregateWebCrawler(JobLlmCaller jobLlmCaller,
@@ -92,7 +93,7 @@ public class AggregateWebCrawler implements JobCrawler {
     }
 
     @Override
-    public List<JobInfo> crawl(LlmCaller.UserConversationInfo userConversationInfo, String url, String originMsg) {
+    public List<FetchedJobInfo> crawl(UserConversationInfo userConversationInfo, String url, String originMsg) {
         log.info("开始爬取URL! {} -> {}", originMsg, url);
 
         try {
@@ -126,7 +127,7 @@ public class AggregateWebCrawler implements JobCrawler {
             }
 
             // 转换为JobInfo对象
-            List<JobInfo> jobInfos = itemList.stream()
+            List<FetchedJobInfo> jobInfos = itemList.stream()
                     .map(this::toJobInfo)
                     .filter(job -> job != null && job.isValid())
                     .toList();
@@ -314,9 +315,9 @@ public class AggregateWebCrawler implements JobCrawler {
     /**
      * 将JSON字符串转换为JobInfo对象
      */
-    private JobInfo toJobInfo(String jsonStr) {
+    private FetchedJobInfo toJobInfo(String jsonStr) {
         try {
-            return JsonUtil.toObj(jsonStr, JobInfo.class);
+            return JsonUtil.toObj(jsonStr, FetchedJobInfo.class);
         } catch (Exception e) {
             log.warn("解析职位信息失败: {}", jsonStr, e);
             return null;

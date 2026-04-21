@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.core.router.intent.classifier;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.router.intent.IntentClassifier;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +62,7 @@ public class LLMIntentClassifier implements IntentClassifier {
     }
 
     @Override
-    public IntentClassificationRes classify(LlmCaller.UserConversationInfo userConversationInfo, String message, List<String> conversationHistory) {
+    public IntentClassificationRes classify(UserConversationInfo userConversationInfo, String message, List<String> conversationHistory) {
         if (message == null || message.isBlank()) {
             return IntentClassificationRes.unknown("空消息");
         }

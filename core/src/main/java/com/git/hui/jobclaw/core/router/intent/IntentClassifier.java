@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.router.intent;
 
 import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.router.intent.classifier.IntentClassificationRes;
 
 import java.util.List;
@@ -24,5 +25,5 @@ public interface IntentClassifier {
      * @param conversationHistory 对话历史（用于上下文理解，可为空）
      * @return 识别结果
      */
-    IntentClassificationRes classify(LlmCaller.UserConversationInfo userConversationInfo, String message, List<String> conversationHistory);
+    IntentClassificationRes classify(UserConversationInfo userConversationInfo, String message, List<String> conversationHistory);
 }

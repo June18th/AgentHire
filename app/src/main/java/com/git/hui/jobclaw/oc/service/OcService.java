@@ -1,22 +1,25 @@
 package com.git.hui.jobclaw.oc.service;
 
+import com.git.hui.jobclaw.constants.oc.OcStateEnum;
+import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
-import com.git.hui.jobclaw.constants.oc.OcStateEnum;
 import com.git.hui.jobclaw.oc.convert.OcConvert;
 import com.git.hui.jobclaw.oc.dao.entity.OcInfoEntity;
 import com.git.hui.jobclaw.oc.dao.repository.OcDraftRepository;
 import com.git.hui.jobclaw.oc.dao.repository.OcRepository;
+import com.git.hui.jobclaw.core.apis.service.IJobSearchService;
+import com.git.hui.jobclaw.core.apis.models.OcJobInfo;
+import com.git.hui.jobclaw.core.apis.req.UserInterestRecommendReq;
 import com.git.hui.jobclaw.util.DateUtil;
-import com.git.hui.jobclaw.web.model.PageListVo;
 import com.git.hui.jobclaw.web.model.req.OcSaveReq;
 import com.git.hui.jobclaw.web.model.req.OcSearchReq;
-import com.git.hui.jobclaw.web.model.req.UserInterestRecommendReq;
 import com.git.hui.jobclaw.web.model.res.OcVo;
 import io.micrometer.common.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -25,7 +28,7 @@ import java.util.List;
  * @date 2025/7/14
  */
 @Service
-public class OcService {
+public class OcService implements IJobSearchService {
     private final OcDraftRepository draftRepository;
     private final OcRepository ocRepository;
 
@@ -143,6 +146,13 @@ public class OcService {
     public PageListVo<OcVo> recommendForUser(UserInterestRecommendReq req) {
         PageListVo<OcInfoEntity> list = ocRepository.recommend(req);
         List<OcVo> voList = OcConvert.toVoList(list.getList());
+        return PageListVo.of(voList, list.getTotal(), req.getPage(), req.getSize());
+    }
+
+    @Override
+    public PageListVo<OcJobInfo> recommend(UserInterestRecommendReq req) {
+        PageListVo<OcInfoEntity> list = ocRepository.recommend(req);
+        List<OcJobInfo> voList = new ArrayList<>(list.getList());
         return PageListVo.of(voList, list.getTotal(), req.getPage(), req.getSize());
     }
 }

@@ -1,8 +1,7 @@
 package com.git.hui.jobclaw.web.model.req;
 
+import com.git.hui.jobclaw.core.apis.PageReq;
 import lombok.Data;
-
-import java.util.List;
 
 /**
  * @author YiHui

@@ -2,10 +2,10 @@ package com.git.hui.jobclaw.agents.jobfetch;
 
 import com.git.hui.jobclaw.agents.jobfetch.service.JobFetchService;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.impl.AbsBizAgent;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import lombok.extern.slf4j.Slf4j;
@@ -192,7 +192,7 @@ public class JobFetchAgent extends AbsBizAgent {
     }
 
     @Override
-    public String process(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+    public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         if (CollectionUtils.isEmpty(message.getFiles()) && CollectionUtils.isEmpty(message.getMedias())) {
             // 需要判断从网络爬去，还是从文本中提取
             ChatClient chatClient = getChatClient(message.getJobClawUserId());
@@ -209,7 +209,7 @@ public class JobFetchAgent extends AbsBizAgent {
     }
 
     @Override
-    public Flux<LlmRspCell> stream(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+    public Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         log.info("JobFetchAgent process!");
         if (CollectionUtils.isEmpty(message.getFiles()) && CollectionUtils.isEmpty(message.getMedias())) {
             // 需要判断从网络爬去，还是从文本中提取
