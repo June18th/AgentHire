@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.oc.service;
 
-import com.git.hui.jobclaw.agents.jobfetch.service.JobInfoSaveService;
+import com.git.hui.jobclaw.agents.jobfetch.service.JobInfoPersistService;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.DraftEntity;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobInfo;
 import com.git.hui.jobclaw.constants.oc.DraftProcessEnum;
 import com.git.hui.jobclaw.constants.oc.DraftStateEnum;
@@ -16,6 +17,7 @@ import com.git.hui.jobclaw.web.model.req.DraftOcUpdateReq;
 import com.git.hui.jobclaw.web.model.req.DraftSearchReq;
 import com.git.hui.jobclaw.web.model.res.GatherVo;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,7 +37,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-public class GatherService implements JobInfoSaveService {
+public class GatherService implements JobInfoPersistService {
 
     private final OcDraftRepository draftRepository;
     private final OcRepository ocRepository;
@@ -57,6 +59,84 @@ public class GatherService implements JobInfoSaveService {
         return draftRepository.findList(req);
     }
 
+
+    @Override
+    public List<DraftEntity> listToBePublished(int size) {
+        // 从db中，找到最近一个需要审核的数据
+        DraftSearchReq req = new DraftSearchReq();
+        req.setPage(1);
+        req.setSize(size);
+        req.setState(DraftStateEnum.DRAFT.getValue());
+        req.setToProcess(DraftProcessEnum.UNPROCESS.getValue());
+        PageListVo<OcDraftEntity> res = draftRepository.findList(req);
+        return new ArrayList<>(res.getList());
+    }
+
+    @Override
+    public boolean updateDraft(long id, JobInfo jobInfo) {
+        OcDraftEntity entity = draftRepository.findById(id).orElse(null);
+        if (entity != null) {
+            // 覆盖数据，只有jobInfo的字段有数据时，才进行覆盖
+            if (!StringUtils.isBlank(jobInfo.getCompanyName())) {
+                entity.setCompanyName(jobInfo.getCompanyName());
+            }
+            if (!StringUtils.isBlank(jobInfo.getCompanyType())) {
+                entity.setCompanyType(jobInfo.getCompanyType());
+            }
+            if (!StringUtils.isBlank(jobInfo.getCompanyIndustry())) {
+                entity.setCompanyIndustry(jobInfo.getCompanyIndustry());
+            }
+            if (!StringUtils.isBlank(jobInfo.getJobLocation())) {
+                entity.setJobLocation(jobInfo.getJobLocation());
+            }
+            if (!StringUtils.isBlank(jobInfo.getRecruitmentType())) {
+                entity.setRecruitmentType(jobInfo.getRecruitmentType());
+            }
+            if (!StringUtils.isBlank(jobInfo.getRecruitmentTarget())) {
+                entity.setRecruitmentTarget(jobInfo.getRecruitmentTarget());
+            }
+            if (!StringUtils.isBlank(jobInfo.getPosition())) {
+                entity.setPosition(jobInfo.getPosition());
+            }
+            if (!StringUtils.isBlank(jobInfo.getSalary())) {
+                entity.setSalary(jobInfo.getSalary());
+            }
+            if (!StringUtils.isBlank(jobInfo.getEducation())) {
+                entity.setEducation(jobInfo.getEducation());
+            }
+            if (!StringUtils.isBlank(jobInfo.getExperience())) {
+                entity.setExperience(jobInfo.getExperience());
+            }
+            if (!StringUtils.isBlank(jobInfo.getDeliveryProgress())) {
+                entity.setDeliveryProgress(jobInfo.getDeliveryProgress());
+            }
+            if (!StringUtils.isBlank(jobInfo.getLastUpdatedTime())) {
+                entity.setLastUpdatedTime(jobInfo.getLastUpdatedTime());
+            }
+            if (!StringUtils.isBlank(jobInfo.getDeadline())) {
+                entity.setDeadline(jobInfo.getDeadline());
+            }
+            if (!StringUtils.isBlank(jobInfo.getRelatedLink())) {
+                entity.setRelatedLink(jobInfo.getRelatedLink());
+            }
+            if (!StringUtils.isBlank(jobInfo.getJobAnnouncement())) {
+                entity.setJobAnnouncement(jobInfo.getJobAnnouncement());
+            }
+            if (!StringUtils.isBlank(jobInfo.getInternalReferralCode())) {
+                entity.setInternalReferralCode(jobInfo.getInternalReferralCode());
+            }
+            if (!StringUtils.isBlank(jobInfo.getRemarks())) {
+                entity.setRemarks(jobInfo.getRemarks());
+            }
+
+            entity.setUpdateTime(new Date());
+            entity.autoInitVal();
+            draftRepository.save(entity);
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public SaveRes save(List<JobInfo> jobInfos) {
         if (jobInfos == null || jobInfos.isEmpty()) {
@@ -65,6 +145,16 @@ public class GatherService implements JobInfoSaveService {
         List<OcDraftEntity> draftList = jobInfos.stream().map(DraftConvert::covert).collect(Collectors.toList());
         GatherVo vo = saveDraftDataList(draftList);
         return new SaveRes(vo.getInsertList().size(), vo.getUpdateList().size());
+    }
+
+    @Override
+    @Transactional
+    public int publishDrafts(List<Long> draftIds) {
+        if (draftIds == null || draftIds.isEmpty()) {
+            return 0;
+        }
+        List<OcInfoEntity> published = moveToOc(draftIds);
+        return published.size();
     }
 
     /**

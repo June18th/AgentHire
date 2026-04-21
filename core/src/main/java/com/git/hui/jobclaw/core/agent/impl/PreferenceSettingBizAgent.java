@@ -11,6 +11,7 @@ import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
@@ -37,19 +38,16 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
     private final ConfigurationManager configurationManager;
     private final AiUserPreferenceProperties aiUserPreferenceProperties;
 
-    private final ClientSelector clientSelector;
-    private Map<String, ChatClient> chatClientMap = new ConcurrentHashMap<>();
 
     public PreferenceSettingBizAgent(ClientSelector clientSelector,
                                      List<ChannelBinder> channelBinders,
                                      ConfigurationManager configurationManager,
                                      AiUserPreferenceProperties aiUserPreferenceProperties,
-                                     ClientSelector clientSelector1) {
-        super(clientSelector);
+                                     ChatMemory chatMemory) {
+        super(clientSelector, chatMemory);
         this.channelBinders = channelBinders;
         this.configurationManager = configurationManager;
         this.aiUserPreferenceProperties = aiUserPreferenceProperties;
-        this.clientSelector = clientSelector1;
     }
 
     @Override
@@ -74,6 +72,7 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
     public String process(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         ChatClient client = getChatClient(userConversationInfo.jobClawUserId());
         return client.prompt(message.getMessage())
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
                 .toolContext(Map.of("jobClawUserId", userConversationInfo.jobClawUserId()))
                 .call()
                 .content();
@@ -83,6 +82,7 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
     public Flux<LlmRspCell> stream(LlmCaller.UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         ChatClient client = getChatClient(userConversationInfo.jobClawUserId());
         return client.prompt(message.getMessage())
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
                 .toolContext(Map.of("jobClawUserId", userConversationInfo.jobClawUserId()))
                 .stream()
                 .chatResponse()

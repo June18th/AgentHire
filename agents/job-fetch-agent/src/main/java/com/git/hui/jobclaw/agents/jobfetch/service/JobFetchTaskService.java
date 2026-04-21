@@ -11,7 +11,6 @@ import com.git.hui.jobclaw.agents.jobfetch.service.repository.JobFetchTaskReposi
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
-import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -44,7 +43,7 @@ public class JobFetchTaskService {
     private ChannelEventPublisher channelEventPublisher;
 
     @Autowired
-    private JobInfoSaveService jobInfoSaveService;
+    private JobInfoPersistService jobInfoSaveService;
 
     /**
      * 创建URL抓取任务
@@ -321,7 +320,7 @@ public class JobFetchTaskService {
     
         // 保存职位信息并获取统计结果
         if (jobs != null && !jobs.isEmpty()) {
-            JobInfoSaveService.SaveRes res = jobInfoSaveService.save(jobs);
+            JobInfoPersistService.SaveRes res = jobInfoSaveService.save(jobs);
                 
             // 构建友好的提示消息
             String resultMessage = buildTaskCompletionMessage(task, res);
@@ -347,7 +346,7 @@ public class JobFetchTaskService {
     /**
      * 构建任务完成的友好提示消息
      */
-    private String buildTaskCompletionMessage(JobFetchTaskEntity task, JobInfoSaveService.SaveRes res) {
+    private String buildTaskCompletionMessage(JobFetchTaskEntity task, JobInfoPersistService.SaveRes res) {
         StringBuilder sb = new StringBuilder();
             
         sb.append("✅ 任务执行完成\n\n");

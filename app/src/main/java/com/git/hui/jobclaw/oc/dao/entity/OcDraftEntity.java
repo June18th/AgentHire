@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.oc.dao.entity;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.git.hui.jobclaw.agents.jobfetch.service.model.DraftEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -21,7 +22,7 @@ import java.util.Optional;
 @Data
 @Accessors(chain = true)
 @Entity(name = "draft_oc")
-public class OcDraftEntity {
+public class OcDraftEntity implements DraftEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

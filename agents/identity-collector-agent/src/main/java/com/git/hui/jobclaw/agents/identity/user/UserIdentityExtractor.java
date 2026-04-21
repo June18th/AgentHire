@@ -52,12 +52,12 @@ public class UserIdentityExtractor {
      * Extract user identity asynchronously.
      *
      * @param jobClawUserId user ID
-     * @param currentidentity current identity profile (may be empty)
+     * @param currentIdentity current identity profile (may be empty)
      * @param messages new conversation messages
      * @return CompletableFuture with updated identity markdown
      */
-    public CompletableFuture<String> extractAsync(String jobClawUserId, String currentidentity, List<Message> messages) {
-        return CompletableFuture.supplyAsync(() -> extract(jobClawUserId, currentidentity, messages));
+    public CompletableFuture<String> extractAsync(String jobClawUserId, String currentIdentity, List<Message> messages) {
+        return CompletableFuture.supplyAsync(() -> extract(jobClawUserId, currentIdentity, messages));
     }
 
     /**
