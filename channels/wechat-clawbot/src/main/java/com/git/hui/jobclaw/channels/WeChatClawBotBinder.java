@@ -8,7 +8,7 @@ import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
-import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.apis.permission.Permission;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -68,7 +68,7 @@ public interface AgentRegistry {
      *
      * @return Agent列表
      */
-    List<BizAgent> getAllAgents();
+    List<BizAgent> getAllAgents(String jobClawUserId);
 
     /**
      * 检查Agent是否存在
@@ -100,13 +100,4 @@ public interface AgentRegistry {
      * @return 是否成功注销
      */
     boolean unregister(String agentId);
-
-    /**
-     * 获取Agent数量
-     *
-     * @return Agent数量
-     */
-    default int agentCount() {
-        return getAllAgents().size();
-    }
 }

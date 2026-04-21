@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.core.agent.impl.AbsBizAgent;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import com.git.hui.jobclaw.plugins.jobs.JobLibraryTool;
@@ -155,6 +156,10 @@ public class JobRecommendAgent extends AbsBizAgent {
         }
     };
 
+    @Override
+    public AgentPermission permission() {
+        return AgentPermission.TOTAL;
+    }
     @Override
     public AgentIntro getAgentIntro() {
         return AGENT_INTRO;

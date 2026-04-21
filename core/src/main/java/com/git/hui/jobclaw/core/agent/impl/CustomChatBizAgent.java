@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,11 @@ public class CustomChatBizAgent implements BizAgent {
         this.llmCaller = llmCaller;
     }
 
+
+    @Override
+    public AgentPermission permission() {
+        return AgentPermission.TOTAL;
+    }
 
     @Override
     public AgentIntro getAgentIntro() {

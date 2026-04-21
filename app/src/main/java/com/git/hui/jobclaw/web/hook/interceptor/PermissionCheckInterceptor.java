@@ -5,7 +5,7 @@ import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import com.git.hui.jobclaw.core.apis.context.UserBo;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
-import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.apis.permission.Permission;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.UserService;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;

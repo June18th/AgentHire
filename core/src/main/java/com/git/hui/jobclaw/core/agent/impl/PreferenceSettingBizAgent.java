@@ -5,6 +5,7 @@ import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
 import com.git.hui.jobclaw.core.channel.ChannelBinder;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
@@ -51,6 +52,10 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
         this.aiUserPreferenceProperties = aiUserPreferenceProperties;
     }
 
+    @Override
+    public AgentPermission permission() {
+        return AgentPermission.TOTAL;
+    }
     @Override
     public AgentIntro getAgentIntro() {
         return PresetAgentIntro.PREFERENCE_SETTING;

@@ -29,7 +29,7 @@ public class ListAgentsCommandHandler implements SystemCommandHandler {
 
     @Override
     public boolean handle(ChannelReceiveMessage msg, UserConversationInfo conversationInfo, String command, Function<String, Boolean> process) {
-        var agents = agentRegistry.getAllAgents();
+        var agents = agentRegistry.getAllAgents(conversationInfo.jobClawUserId());
 
         StringBuilder sb = new StringBuilder();
         sb.append("📋 当前可用的 Agent 列表：\n\n");

@@ -8,7 +8,7 @@ import com.git.hui.jobclaw.constants.gather.GatherModelEnum;
 import com.git.hui.jobclaw.constants.gather.GatherTargetTypeEnum;
 import com.git.hui.jobclaw.constants.gather.GatherTaskStateEnum;
 import com.git.hui.jobclaw.constants.user.LoginConstants;
-import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.apis.permission.Permission;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.gather.dao.entity.GatherTaskEntity;
 import com.git.hui.jobclaw.gather.model.GatherFileBo;

@@ -3,7 +3,7 @@ package com.git.hui.jobclaw.web.controller.front;
 import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.constants.user.RechargeLevelEnum;
-import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.apis.permission.Permission;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.RechargeService;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;

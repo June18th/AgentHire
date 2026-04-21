@@ -25,8 +25,6 @@ import java.util.Random;
 @Slf4j
 @Component
 public class ChannelStorageHelper {
-    private static final Random random = new Random();
-
     private Path parent;
 
     public ChannelStorageHelper(@Value("${agent.workspace}") Resource agentWorkspace) {

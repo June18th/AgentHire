@@ -140,6 +140,7 @@ v2 版本，新增模块：
   - [x] JobFetchAgent 新增抓取数据审核，自动入库的交互流程
   - [x] 新增 JobLibraryTool，支持基于oc库的岗位信息检索
   - [x] 封装 jobRecommendAgent 用于岗位推荐
+  - [x] BizAgent 添加权限管控，区分 ADMIN/VIP/TOTAL 三种类型
 - [x] 2026/04/20
   - [x] 封装提取岗位的 JobFetchAgent
   - [x] 完成text/markdown/html/excel/csv等文本自动提取职位信息

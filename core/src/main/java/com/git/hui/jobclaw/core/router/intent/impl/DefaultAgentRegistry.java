@@ -1,11 +1,13 @@
 package com.git.hui.jobclaw.core.router.intent.impl;
 
 import com.git.hui.jobclaw.core.agent.BizAgent;
+import com.git.hui.jobclaw.core.apis.context.UserBo;
+import com.git.hui.jobclaw.core.apis.service.IUserService;
 import com.git.hui.jobclaw.core.router.intent.AgentRegistry;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +85,7 @@ public class DefaultAgentRegistry implements AgentRegistry {
     @Override
     public List<BizAgent> getAgentsForIntent(PresetAgentIntro intentType) {
         if (intentType == null) {
-            return getAllAgents();
+            return List.of();
         }
 
         List<String> agentIds = INTENT_AGENT_MAPPING.get(intentType);
@@ -115,8 +117,12 @@ public class DefaultAgentRegistry implements AgentRegistry {
     }
 
     @Override
-    public List<BizAgent> getAllAgents() {
-        return new ArrayList<>(agents.values());
+    public List<BizAgent> getAllAgents(String jobClawUserId) {
+        UserBo user = SpringUtil.getBean(IUserService.class).getUser(jobClawUserId);
+        var role = user == null ? null : user.role();
+        return agents.values().stream()
+                .filter(agent -> agent.permission().enabled(role))
+                .collect(Collectors.toList());
     }
 
     @Override

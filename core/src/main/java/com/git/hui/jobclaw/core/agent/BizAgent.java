@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.core.agent;
 
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import reactor.core.publisher.Flux;
 
@@ -19,6 +20,12 @@ import java.util.List;
  * @date 2026/4/17
  */
 public interface BizAgent {
+
+    /**
+     * 获取Agent权限
+     */
+    AgentPermission permission();
+
 
     /**
      * 获取Agent唯一标识

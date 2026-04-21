@@ -1,12 +1,14 @@
 package com.git.hui.jobclaw.core.cli;
 
 import com.git.hui.jobclaw.core.agent.BizAgent;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.service.IUserService;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.AgentRegistry;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import com.git.hui.jobclaw.core.router.intent.SessionAgentBinder;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -43,23 +45,32 @@ public class SwitchAgentCommandHandler implements SystemCommandHandler {
         // 检查Agent切换命令，绑定到新的Agent，并返回
         Optional<String> targetAgentId = parseAgentSwitchCommand(msg.getMessage());
         if (targetAgentId.isPresent() && "list".equalsIgnoreCase(targetAgentId.get())) {
-            return process.apply(showAgentList());
+            return process.apply(showAgentList(conversationInfo.jobClawUserId()));
         }
 
         if (targetAgentId.isPresent() && agentRegistry.hasAgent(targetAgentId.get())) {
-            sessionBinder.bind(conversationInfo.jobClawUserId(), conversationInfo.conversationId(), targetAgentId.get());
-            var agentIntro = agentRegistry.getAgent(targetAgentId.get()).get().getAgentIntro();
-            String text = "已为您切换到 " + agentIntro.getAgentId() + "\n\n将为您提供以下支持:\n" + agentIntro.getDescription();
-            return process.apply(text);
+            var agent = agentRegistry.getAgent(targetAgentId.get()).get();
+            // 权限管控
+            if (agent.permission().enabled(getUserRole(conversationInfo.jobClawUserId()))) {
+                sessionBinder.bind(conversationInfo.jobClawUserId(), conversationInfo.conversationId(), targetAgentId.get());
+                var agentIntro = agent.getAgentIntro();
+                String text = "已为您切换到 " + agentIntro.getAgentId() + "\n\n将为您提供以下支持:\n" + agentIntro.getDescription();
+                return process.apply(text);
+            }
         }
 
         // 无效的Agent ID，返回当前的Agent列表，让用户重新选择
-        return process.apply(showAgentList());
+        return process.apply(showAgentList(conversationInfo.jobClawUserId()));
     }
 
-    private String showAgentList() {
+    private UserRoleEnum getUserRole(String jobClawUserId) {
+        var user = SpringUtil.getBean(IUserService.class).getUser(jobClawUserId);
+        return user == null ? null : user.role();
+    }
+
+    private String showAgentList(String jobClawUserId) {
         // 表示查询所有Agent
-        var agents = agentRegistry.getAllAgents();
+        var agents = agentRegistry.getAllAgents(jobClawUserId);
         StringBuilder sb = new StringBuilder();
         sb.append("📋 当前可用的 Agent 列表：\n\n");
         for (int i = 0; i < agents.size(); i++) {

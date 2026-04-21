@@ -2,7 +2,7 @@ package com.git.hui.jobclaw.web.controller.admin;
 
 import com.git.hui.jobclaw.configs.dao.entity.CommonDictEntity;
 import com.git.hui.jobclaw.configs.service.CommonDictService;
-import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.apis.permission.Permission;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.DictSaveReq;

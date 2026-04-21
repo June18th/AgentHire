@@ -1,4 +1,4 @@
-package com.git.hui.jobclaw.core.permission;
+package com.git.hui.jobclaw.core.apis.permission;
 
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 

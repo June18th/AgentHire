@@ -1,13 +1,15 @@
 package com.git.hui.jobclaw.user.service;
 
-import com.git.hui.jobclaw.core.bizexception.BizException;
-import com.git.hui.jobclaw.core.bizexception.StatusEnum;
-import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
-import com.git.hui.jobclaw.core.apis.context.UserBo;
 import com.git.hui.jobclaw.components.id.IdUtil;
 import com.git.hui.jobclaw.constants.common.BaseStateEnum;
 import com.git.hui.jobclaw.constants.user.RechargeLevelEnum;
+import com.git.hui.jobclaw.core.apis.PageListVo;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.UserBo;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.service.IUserService;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.openapi.model.OpenApiUserDTO;
 import com.git.hui.jobclaw.user.convert.UserConvert;
@@ -17,7 +19,6 @@ import com.git.hui.jobclaw.user.helper.UserRandomGenHelper;
 import com.git.hui.jobclaw.util.DateUtil;
 import com.git.hui.jobclaw.util.RandUtil;
 import com.git.hui.jobclaw.web.config.SiteConfig;
-import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.UserSaveReq;
 import com.git.hui.jobclaw.web.model.req.UserSearchReq;
 import com.git.hui.jobclaw.web.model.res.McpConfigVo;
@@ -42,7 +43,7 @@ import java.util.Optional;
  * @date 2025/7/16
  */
 @Service
-public class UserService {
+public class UserService implements IUserService {
     private final UserRepository userRepository;
     private final McpServerProperties mcpServerProperties;
 
@@ -262,7 +263,8 @@ public class UserService {
                 user.setIntro(openUser.getProfile());
             }
             if (!Objects.equals(user.getRole(), UserRoleEnum.ADMIN.getValue())) {
-                if (StringUtils.isNotBlank(openUser.getZsxqId()) && openUser.getZsxqExpireTime() != null && openUser.getZsxqExpireTime() > System.currentTimeMillis() / 1000) {
+                if (StringUtils.isNotBlank(
+                        openUser.getZsxqId()) && openUser.getZsxqExpireTime() != null && openUser.getZsxqExpireTime() > System.currentTimeMillis() / 1000) {
                     // 更新会员信息
                     if (user.getExpireTime().getTime() / 1000 != openUser.getZsxqExpireTime()) {
                         toUpdate = true;
@@ -311,6 +313,11 @@ public class UserService {
         return user;
     }
 
+
+    @Override
+    public UserBo getUser(String userId) {
+        return getUserBo(Long.parseLong(userId));
+    }
 
     /**
      * 获取用户信息

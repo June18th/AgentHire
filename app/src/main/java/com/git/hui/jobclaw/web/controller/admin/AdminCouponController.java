@@ -2,7 +2,7 @@ package com.git.hui.jobclaw.web.controller.admin;
 
 import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
-import com.git.hui.jobclaw.core.permission.Permission;
+import com.git.hui.jobclaw.core.apis.permission.Permission;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.user.service.CouponService;
 import com.git.hui.jobclaw.user.service.RechargeService;
