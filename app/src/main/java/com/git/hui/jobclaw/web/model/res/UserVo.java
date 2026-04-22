@@ -23,6 +23,10 @@ public class UserVo {
     private Long createTime;
     private Long updateTime;
 
+    private String dingDingId;
+
+    private String feiShuId;
+
     /**
      * mcp配置信息
      */

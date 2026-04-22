@@ -6,7 +6,6 @@ import com.git.hui.jobclaw.agents.jobfetch.service.JobInfoPersistService;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedDraftEntity;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import lombok.extern.slf4j.Slf4j;

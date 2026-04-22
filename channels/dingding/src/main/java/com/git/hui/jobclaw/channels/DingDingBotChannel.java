@@ -196,7 +196,7 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
                 .message(msgContent.content())
                 .medias(media == null ? null : List.of(media))
                 .files(file == null ? null : List.of(file))
-                .fromUserId(msg.getConversationId())
+                .fromUserId(dingDingId)
                 .jobClawUserId(msgWrapper.getJobClawUserId())
                 .channel(name())
                 .stream(true)
@@ -292,10 +292,11 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
         var sdk = sdkMap.get(originalMsg.getRobotId());
         var stream = msg.getStreamContents();
         String cardId = originalMsg.getAiCardId();
+        String dingDingId = originalMsg.getSenderStaffId();
         if (stream != null) {
             if (StringUtils.isBlank(cardId)) {
                 // 通常是后台主动给用户发送消息的场景
-                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
+                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), dingDingId);
                 if (cardId == null) {
                     cardId = sdk.initStreamAiCardId(originalMsg.getRobotId(), originalMsg);
                 }
@@ -317,20 +318,20 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
                                 content.append(response.content());
                             }
                             sdk.streamUpdate(finalCardId, thinking.toString(), content.toString(), false);
-                            aiCardStatus.answerAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), finalCardId);
+                            aiCardStatus.answerAiCard(originalMsg.getRobotId(), dingDingId, finalCardId);
                         })
                         .doOnError(error -> {
                             log.error("[DingDing] Error in stream response for cardId: {}", finalCardId, error);
                             // 发生错误时，标记卡片为结束状态
                             sdk.streamUpdate(finalCardId, thinking.toString(), "抱歉，生成回复时遇到了错误。", true);
-                            aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), finalCardId);
+                            aiCardStatus.finishAiCard(originalMsg.getRobotId(), dingDingId, finalCardId);
                         })
                         .doOnComplete(() -> {
                             log.info("[DingDing] Stream response completed for cardId: {}, total length: {}", finalCardId,
                                     content.length());
                             // 流式响应完成，标记卡片为结束状态
                             sdk.streamUpdate(finalCardId, thinking.toString(), content.toString(), true);
-                            aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), finalCardId);
+                            aiCardStatus.finishAiCard(originalMsg.getRobotId(), dingDingId, finalCardId);
                         }).subscribe();
             }
         } else {
@@ -341,10 +342,10 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
             }
 
             if (StringUtils.isBlank(cardId)) {
-                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
+                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), dingDingId);
                 if (cardId != null) {
                     sdk.streamUpdate(cardId, "", content, true);
-                    aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), cardId);
+                    aiCardStatus.finishAiCard(originalMsg.getRobotId(), dingDingId, cardId);
                     return true;
                 }
 
@@ -361,7 +362,7 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
             }
             sdk.streamUpdate(cardId, "", content, true);
             // 主动结束这个流式卡片，避免被再次更新
-            aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), cardId);
+            aiCardStatus.finishAiCard(originalMsg.getRobotId(), dingDingId, cardId);
         }
         return true;
     }

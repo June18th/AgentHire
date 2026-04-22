@@ -3,7 +3,6 @@ package com.git.hui.jobclaw.agents.jobfetch.crawler.impl;
 import com.git.hui.jobclaw.agents.jobfetch.crawler.JobCrawler;
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;

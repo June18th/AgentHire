@@ -37,6 +37,8 @@ public class UserConvert {
                 .setExpireTime(user.getExpireTime() == null ? null : user.getExpireTime().getTime())
                 .setCreateTime(user.getCreateTime().getTime())
                 .setUpdateTime(user.getUpdateTime().getTime())
+                .setDingDingId(user.getDingDingUserId())
+                .setFeiShuId(user.getFeiShuUserId())
                 .setEmail(user.getEmail())
                 .setIntro(user.getIntro())
                 .setWxId(user.getWxId());

@@ -30,6 +30,10 @@ public class DingDingBotProperties {
     @EqualsAndHashCode(callSuper = true)
     public static class DingDingBotAccount extends ChannelConfig {
         /**
+         * 机器人昵称
+         */
+        private String botName;
+        /**
          * 用于流式返回的 cardId
          */
         private String aiCardId;

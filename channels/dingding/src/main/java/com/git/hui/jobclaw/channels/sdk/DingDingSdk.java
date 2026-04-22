@@ -212,8 +212,7 @@ public class DingDingSdk {
             if (Objects.equals(chatbotMessage.getConversationType(), "1")) {
                 createImCard(cardId, robotId, chatbotMessage.getSenderStaffId());
             } else {
-                createGroupCard(cardId, robotId, chatbotMessage.getSenderStaffId(),
-                        chatbotMessage.getConversationId());
+                createGroupCard(cardId, robotId, chatbotMessage.getSenderStaffId(), chatbotMessage.getConversationId());
             }
             return cardId;
         }

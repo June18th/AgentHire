@@ -1,7 +1,6 @@
 package com.git.hui.jobclaw.core.agent.impl;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
@@ -12,6 +11,7 @@ import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
+import com.git.hui.jobclaw.core.utils.SensitiveUtil;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ToolContext;
@@ -23,7 +23,6 @@ import reactor.core.publisher.Flux;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 个人偏好设置的业务Agent
@@ -56,6 +55,7 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
     public AgentPermission permission() {
         return AgentPermission.TOTAL;
     }
+
     @Override
     public AgentIntro getAgentIntro() {
         return PresetAgentIntro.PREFERENCE_SETTING;
@@ -172,12 +172,12 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
             var config = kv.getValue();
 
             var userProviderConfig = new AiUserPreferenceProperties.UserProviderConfig();
-            userProviderConfig.setApiKey(securityReturn(config.getApiKey()));
+            userProviderConfig.setApiKey(SensitiveUtil.securityReturn(config.getApiKey()));
             if (!CollectionUtils.isEmpty(config.getModels())) {
                 var modelKeys = config.getModels().stream().map(model -> {
                     Map<String, String> sub = new HashMap<>();
                     model.forEach((mk, mv) -> {
-                        sub.put(mk, securityReturn(mv));
+                        sub.put(mk, SensitiveUtil.securityReturn(mv));
                     });
                     return sub;
                 }).toList();
@@ -190,18 +190,6 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
         models.setProviders(providers);
         ret.setModels(models);
         return ret;
-    }
-
-    private String securityReturn(String key) {
-        // 脱敏处理
-        if (key.length() < 3) {
-            return "***";
-        }
-        if (key.length() < 5) {
-            return key.charAt(0) + "***" + key.substring(key.length() - 1);
-        } else {
-            return key.substring(0, 2) + "***" + key.substring(key.length() - 2);
-        }
     }
 
 }

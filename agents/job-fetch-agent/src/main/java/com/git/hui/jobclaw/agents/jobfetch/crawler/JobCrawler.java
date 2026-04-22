@@ -1,7 +1,6 @@
 package com.git.hui.jobclaw.agents.jobfetch.crawler;
 
 import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 
 import java.util.List;

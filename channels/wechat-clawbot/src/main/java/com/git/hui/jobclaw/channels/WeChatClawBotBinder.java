@@ -2,13 +2,13 @@ package com.git.hui.jobclaw.channels;
 
 import com.git.hui.jobclaw.channels.sdk.WeixinSdk;
 import com.git.hui.jobclaw.channels.sdk.WeixinTypes;
+import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.permission.Permission;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.ChannelBinder;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
-import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
-import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
-import com.git.hui.jobclaw.core.apis.permission.Permission;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -124,7 +124,6 @@ public class WeChatClawBotBinder implements ChannelBinder {
                     String botToken = resp.getBotToken();
                     String botId = resp.getIlinkBotId();
                     String ilinkUserId = resp.getIlinkUserId();
-                    // todo 需要保存用户信息
                     log.info("WeChat login successful! botToken:{} BotID: {}, UserID: {}",
                             botToken,
                             botId,
@@ -142,6 +141,24 @@ public class WeChatClawBotBinder implements ChannelBinder {
             log.error("Failed to check login status", e);
             return new LoginStatus(false, e.getMessage(), null);
         }
+    }
+
+    /**
+     * 获取当前用户绑定的微信机器人信息
+     */
+    @Operation(summary = "获取绑定信息")
+    @GetMapping("/list")
+    public List<WxClawBotAccount> getMyBindInfo() {
+        Long userId = ReqInfoContext.getReqInfo().getUserId();
+        var accounts = wxChatClawBotProperties.getAccounts();
+        if (accounts == null) {
+            return List.of();
+        }
+        var userAccounts = accounts.get(String.valueOf(userId));
+        if (userAccounts == null) {
+            return List.of();
+        }
+        return List.of(userAccounts);
     }
 
     @Override

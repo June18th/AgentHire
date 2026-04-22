@@ -29,6 +29,7 @@ public class FeiShuBotProperties {
     @AllArgsConstructor
     @EqualsAndHashCode(callSuper = true)
     public static class FeiShuBotAccount extends ChannelConfig {
+        private String botName;
         private boolean stream;
     }
 }

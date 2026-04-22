@@ -2,11 +2,13 @@ package com.git.hui.jobclaw.agents;
 
 import com.git.hui.jobclaw.core.agent.impl.AbsBizAgent;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.agent.llm.UserPreferenceBasedLlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.plugins.jobs.JobLibraryTool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -160,6 +162,7 @@ public class JobRecommendAgent extends AbsBizAgent {
     public AgentPermission permission() {
         return AgentPermission.TOTAL;
     }
+
     @Override
     public AgentIntro getAgentIntro() {
         return AGENT_INTRO;
@@ -185,7 +188,8 @@ public class JobRecommendAgent extends AbsBizAgent {
     public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         log.info("JobRecommendAgent process: {}", message.getMessage());
         ChatClient chatClient = getChatClient(userConversationInfo.jobClawUserId());
-        Prompt prompt = clientSelector.buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
+        Prompt prompt = SpringUtil.getBean(UserPreferenceBasedLlmCaller.class)
+                .buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
         return chatClient.prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
                 .toolContext(Map.of("msg", message, "conversation", userConversationInfo, "jobClawUserId", userConversationInfo.jobClawUserId()))
@@ -197,7 +201,8 @@ public class JobRecommendAgent extends AbsBizAgent {
     public Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         log.info("JobRecommendAgent stream: {}", message.getMessage());
         ChatClient chatClient = getChatClient(userConversationInfo.jobClawUserId());
-        Prompt prompt = clientSelector.buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
+        Prompt prompt = SpringUtil.getBean(UserPreferenceBasedLlmCaller.class)
+                .buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
         return chatClient.prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
                 .toolContext(Map.of("msg", message, "conversation", userConversationInfo, "jobClawUserId", userConversationInfo.jobClawUserId()))

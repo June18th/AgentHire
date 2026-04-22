@@ -8,7 +8,6 @@ import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskEntity;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskStatus;
 import com.git.hui.jobclaw.agents.jobfetch.service.repository.JobFetchTaskRepository;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;

@@ -57,10 +57,10 @@ public class ChannelConfig {
     @Getter
     @AllArgsConstructor
     public enum ChannelScope implements StringBaseEnum {
-        OWNER("owner", "机器人的归属者的聊天渠道"),
-        LOGIN("login", "用户登录的聊天渠道"),
-        VIP("vip", "VIP用户可以享受的聊天渠道"),
-        PUBLIC("public", "所有人都可以接入的聊天渠道"),
+        OWNER("OWNER", "机器人的归属者的聊天渠道"),
+        LOGIN("LOGIN", "用户登录的聊天渠道"),
+        VIP("VIP", "VIP用户可以享受的聊天渠道"),
+        PUBLIC("PUBLIC", "所有人都可以接入的聊天渠道"),
         ;
 
         private String value;

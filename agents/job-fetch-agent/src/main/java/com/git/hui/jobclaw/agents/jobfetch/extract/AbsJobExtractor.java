@@ -3,7 +3,6 @@ package com.git.hui.jobclaw.agents.jobfetch.extract;
 import com.git.hui.jobclaw.agents.jobfetch.llm.JobLlmCaller;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.util.GatherResFormat;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;

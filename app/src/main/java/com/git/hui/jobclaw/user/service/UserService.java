@@ -176,6 +176,12 @@ public class UserService implements IUserService {
         if (StringUtils.isNotBlank(req.getAvatar())) {
             user.setAvatar(req.getAvatar());
         }
+        if (StringUtils.isNotBlank(req.getDingDingId())) {
+            user.setDingDingUserId(req.getDingDingId());
+        }
+        if (StringUtils.isNotBlank(req.getFeiShuId())) {
+            user.setFeiShuUserId(req.getFeiShuId());
+        }
         user.setUpdateTime(new Date());
         userRepository.saveAndFlush(user);
         return UserConvert.toVo(user);

@@ -402,11 +402,12 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
         // 流式返回的场景
         var cardManager = cardManagers.get(originalMsg.getRobotId());
         var stream = msg.getStreamContents();
+        String feiShuOpenId = originalMsg.getOpenId();
         String cardId = originalMsg.getAiCardId();
         if (stream != null) {
             if (StringUtils.isBlank(cardId)) {
                 // 通常是后台主动给用户发送消息的场景
-                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
+                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), feiShuOpenId);
                 if (cardId == null) {
                     cardId = cardManager.initStreamAiCardId(originalMsg.getOpenId());
                 }
@@ -435,19 +436,19 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                                 content.append(response.content());
                             }
                             cardManager.updateStreamingCard(finalCardId, thinking.toString(), content.toString(), false);
-                            aiCardStatus.answerAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
+                            aiCardStatus.answerAiCard(originalMsg.robotId, feiShuOpenId, finalCardId);
                         })
                         .doOnError(error -> {
                             log.error("[FeiShu] Error in stream response for cardId: {}", finalCardId, error);
                             // 发生错误时，标记卡片为结束状态
                             cardManager.updateStreamingCard(finalCardId, thinking.toString(), "抱歉，生成回复时遇到了错误。", true);
-                            aiCardStatus.finishAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
+                            aiCardStatus.finishAiCard(originalMsg.robotId, feiShuOpenId, finalCardId);
                         })
                         .doOnComplete(() -> {
                             log.info("[FeiShu] Stream response completed for cardId: {}, total length: {}", finalCardId, content.length());
                             // 流式响应完成，标记卡片为结束状态
                             cardManager.updateStreamingCard(finalCardId, thinking.toString(), content.toString(), true);
-                            aiCardStatus.finishAiCard(originalMsg.robotId, msg.getJobClawUserId(), finalCardId);
+                            aiCardStatus.finishAiCard(originalMsg.robotId, feiShuOpenId, finalCardId);
                         }).subscribe();
             }
         } else {
@@ -461,7 +462,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                 cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
                 if (cardId != null) {
                     cardManager.updateStreamingCard(cardId, "", content, true);
-                    aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), cardId);
+                    aiCardStatus.finishAiCard(originalMsg.getRobotId(), feiShuOpenId, cardId);
                     return true;
                 }
 
@@ -478,7 +479,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             }
             cardManager.updateStreamingCard(cardId, "", content, true);
             // 主动结束这个流式卡片，避免被再次更新
-            aiCardStatus.finishAiCard(originalMsg.getRobotId(), msg.getJobClawUserId(), cardId);
+            aiCardStatus.finishAiCard(originalMsg.getRobotId(), feiShuOpenId, cardId);
         }
         return true;
     }

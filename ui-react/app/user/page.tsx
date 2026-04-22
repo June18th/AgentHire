@@ -15,6 +15,7 @@ import {
   submitUserInterest,
   fetchUserInterestRecommend,
 } from "@/lib/api";
+import ChannelSection from "@/app/user/sub/ChannelSection";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -37,6 +38,7 @@ const MENU = [
   { key: "vip", label: "我的会员", icon: "💎" },
   { key: "orders", label: "购买记录", icon: "🛒" },
   { key: "fav", label: "订阅收藏", icon: "⭐" },
+  { key: "channel", label: "渠道配置", icon: "📱" },
   // { key: "post", label: "内推录入", icon: "🏬" },
   { key: "profile", label: "基本资料", icon: "📄" },
 ];
@@ -427,6 +429,8 @@ export default function UserPage() {
                   handleReRecharge={handleReRecharge}
                   handleCouponSubmit={handleCouponSubmit}
                 />
+              ) : activeMenu === "channel" ? (
+                <ChannelSection />
               ) : (
                 <SubscriptionSection
                     intro={intro}

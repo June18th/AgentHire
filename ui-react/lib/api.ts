@@ -775,11 +775,13 @@ export async function deleteDict(id: number): Promise<boolean> {
 // ---------------- 个人用户相关
 
 export interface UserSaveReq {
-  userId: number;
-  displayName: string;
-  avatar: string;
-  email: string;
-  intro: string;
+  userId?: number;
+  displayName?: string;
+  avatar?: string;
+  email?: string;
+  intro?: string;
+  dingDingId?: string;
+  feiShuId?: string;
 }
 
 export async function execLogout() {
@@ -1045,4 +1047,79 @@ export async function fetchCouponUpdate(params: CouponListItem) {
     return res.data.data;
   }
   throw new Error(res.data?.msg || "更新优惠券失败");
+}
+
+export interface ChannelConfig {
+  appId?: string;
+  appSecret?: string;
+  mode?: string;
+  state?: string;
+  scope?: string;
+  ownerJobClawUserId?: string;
+  botName?: string;
+  aiCardId?: string;
+}
+
+export async function fetchDingTalkList(): Promise<ChannelConfig[]> {
+  const res = await api.get("/api/dingding/list");
+  if (res.data && res.data.code === 0) {
+    return res.data.data || [];
+  }
+  return [];
+}
+
+export async function fetchDingTalkBind(params: ChannelConfig): Promise<boolean> {
+  const res = await api.post("/api/dingding/bind", params);
+  if (res.data && res.data.code === 0) {
+    return true;
+  }
+  throw new Error(res.data?.msg || "绑定钉钉机器人失败");
+}
+
+export async function fetchFeiShuList(): Promise<ChannelConfig[]> {
+  const res = await api.get("/api/feishu/list");
+  if (res.data && res.data.code === 0) {
+    return res.data.data || [];
+  }
+  return [];
+}
+
+export async function fetchFeiShuBind(params: ChannelConfig): Promise<boolean> {
+  const res = await api.post("/api/feishu/bind", params);
+  if (res.data && res.data.code === 0) {
+    return true;
+  }
+  throw new Error(res.data?.msg || "绑定飞书机器人失败");
+}
+
+export async function fetchWeChatBindQrCode(): Promise<{ qrCode: string; qrUrl?: string }> {
+  const res = await api.post("/api/wechat/clawbot/qrcode");
+  if (res.data && res.data.code === 0) {
+    return res.data.data || { qrCode: "" };
+  }
+  throw new Error(res.data?.msg || "获取二维码失败");
+}
+
+export async function fetchWeChatList(): Promise<WeChatAccount[]> {
+  const res = await api.get("/api/wechat/clawbot/list");
+  if (res.data && res.data.code === 0) {
+    return res.data.data || [];
+  }
+  throw new Error(res.data?.msg || "获取微信绑定信息失败");
+}
+
+export interface WeChatAccount {
+  appId?: string;
+  appSecret?: string;
+  userId?: string;
+  mode?: string;
+  state?: string;
+}
+
+export async function fetchWeChatBindStatus(qrCode: string): Promise<{ success: boolean; message?: string; accountId?: string }> {
+  const res = await api.get("/api/wechat/clawbot/status", { params: { qrCode } });
+  if (res.data && res.data.code === 0) {
+    return res.data.data || { success: false };
+  }
+  return { success: false, message: res.data?.msg };
 }

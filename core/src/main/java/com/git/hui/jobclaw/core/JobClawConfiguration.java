@@ -4,7 +4,7 @@ import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
-import com.git.hui.jobclaw.core.agent.llm.SpringAiBasedLlmCaller;
+import com.git.hui.jobclaw.core.agent.llm.UserPreferenceBasedLlmCaller;
 import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.agent.memory.FileSystemChatMemoryRepository;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
@@ -62,7 +62,7 @@ public class JobClawConfiguration {
     @ConditionalOnMissingBean(LlmCaller.class)
     public LlmCaller llmCaller(ClientSelector clientSelector,
                                IIdentityAgent identityAgent) {
-        return new SpringAiBasedLlmCaller(clientSelector, identityAgent);
+        return new UserPreferenceBasedLlmCaller(clientSelector, identityAgent);
     }
 
     @Bean

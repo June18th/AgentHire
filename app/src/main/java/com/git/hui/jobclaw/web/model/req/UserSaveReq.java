@@ -34,4 +34,8 @@ public class UserSaveReq {
     private String email;
 
     private String intro;
+
+    private String feiShuId;
+
+    private String dingDingId;
 }

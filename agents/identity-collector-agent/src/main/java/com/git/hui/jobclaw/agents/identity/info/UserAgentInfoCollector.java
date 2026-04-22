@@ -4,7 +4,6 @@ import com.git.hui.jobclaw.agents.identity.init.CollectionState;
 import com.git.hui.jobclaw.agents.identity.init.InfoCollector;
 import com.git.hui.jobclaw.agents.identity.soul.UserAgentSoulManager;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityManager;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import org.slf4j.Logger;

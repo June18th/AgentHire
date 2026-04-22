@@ -1,7 +1,6 @@
 package com.git.hui.jobclaw.agents.jobfetch.service;
 
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +24,7 @@ public class JobFetchService {
 
     /**
      * 从URL抓取职位(异步)
-     * @return 任务ID,用户可通过任务ID查询进度
+     * @return 任务ID, 用户可通过任务ID查询进度
      */
     public JobFetchTaskResponse fetchFromUrl(UserConversationInfo userConversationInfo,
                                              String url,
@@ -36,12 +35,12 @@ public class JobFetchService {
 
     /**
      * 从文本或本地文件提取职位(异步)
-     * @return 任务ID,用户可通过任务ID查询进度
+     * @return 任务ID, 用户可通过任务ID查询进度
      */
     public JobFetchTaskResponse fetchFromTextOrLocalFile(UserConversationInfo userConversationInfo,
-                                                          String text, 
-                                                          String path,
-                                                          ChannelReceiveMessage msg) {
+                                                         String text,
+                                                         String path,
+                                                         ChannelReceiveMessage msg) {
         log.info("创廾文本/文件提取任务");
         return taskService.createTextOrFileTask(userConversationInfo, text, path, msg);
     }
