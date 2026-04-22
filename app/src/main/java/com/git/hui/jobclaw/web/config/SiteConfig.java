@@ -36,4 +36,9 @@ public class SiteConfig {
      * 网站url地址（包含端口）
      */
     private String webSiteUrl;
+
+    /**
+     * 是否自动打开浏览器
+     */
+    private Boolean autoOpen;
 }
