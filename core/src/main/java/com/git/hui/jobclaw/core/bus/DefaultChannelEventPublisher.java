@@ -66,6 +66,7 @@ public class DefaultChannelEventPublisher implements ChannelEventPublisher {
         var pro = channelRegistry.getChannelRspBuilderAdapter(jobClawUserId, channelName);
         if (pro != null) {
             var responseMsg = pro.apply(response);
+            responseMsg.setStreamContents(null);
             publishProactiveMessage(responseId, channelName, responseMsg, 0);
             return true;
         }

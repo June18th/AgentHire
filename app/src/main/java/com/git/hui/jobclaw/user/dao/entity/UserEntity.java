@@ -94,4 +94,11 @@ public class UserEntity {
      */
     @Column(name = "update_time")
     private Date updateTime;
+
+
+    @Column(name = "ding_ding_user_id")
+    private String dingDingUserId;
+
+    @Column(name = "fei_shu_user_id")
+    private String feiShuUserId;
 }

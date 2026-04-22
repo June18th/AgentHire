@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.cli;
 
+import cn.hutool.core.util.NumberUtil;
 import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
@@ -64,8 +65,11 @@ public class SwitchAgentCommandHandler implements SystemCommandHandler {
     }
 
     private UserRoleEnum getUserRole(String jobClawUserId) {
-        var user = SpringUtil.getBean(IUserService.class).getUser(jobClawUserId);
-        return user == null ? null : user.role();
+        if (NumberUtil.isNumber(jobClawUserId)) {
+            return SpringUtil.getBean(IUserService.class).getRole(jobClawUserId);
+        } else {
+            return UserRoleEnum.NORMAL;
+        }
     }
 
     private String showAgentList(String jobClawUserId) {

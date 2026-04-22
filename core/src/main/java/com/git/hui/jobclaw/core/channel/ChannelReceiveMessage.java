@@ -43,11 +43,19 @@ public class ChannelReceiveMessage {
     @Builder.Default
     private boolean stream = false;
 
+    /**
+     * 是否为群聊
+     */
+    @Builder.Default
+    private boolean groupTalk = false;
+
 
     @Data
     @SuperBuilder(toBuilder = true)
     @NoArgsConstructor
     public static class MediaMsg {
+        private String downUrl;
+        private String fileType;
         private Path filePath;
         private String mimeType;
         private byte[] data; // Optional: inline image data
@@ -57,8 +65,10 @@ public class ChannelReceiveMessage {
     @SuperBuilder(toBuilder = true)
     @NoArgsConstructor
     public static class FileMsg {
+        private String downUrl;
         private Path filePath;
         private String fileName;
+        private String fileType;
         private String mimeType;
     }
 }

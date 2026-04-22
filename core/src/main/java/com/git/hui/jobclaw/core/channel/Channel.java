@@ -7,8 +7,10 @@ package com.git.hui.jobclaw.core.channel;
  */
 public interface Channel {
     default String name() {
-        return this.getClass().getSimpleName();
+        return channel().getChannel();
     }
+
+    ChannelConfig.ChannelEnum channel();
 
     /**
      * 通道接收到消息，并向外发送给Agent

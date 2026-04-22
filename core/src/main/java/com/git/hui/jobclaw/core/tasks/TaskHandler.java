@@ -43,7 +43,7 @@ public class TaskHandler {
             LOGGER.info("Starting task: {}", task);
             String agentInput = formatTaskForAgent(inProgress);
             TaskResult result = agent.prompt(
-                    new UserConversationInfo(task.getJobClawUserId(), null, task.getId()),
+                    new UserConversationInfo(task.getJobClawUserId(), null, task.getId(), false),
                     agentInput,
                     TaskResult.class);
             taskRepository.save(inProgress.withFeedback(result.feedback()).withStatus(result.newStatus()));

@@ -70,8 +70,8 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
     }
 
     @Override
-    public String name() {
-        return "wechat-clawbot";
+    public ChannelConfig.ChannelEnum channel() {
+        return ChannelConfig.ChannelEnum.WEXIN_CLAW_BOT;
     }
 
     /**
@@ -88,8 +88,8 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
                     return;
                 }
 
-                if (StringUtils.isBlank(account.getJobClawUserId())) {
-                    account.setJobClawUserId(jobUserId);
+                if (StringUtils.isBlank(account.getOwnerJobClawUserId())) {
+                    account.setOwnerJobClawUserId(jobUserId);
                 }
                 this.addAccount(account);
             });
@@ -104,7 +104,7 @@ public class WeChatClawBotChannel extends AbsChannel<WeixinTypes.WeixinMessage> 
         // Initialize WeiXinSdk
         final String botToken = account.getAppSecret();
         final String wxUserId = botAccount.getUserId();
-        final String jobClawUserId = botAccount.getJobClawUserId();
+        final String jobClawUserId = botAccount.getOwnerJobClawUserId();
         var sdk = new WeixinSdk.Builder()
                 .baseUrl(this.wxChatClawBotProperties.getBaseUrl())
                 .cdnBaseUrl(this.wxChatClawBotProperties.getCdnBaseUrl())

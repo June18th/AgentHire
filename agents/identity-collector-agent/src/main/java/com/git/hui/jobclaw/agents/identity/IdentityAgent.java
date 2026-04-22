@@ -6,7 +6,6 @@ import com.git.hui.jobclaw.agents.identity.init.UnifiedIdentityInitializer;
 import com.git.hui.jobclaw.agents.identity.soul.UserAgentSoulManager;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityExtractor;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityManager;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import io.micrometer.common.util.StringUtils;
@@ -131,6 +130,10 @@ public class IdentityAgent implements IIdentityAgent {
      * @param messages conversation messages
      */
     public void asyncUpdateUserIdentityAsync(UserConversationInfo conversationInfo, List<Message> messages) {
+        if (conversationInfo.group()) {
+            return;
+        }
+
         String jobClawUserId = conversationInfo.jobClawUserId();
         String conversationId = conversationInfo.conversationId();
         try {

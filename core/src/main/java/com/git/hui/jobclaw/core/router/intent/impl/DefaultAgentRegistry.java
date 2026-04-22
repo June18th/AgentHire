@@ -1,7 +1,8 @@
 package com.git.hui.jobclaw.core.router.intent.impl;
 
+import cn.hutool.core.util.NumberUtil;
 import com.git.hui.jobclaw.core.agent.BizAgent;
-import com.git.hui.jobclaw.core.apis.context.UserBo;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.core.apis.service.IUserService;
 import com.git.hui.jobclaw.core.router.intent.AgentRegistry;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
@@ -118,8 +119,12 @@ public class DefaultAgentRegistry implements AgentRegistry {
 
     @Override
     public List<BizAgent> getAllAgents(String jobClawUserId) {
-        UserBo user = SpringUtil.getBean(IUserService.class).getUser(jobClawUserId);
-        var role = user == null ? null : user.role();
+        UserRoleEnum role;
+        if (!NumberUtil.isNumber(jobClawUserId)) {
+            role = UserRoleEnum.NORMAL;
+        } else {
+            role = SpringUtil.getBean(IUserService.class).getRole(jobClawUserId);
+        }
         return agents.values().stream()
                 .filter(agent -> agent.permission().enabled(role))
                 .collect(Collectors.toList());

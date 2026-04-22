@@ -10,6 +10,7 @@ import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
 import com.git.hui.jobclaw.core.apis.service.IUserService;
 import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
+import com.git.hui.jobclaw.core.channel.ChannelConfig;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.openapi.model.OpenApiUserDTO;
 import com.git.hui.jobclaw.user.convert.UserConvert;
@@ -317,6 +318,25 @@ public class UserService implements IUserService {
     @Override
     public UserBo getUser(String userId) {
         return getUserBo(Long.parseLong(userId));
+    }
+
+    @Override
+    public UserBo getUser(String thirdId, ChannelConfig.ChannelEnum channel) {
+        UserEntity user = switch (channel) {
+            case DING_DING -> userRepository.findByDingDingUserId(thirdId);
+            case FEI_SHU -> userRepository.findByFeiShuUserId(thirdId);
+            default -> null;
+        };
+        if (user == null) {
+            return null;
+        }
+        if (user.getRole().equals(UserRoleEnum.VIP.getValue())
+                && System.currentTimeMillis() >= user.getExpireTime().getTime()) {
+            // 会员已过期
+            user.setRole(UserRoleEnum.NORMAL.getValue());
+            userRepository.saveAndFlush(user);
+        }
+        return UserConvert.toBo(user);
     }
 
     /**

@@ -3,13 +3,14 @@ package com.git.hui.jobclaw.agents.identity.user.collector;
 import com.git.hui.jobclaw.agents.identity.init.CollectionState;
 import com.git.hui.jobclaw.agents.identity.init.InfoCollector;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityManager;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -151,7 +152,7 @@ public class RuleBasedIdentityCollector implements InfoCollector {
         collectionStates.put(jobClawUserId, state);
 
         // Send first question
-        askNextQuestion(state);
+        askNextQuestion(state, false);
     }
 
     @Override
@@ -176,15 +177,13 @@ public class RuleBasedIdentityCollector implements InfoCollector {
         }
 
         // Check if user wants to skip
-        if (isSkipMessage(userMessage)) {
-            sendSkipAcknowledgement(state);
-        }
+        boolean skiped = isSkipMessage(userMessage);
 
         // Ask next question or complete
         if (state.getRemainingQuestions().isEmpty()) {
             completeCollection(state);
         } else {
-            askNextQuestion(state);
+            askNextQuestion(state, skiped);
         }
     }
 
@@ -196,7 +195,7 @@ public class RuleBasedIdentityCollector implements InfoCollector {
     /**
      * Ask the next question in the flow
      */
-    private void askNextQuestion(CollectionState state) {
+    private void askNextQuestion(CollectionState state, boolean skipped) {
         if (state.getRemainingQuestions().isEmpty()) {
             return;
         }
@@ -205,6 +204,9 @@ public class RuleBasedIdentityCollector implements InfoCollector {
         state.markQuestionAsked(nextQuestion);
 
         String question = formatQuestion(nextQuestion, state.getAskedQuestions().size());
+        if (skipped) {
+            question = "好的，我们跳过这个问题，继续下一个~ 😊\n\n" + question;
+        }
         sendProactiveMessage(state, question);
 
         log.info("[RuleBased] Asked question to user {}: {}", state.getJobClawUserId(), nextQuestion.field());
@@ -350,7 +352,7 @@ public class RuleBasedIdentityCollector implements InfoCollector {
                     "identity_" + System.currentTimeMillis(),
                     state.getJobClawUserId(),
                     state.getActiveChannel(),
-                    content
+                    Flux.just(new LlmRspCell(null, content, null))
             );
 
             log.debug("[RuleBased] Sent proactive message to user: {}", state.getJobClawUserId());

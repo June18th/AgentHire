@@ -1,6 +1,8 @@
 package com.git.hui.jobclaw.channels;
 
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
+import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.service.IUserService;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.AbsStreamChannel;
 import com.git.hui.jobclaw.core.channel.ChannelConfig;
@@ -9,6 +11,7 @@ import com.git.hui.jobclaw.core.channel.ChannelRegistry;
 import com.git.hui.jobclaw.core.channel.ChannelResponseMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.utils.MimeUtils;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.core.utils.files.ChannelStorageHelper;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.google.gson.JsonArray;
@@ -94,8 +97,8 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
     }
 
     @Override
-    public String name() {
-        return "feishu";
+    public ChannelConfig.ChannelEnum channel() {
+        return ChannelConfig.ChannelEnum.FEI_SHU;
     }
 
     /**
@@ -113,6 +116,12 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
         private String content;
 
         /**
+         * p2p：单聊
+         * group： 群组
+         */
+        private String chatType;
+
+        /**
          * 消息类型
          */
         private String msgType;
@@ -121,11 +130,11 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
     /**
      * 注册飞书消息监听回调
      */
-    private void registerMsgListenerCallback(String jobClawUserId, ChannelConfig config) {
+    private void registerMsgListenerCallback(String ownUserId, ChannelConfig config) {
         try {
             FeiShuBotProperties.FeiShuBotAccount account = (FeiShuBotProperties.FeiShuBotAccount) config;
-            if (StringUtils.isBlank(account.getJobClawUserId())) {
-                account.setJobClawUserId(jobClawUserId);
+            if (StringUtils.isBlank(account.getOwnerJobClawUserId())) {
+                account.setOwnerJobClawUserId(ownUserId);
             }
 
             EventDispatcher eventDispatcher = EventDispatcher.newBuilder("", "")
@@ -138,6 +147,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                     .onP2MessageReceiveV1(new ImService.P2MessageReceiveV1Handler() {
                         @Override
                         public void handle(P2MessageReceiveV1 event) throws Exception {
+                            // 接收对象说明： https://open.feishu.cn/document/server-docs/im-v1/message/events/receive
                             log.info("[ onP2MessageReceiveV1 access ], data: {}", Jsons.DEFAULT.toJson(event.getEvent()));
 
                             var eventData = event.getEvent();
@@ -149,10 +159,10 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
 
                             // 3. 创建流式卡片
                             var cardManager = cardManagers.get(config.getAppId());
-                            String cardId = aiCardStatus.getActiveAiCard(account.getAppId(), jobClawUserId);
+                            String cardId = aiCardStatus.getActiveAiCard(account.getAppId(), openId);
                             if (cardId == null) {
                                 cardId = cardManager.initStreamAiCardId(openId);
-                                aiCardStatus.startAiCard(account.getAppId(), jobClawUserId, cardId);
+                                aiCardStatus.startAiCard(account.getAppId(), openId, cardId);
                             }
 
                             // 4. 上报消息
@@ -163,8 +173,9 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                                     .setOpenId(openId)
                                     .setMessageId(messageId)
                                     .setMsgType(eventData.getMessage().getMessageType())
+                                    .setChatType(eventData.getMessage().getChatType())
                                     .setContent(content);
-                            processMessage(MsgWrapper.<ChatbotMessageEx>builder().jobClawUserId(jobClawUserId).msg(ex).build());
+                            processMessage(MsgWrapper.<ChatbotMessageEx>builder().jobClawUserId(ownUserId).msg(ex).build());
                         }
                     })
                     .build();
@@ -177,10 +188,10 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             feishuClient.start();
 
             // 刷新心跳配置
-            this.channelRegistry.refreshChannelHeartBeatInfoIgnoreNull(jobClawUserId, name(), buildHeartBeatCallback(jobClawUserId));
-            log.info("[FeiShu] Feishu bot channel started for user: {} - {}", jobClawUserId, account.getAppId());
+            this.channelRegistry.refreshChannelHeartBeatInfoIgnoreNull(ownUserId, name(), buildHeartBeatCallback(ownUserId));
+            log.info("[FeiShu] Feishu bot channel started for user: {} - {}", ownUserId, account.getAppId());
         } catch (Exception e) {
-            log.error("[FeiShu] Failed to start Feishu bot channel for user: {}", jobClawUserId, e);
+            log.error("[FeiShu] Failed to start Feishu bot channel for user: {}", ownUserId, e);
             throw new RuntimeException("Failed to initialize Feishu channel", e);
         }
     }
@@ -191,7 +202,45 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             return null;
         }
 
+        String robotOwnerUserId = msgWrapper.getJobClawUserId();
         ChatbotMessageEx msg = msgWrapper.getMsg();
+
+
+        String jobClawUserId = null;
+        ChannelConfig channelConfig = this.cardManagers.get(msgWrapper.getMsg().getRobotId()).account;
+        String feishuId = msgWrapper.getMsg().getOpenId();
+        var user = SpringUtil.getBean(IUserService.class).getUser(feishuId, channel());
+        if (channelConfig.getScope() == ChannelConfig.ChannelScope.OWNER) {
+            // 仅作者才能使用
+            if (user == null || !String.valueOf(user.userId()).equals(robotOwnerUserId)) {
+                errorResponse(msg, "这个机器人只为创作者本人服务哦~，如有需要您可以联系 @作者 为您授权");
+                return null;
+            }
+            jobClawUserId = robotOwnerUserId;
+        } else if (channelConfig.getScope() == ChannelConfig.ChannelScope.LOGIN) {
+            if (user == null) {
+                log.warn("[DingDing] Failed to find user for staffId: {}", feishuId);
+                errorResponse(msg, "您的个人求职派还没有绑定飞书渠道哦，请到个人中心->飞书渠道->绑定：" + feishuId);
+                return null;
+            }
+            jobClawUserId = String.valueOf(user.userId());
+        } else if (channelConfig.getScope() == ChannelConfig.ChannelScope.VIP) {
+            if (user == null || (user.role() != UserRoleEnum.VIP && user.role() != UserRoleEnum.ADMIN)) {
+                errorResponse(msg, "这个机器人属于VIP专享哦~，您可以到求职派开通VIP既可畅享对话");
+                return null;
+            }
+            jobClawUserId = String.valueOf(user.userId());
+        } else if (channelConfig.getScope() == ChannelConfig.ChannelScope.PUBLIC) {
+            if (user == null) {
+                // 公开的所有人都可以访问的场景，对于没有绑定的用户，直接使用钉钉的用户体系
+                jobClawUserId = "F-" + feishuId;
+            } else {
+                jobClawUserId = String.valueOf(user.userId());
+            }
+        }
+        msgWrapper.setJobClawUserId(jobClawUserId);
+
+
         JsonElement node = Jsons.DEFAULT.toJsonTree(Jsons.DEFAULT.fromJson(msg.getContent(), Map.class));
         String content = "";
         ChannelReceiveMessage.MediaMsg mediaMsg = null;
@@ -267,15 +316,26 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                 .files(fileMsg != null ? List.of(fileMsg) : null)
                 .medias(mediaMsg != null ? List.of(mediaMsg) : null)
                 .channel(name())
+                .groupTalk("group".equals(msg.getChatType()))
                 .stream(true)
                 .passThrough(Map.of("input", msg))
                 .build();
     }
 
+    private void errorResponse(ChatbotMessageEx msg, String content) {
+        responseToUser(ChannelResponseMessage.builder()
+                .passThrough(Map.of("input", msg))
+                .toUserId(msg.getOpenId())
+                .jobClawUserId(null)
+                .type(ChannelResponseMessage.ResponseMessageType.TEXT)
+                .streamContents(Flux.just(new LlmRspCell(null, content, null)))
+                .build());
+    }
+
     @Override
     public boolean saveHeartBeatConfig(MsgWrapper<ChatbotMessageEx> wrapper, boolean force) {
         var msg = wrapper.getMsg();
-        String type = "im";
+        String type = "group".equals(msg.getChatType()) ? "group" : "im";
         var prefix = buildHeartBeatKey(wrapper.getJobClawUserId(), msg.getRobotId(), type);
         // 如果存在配置，则不进行更新
         if (!force && configurationManager.getProperty(prefix) != null) {
@@ -428,7 +488,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
     public <T extends ChannelConfig> void addAccount(T channelConfig) {
         if (channelConfig instanceof FeiShuBotProperties.FeiShuBotAccount) {
             FeiShuBotProperties.FeiShuBotAccount account = (FeiShuBotProperties.FeiShuBotAccount) channelConfig;
-            registerMsgListenerCallback(account.getJobClawUserId(), account);
+            registerMsgListenerCallback(account.getOwnerJobClawUserId(), account);
             channelRegistry.registerChannel(this);
         } else {
             log.warn("[FeiShu] Unsupported config type: {}", channelConfig.getClass().getName());
@@ -482,7 +542,10 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
         // 每个卡片的计数序号，用于更新卡片时传入这个序号，要求单调递增
         private Map<String, Integer> aiCardSeq = new ConcurrentHashMap<>();
 
+        private com.git.hui.jobclaw.channels.FeiShuBotProperties.FeiShuBotAccount account;
+
         public StreamCardManager(FeiShuBotProperties.FeiShuBotAccount account) {
+            this.account = account;
             this.client = com.lark.oapi.Client.newBuilder(account.getAppId(), account.getAppSecret()).build();
         }
 

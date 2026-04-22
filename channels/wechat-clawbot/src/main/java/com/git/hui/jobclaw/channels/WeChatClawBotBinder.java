@@ -155,7 +155,7 @@ public class WeChatClawBotBinder implements ChannelBinder {
     @Override
     public void bindAccount(Long userId, ChannelConfig channelInfo) {
         WxClawBotAccount account = (WxClawBotAccount) channelInfo;
-        account.setJobClawUserId(String.valueOf(userId));
+        account.setOwnerJobClawUserId(String.valueOf(userId));
         // 只要有一个账号，就设置为这个通道启用
         Map<String, Object> obj = new HashMap<>();
         obj.put(WX_CLAW_BOT_ACCOUNT_PREFIX + "." + userId + ".app-id", account.getAppId());

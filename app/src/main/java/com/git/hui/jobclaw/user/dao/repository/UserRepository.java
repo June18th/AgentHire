@@ -22,6 +22,10 @@ public interface UserRepository extends JpaRepository<UserEntity, Long>, JpaSpec
 
     UserEntity findByWxId(String wxId);
 
+    UserEntity findByDingDingUserId(String dingDingUserId);
+
+    UserEntity findByFeiShuUserId(String feiShuUserId);
+
     List<UserEntity> findByIdIn(List<Long> ids);
 
     UserEntity findByLoginName(String loginName);

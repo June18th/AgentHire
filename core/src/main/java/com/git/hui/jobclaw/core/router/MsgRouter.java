@@ -87,12 +87,12 @@ public class MsgRouter {
         String fromUserId = msg.getFromUserId();
         String channel = msg.getChannel();
         String userMessage = msg.getMessage();
-        UserConversationInfo conversationInfo = new UserConversationInfo(jobClawUserId, channel, fromUserId);
+        UserConversationInfo conversationInfo = new UserConversationInfo(jobClawUserId, channel, fromUserId, msg.isGroupTalk());
         String conversationId = conversationInfo.conversationId();
 
         // Step 1: 根据用户是否存在偏好信息，来决定个是否主动触发用户信息采集Agent，当返回true时，中断当前对话流程，进入信息采集
         // This handles soul.md → user.md → info.md initialization
-        if (identityAgent.triggerToCollectIdentity(conversationInfo, userMessage)) {
+        if (!msg.isGroupTalk() && identityAgent.triggerToCollectIdentity(conversationInfo, userMessage)) {
             log.info("Message handled by unified initializer for user: {}", jobClawUserId);
             return; // Don't send to normal agent during initialization
         }

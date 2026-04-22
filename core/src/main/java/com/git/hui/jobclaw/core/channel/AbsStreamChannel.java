@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- *
+ * 支持流式返回的通道
  * @author YiHui
  * @date 2026/4/16
  */

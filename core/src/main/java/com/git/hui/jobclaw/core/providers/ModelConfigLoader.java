@@ -19,14 +19,15 @@ import java.util.Map;
 @Slf4j
 @Component
 public class ModelConfigLoader {
-    
+    private final static String DEFAULT_PREFERENCE = "total";
+
     private final AiUserPreferenceProperties aiUserPreferenceProperties;
-    
+
     @Autowired
     public ModelConfigLoader(AiUserPreferenceProperties aiModelProperties) {
         this.aiUserPreferenceProperties = aiModelProperties;
     }
-    
+
     /**
      * 加载所有提供商的 ModelConfig
      * @return Map<provider, ModelConfig>
@@ -36,22 +37,22 @@ public class ModelConfigLoader {
             log.warn("No AI model providers configured");
             return new HashMap<>();
         }
-        
+
         Map<String, ModelConfig> configs = new HashMap<>();
-        
+
         for (Map.Entry<String, AiUserPreferenceProperties.ProviderConfig> entry :
                 aiUserPreferenceProperties.getProviders().entrySet()) {
             String providerName = entry.getKey();
             AiUserPreferenceProperties.ProviderConfig providerConfig = entry.getValue();
-            
+
             ModelConfig modelConfig = buildModelConfig(providerName, providerConfig);
             configs.put(providerName, modelConfig);
         }
-        
+
         log.info("Loaded {} model provider configurations", configs.size());
         return configs;
     }
-    
+
     /**
      * 为指定用户加载 ModelConfig（包含用户级别的 API Key 覆盖）
      * @param userId 用户ID
@@ -121,6 +122,10 @@ public class ModelConfigLoader {
                 .orElse(null);
 
         if (preference == null) {
+            if (!DEFAULT_PREFERENCE.equals(userId)) {
+                // 使用全局的配置为用户提供响应
+                return getUserPreferredModel(DEFAULT_PREFERENCE, modelType);
+            }
             return null;
         }
 
@@ -156,10 +161,10 @@ public class ModelConfigLoader {
     /**
      * 构建 ModelConfig
      */
-    private ModelConfig buildModelConfig(String providerName, 
+    private ModelConfig buildModelConfig(String providerName,
                                          AiUserPreferenceProperties.ProviderConfig providerConfig) {
         List<ModelConfig.ModelInfo> modelInfos = new ArrayList<>();
-        
+
         if (providerConfig.getModels() != null) {
             for (AiUserPreferenceProperties.ModelDefinition modelDef : providerConfig.getModels()) {
                 ModelConfig.ModelInfo modelInfo = ModelConfig.ModelInfo.builder()
@@ -173,7 +178,7 @@ public class ModelConfigLoader {
                 modelInfos.add(modelInfo);
             }
         }
-        
+
         return ModelConfig.builder()
                 .provider(providerName)
                 .apiStyle(providerConfig.getApiStyle())
@@ -186,15 +191,15 @@ public class ModelConfigLoader {
                 .models(modelInfos)
                 .build();
     }
-    
+
     /**
      * 应用用户级别的覆盖配置
      */
-    private ModelConfig applyUserOverrides(ModelConfig baseConfig, 
+    private ModelConfig applyUserOverrides(ModelConfig baseConfig,
                                            AiUserPreferenceProperties.UserProviderConfig userConfig) {
         // 复制基础配置
         List<ModelConfig.ModelInfo> updatedModels = new ArrayList<>();
-        
+
         if (baseConfig.getModels() != null) {
             for (ModelConfig.ModelInfo baseModel : baseConfig.getModels()) {
                 ModelConfig.ModelInfo updatedModel = ModelConfig.ModelInfo.builder()
@@ -210,7 +215,7 @@ public class ModelConfigLoader {
                 updatedModels.add(updatedModel);
             }
         }
-        
+
         return ModelConfig.builder()
                 .provider(baseConfig.getProvider())
                 .apiStyle(baseConfig.getApiStyle())
@@ -223,7 +228,7 @@ public class ModelConfigLoader {
                 .models(updatedModels)
                 .build();
     }
-    
+
     /**
      * 解析 API Key（支持模型级别的覆盖）
      */
@@ -241,11 +246,11 @@ public class ModelConfigLoader {
         }
         return defaultApiKey;
     }
-    
+
     /**
      * 根据模型类型解析路径
      */
-    private String resolvePath(ModelConfig.ModelType type, 
+    private String resolvePath(ModelConfig.ModelType type,
                                AiUserPreferenceProperties.ProviderConfig providerConfig) {
         return switch (type) {
             case TEXT, VISION -> providerConfig.getCompletionsPath();
