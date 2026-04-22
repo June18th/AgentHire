@@ -107,12 +107,6 @@ agent:
     dingding:
       enabled: ${AGENT_CHANNEL_DINGDING_ENABLED:false}
       accounts:
-        total: # 所有的普通用户都可以直接沟通聊天的机器人
-          - app-id: dingx(xxx)1rts4iez
-            app-secret: 97AQZKoe(xxx)yeO59Em
-            mode: WEBSOCKET
-            state: ERROR
-            ai-card-id: 508d5bbf(xxx)6803c65.schema
         2: !!seq [ ]
 #          # 一个用户支持配置多个机器人
 #          - app-id: ${AGENT_CHANNEL_DINGDING_APP_ID:ding----4iez}
@@ -120,6 +114,7 @@ agent:
 #            mode: ${AGENT_CHANNEL_DINGDING_MODE:WEBSOCKET}
 #            state: ${AGENT_CHANNEL_DINGDING_STATE:NORMAL}
 #            ai-card-id: ${AGENT_CHANNEL_DINGDING_AI_CARD_ID:508d5bbf-b7d3-416a-828a-acdbf6803c65.schema}
+#            scope: PUBLIC
     feishu:
       enabled: ${AGENT_CHANNEL_FEISHU_ENABLED:false}
       accounts:
