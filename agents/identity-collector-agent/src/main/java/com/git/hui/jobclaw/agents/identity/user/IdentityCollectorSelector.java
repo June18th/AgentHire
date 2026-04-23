@@ -29,11 +29,9 @@ public class IdentityCollectorSelector {
     }
 
     public InfoCollector getCollector(String jobClawUserId) {
-        var tmp = aiUserPreferenceProperties.getPreference().stream()
-                .filter(entry -> entry.getUserId().equals(jobClawUserId))
-                .findFirst();
-        if (tmp.isPresent()) {
-            var collectorType = tmp.get().getCollector();
+        var tmp = aiUserPreferenceProperties.getUserPreference(jobClawUserId);
+        if (tmp != null) {
+            var collectorType = tmp.getCollector();
             if (collectorType == null) {
                 collectorType = AiUserPreferenceProperties.CollectorType.AI_BASED;
             }

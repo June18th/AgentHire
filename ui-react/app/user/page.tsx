@@ -16,6 +16,7 @@ import {
   fetchUserInterestRecommend,
 } from "@/lib/api";
 import ChannelSection from "@/app/user/sub/ChannelSection";
+import PreferenceSection from "@/app/user/sub/PreferenceSection";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -39,6 +40,7 @@ const MENU = [
   { key: "orders", label: "购买记录", icon: "🛒" },
   { key: "fav", label: "订阅收藏", icon: "⭐" },
   { key: "channel", label: "渠道配置", icon: "📱" },
+  { key: "preference", label: "偏好设置", icon: "⚙️" },
   // { key: "post", label: "内推录入", icon: "🏬" },
   { key: "profile", label: "基本资料", icon: "📄" },
 ];
@@ -431,6 +433,8 @@ export default function UserPage() {
                 />
               ) : activeMenu === "channel" ? (
                 <ChannelSection />
+              ) : activeMenu === "preference" ? (
+                <PreferenceSection />
               ) : (
                 <SubscriptionSection
                     intro={intro}

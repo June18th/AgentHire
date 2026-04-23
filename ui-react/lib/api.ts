@@ -800,6 +800,86 @@ export async function getUserDetail() {
   throw new Error(res.data?.msg || "获取用户信息失败");
 }
 
+export interface UserModelConfig {
+  name: string;
+  type: string;
+  multimodal?: boolean;
+}
+
+export interface UserProviderConfig {
+  provider?: string;
+  apiKey?: string;
+  apiStyle?: string;
+  baseUrl?: string;
+  completionsPath?: string;
+  embeddingsPath?: string;
+  imagesPath?: string;
+  speechPath?: string;
+  transcriptionPath?: string;
+  models?: UserModelConfig[];
+}
+
+export interface UserPreferenceModels {
+  vision?: string;
+  text?: string;
+  image?: string;
+  video?: string;
+  embedding?: string;
+  asr?: string;
+  tts?: string;
+}
+
+export interface UserPreference {
+  collector?: string;
+  channels?: string[];
+  models?: UserPreferenceModels;
+  providers?: Record<string, UserProviderConfig>;
+}
+
+export interface UpdateProviderReq {
+  provider: string;
+  apiKey?: string;
+  apiStyle?: string;
+  baseUrl?: string;
+  completionsPath?: string;
+  embeddingsPath?: string;
+  imagesPath?: string;
+  speechPath?: string;
+  transcriptionPath?: string;
+}
+
+export interface UpdateModelReq {
+  name: string;
+  type: string;
+  multimodal?: boolean;
+}
+
+export interface UpdateUserPreferenceReq {
+  collector?: string;
+  channels?: string[];
+  models?: UserPreferenceModels;
+  provider?: UpdateProviderReq;
+  deleteProvider?: boolean;
+  model?: UpdateModelReq;
+  deleteModel?: boolean;
+}
+
+export async function getUserPreference(): Promise<UserPreference> {
+  const res = await api.get("/api/user/preference");
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "获取用户偏好配置失败");
+}
+
+export async function updateUserPreference(req: UpdateUserPreferenceReq): Promise<boolean> {
+  const res = await api.post("/api/user/preference/update", req);
+  if (res.data && res.data.code === 0) {
+    return true;
+  }
+  throw new Error(res.data?.msg || "更新用户偏好配置失败");
+}
+
 export async function submitUserInterest(text: string | String) {
   const res = await api.get("/api/user/interest?text=" + text);
   if (res.data && res.data.code === 0) {

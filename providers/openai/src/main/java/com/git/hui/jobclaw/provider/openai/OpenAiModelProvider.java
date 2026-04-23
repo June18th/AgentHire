@@ -3,6 +3,7 @@ package com.git.hui.jobclaw.provider.openai;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProvider;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
+import io.micrometer.common.util.StringUtils;
 import org.springframework.ai.chat.observation.ChatModelObservationConvention;
 import org.springframework.ai.document.MetadataMode;
 import org.springframework.ai.embedding.observation.EmbeddingModelObservationConvention;
@@ -58,14 +59,18 @@ public class OpenAiModelProvider implements ModelProvider {
     }
 
     private Model buildChatModel(ModelConfig.ModelInfo info) {
-        OpenAiApi openAiApi = OpenAiApi.builder()
-                .baseUrl(info.getBaseUrl())
-                .completionsPath(info.getPath())
+        var builder = OpenAiApi.builder()
                 .apiKey(info.getApiKey())
                 .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
                 .webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))
-                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER))
-                .build();
+                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER));
+        if (StringUtils.isNotBlank(info.getBaseUrl())) {
+            builder.baseUrl(info.getBaseUrl());
+        }
+        if (StringUtils.isNotBlank(info.getPath())) {
+            builder.completionsPath(info.getPath());
+        }
+        OpenAiApi openAiApi = builder.build();
 
         OpenAiChatModel chatModel = OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
@@ -79,15 +84,18 @@ public class OpenAiModelProvider implements ModelProvider {
 
 
     private Model buildVisionModel(ModelConfig.ModelInfo info) {
-        OpenAiApi openAiApi = OpenAiApi.builder()
-                .baseUrl(info.getBaseUrl())
-                .completionsPath(info.getPath())
+        var builder = OpenAiApi.builder()
                 .apiKey(info.getApiKey())
                 .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
                 .webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))
-                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER))
-                .build();
-
+                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER));
+        if (StringUtils.isNotBlank(info.getBaseUrl())) {
+            builder.baseUrl(info.getBaseUrl());
+        }
+        if (StringUtils.isNotBlank(info.getPath())) {
+            builder.completionsPath(info.getPath());
+        }
+        OpenAiApi openAiApi = builder.build();
         OpenAiChatModel chatModel = OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
                 .defaultOptions(OpenAiChatOptions.builder().model(info.getModelName()).build())
@@ -99,14 +107,19 @@ public class OpenAiModelProvider implements ModelProvider {
     }
 
     private OpenAiEmbeddingModel buildEmbeddingModel(ModelConfig.ModelInfo info) {
-        OpenAiApi openAiApi = OpenAiApi.builder()
+        var builder = OpenAiApi.builder()
                 .apiKey(info.getApiKey())
-                .baseUrl(info.getBaseUrl())
-                .embeddingsPath(info.getPath())
                 .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
                 .webClientBuilder(webClientBuilderProvider.getIfAvailable(WebClient::builder))
-                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER))
-                .build();
+                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER));
+        if (StringUtils.isNotBlank(info.getBaseUrl())) {
+            builder.baseUrl(info.getBaseUrl());
+        }
+        if (StringUtils.isNotBlank(info.getPath())) {
+            builder.embeddingsPath(info.getPath());
+        }
+
+        OpenAiApi openAiApi = builder.build();
         OpenAiEmbeddingModel embeddingModel = new OpenAiEmbeddingModel(openAiApi,
                 MetadataMode.EMBED,
                 OpenAiEmbeddingOptions.builder().model(info.getModelName()).build());
@@ -117,12 +130,18 @@ public class OpenAiModelProvider implements ModelProvider {
     }
 
     private OpenAiImageModel buildImageModel(ModelConfig.ModelInfo info) {
-        OpenAiImageApi openAiImageApi = OpenAiImageApi.builder().baseUrl(info.getBaseUrl())
-                .apiKey(new SimpleApiKey(info.getApiKey()))
-                .imagesPath(info.getPath())
+        var builder = OpenAiImageApi.builder()
+                .apiKey(info.getApiKey())
                 .restClientBuilder(restClientBuilderProvider.getIfAvailable(RestClient::builder))
-                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER)).build();
+                .responseErrorHandler(responseErrorHandler.getIfAvailable(() -> RetryUtils.DEFAULT_RESPONSE_ERROR_HANDLER));
+        if (StringUtils.isNotBlank(info.getBaseUrl())) {
+            builder.baseUrl(info.getBaseUrl());
+        }
+        if (StringUtils.isNotBlank(info.getPath())) {
+            builder.imagesPath(info.getPath());
+        }
 
+        OpenAiImageApi openAiImageApi = builder.build();
 
         OpenAiImageModel imageModel = new OpenAiImageModel(openAiImageApi,
                 OpenAiImageOptions.builder().model(info.getModelName()).build(),

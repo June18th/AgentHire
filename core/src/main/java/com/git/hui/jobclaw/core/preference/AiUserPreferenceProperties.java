@@ -1,9 +1,13 @@
 package com.git.hui.jobclaw.core.preference;
 
+import cn.hutool.core.util.NumberUtil;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.git.hui.jobclaw.core.preference.repository.AiUserPreferenceService;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Lazy;
 
 import java.util.List;
 import java.util.Map;
@@ -23,13 +27,27 @@ public class AiUserPreferenceProperties {
      */
     private List<UserPreferenceEntry> preference;
 
+    @Autowired
+    @Lazy
+    private AiUserPreferenceService aiUserPreferenceService;
+
+    /**
+     * 模型提供商配置
+     * key: 提供商名称 (如: zhipu, silicon)
+     * value: 提供商的配置信息
+     */
+    private Map<String, ProviderConfig> providers;
     public UserPreferenceEntry getUserPreference(String userId) {
         for (UserPreferenceEntry entry : preference) {
             if (entry.getUserId().equals(userId)) {
                 return entry;
             }
         }
-        return null;
+        if (NumberUtil.isNumber(userId)) {
+            return aiUserPreferenceService.loadUserPreferenceConfiguration(Long.valueOf(userId));
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -61,6 +79,14 @@ public class AiUserPreferenceProperties {
          */
         @JsonPropertyDescription("用户的模型偏好配置")
         private UserModelPreference models;
+
+        /**
+         * 模型提供商配置
+         * key: 提供商名称 (如: zhipu, silicon)
+         * value: 提供商的配置信息
+         */
+        @JsonPropertyDescription("模型提供商配置")
+        private Map<String, ProviderConfig> providers;
     }
 
 
@@ -73,13 +99,6 @@ public class AiUserPreferenceProperties {
         /** AI-driven dynamic conversation */
         AI_BASED
     }
-
-    /**
-     * 模型提供商配置
-     * key: 提供商名称 (如: zhipu, silicon)
-     * value: 提供商的配置信息
-     */
-    private Map<String, ProviderConfig> providers;
 
     /**
      * 用户模型偏好配置
@@ -98,11 +117,20 @@ public class AiUserPreferenceProperties {
         @JsonPropertyDescription("文本模型配置，格式: provider#modelName (如: zhipu#GLM-4.7-Flash)")
         private String text;
 
-        /**
-         * 用户级别的提供商 API Key 覆盖配置
-         */
-        @JsonPropertyDescription("用户级别的提供商 API Key 覆盖配置")
-        private Map<String, UserProviderConfig> providers;
+        @JsonPropertyDescription("TTS 模型配置，格式: provider#modelName (如: zhipu#xxx)")
+        private String tts;
+
+        @JsonPropertyDescription("ASR 模型配置，格式: provider#modelName (如: zhipu#xxx)")
+        private String asr;
+
+        @JsonPropertyDescription("图像模型配置，格式: provider#modelName (如: zhipu#xxx)")
+        private String image;
+
+        @JsonPropertyDescription("嵌入模型配置，格式: provider#modelName (如: zhipu#xxx)")
+        private String embedding;
+
+        @JsonPropertyDescription("视频模型配置，格式: provider#modelName (如: zhipu#xxx)")
+        private String video;
     }
 
     /**
@@ -134,6 +162,11 @@ public class AiUserPreferenceProperties {
          * API 风格 (如: openai)
          */
         private String apiStyle;
+
+        /**
+         * API Key
+         */
+        private String apiKey;
 
         /**
          * 基础 URL

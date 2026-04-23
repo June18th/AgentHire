@@ -114,13 +114,8 @@ public class ClientSelector {
     }
 
     public Model getUserPreferredModel(String userId, boolean multiModal) {
-        ModelConfig.ModelInfo prefer = modelProviders.getUserPreferredModel(userId,
+        var model = modelProviders.getModel(userId,
                 multiModal ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT);
-        if (prefer == null) {
-            // todo 用户必须有一个默认的模型配置，否则应该自动设置一个，这里先直接抛异常
-            throw new RuntimeException("用户没有配置模型，请先配置模型!");
-        }
-        var model = modelProviders.getModel(prefer.getProvider(), prefer.getModelName(), prefer.getApiKey());
         return model;
     }
 
