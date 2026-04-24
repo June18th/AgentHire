@@ -169,22 +169,9 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
         return new Prompt(messages);
     }
 
-
-    public static final String AGENT_MD = "AGENT.private.md";
-
     private ChatClient initClient(String userId, boolean multiModal) {
         try {
-            String agentPrompt;
-            if (StringUtils.isNotBlank(systemPrompt)) {
-                agentPrompt = systemPrompt;
-            } else {
-                Resource agentMd = workspace.createRelative(AGENT_MD);
-                if (!agentMd.exists()) {
-                    agentMd = workspace.createRelative("AGENT.md");
-                }
-                agentPrompt = agentMd.getContentAsString(StandardCharsets.UTF_8);
-            }
-
+            String agentPrompt = identityAgent.buildSystemPrompt(userId);
             var defaultSystem = buildSystemPrompt(agentPrompt);
             var model = modelProviders.getModel(userId, multiModal ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT);
             var chatClientBuilder = ChatClient.builder((ChatModel) model);
