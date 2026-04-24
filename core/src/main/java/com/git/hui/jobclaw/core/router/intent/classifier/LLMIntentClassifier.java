@@ -1,12 +1,11 @@
 package com.git.hui.jobclaw.core.router.intent.classifier;
 
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.router.intent.IntentClassifier;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -24,7 +23,7 @@ import java.util.List;
 @Component
 public class LLMIntentClassifier implements IntentClassifier {
 
-    private final ClientSelector clientSelector;
+    private final LlmCaller simpleLlmCaller;
 
     private static final String PROMPT_TEMPLATE = """
             您是一个意图分类器，请分析用户的消息意图。
@@ -56,8 +55,8 @@ public class LLMIntentClassifier implements IntentClassifier {
             - 如果消息不明确，返回 UNKNOWN
             """;
 
-    public LLMIntentClassifier(ClientSelector clientSelector) {
-        this.clientSelector = clientSelector;
+    public LLMIntentClassifier(LlmCaller simpleLlmCaller) {
+        this.simpleLlmCaller = simpleLlmCaller;
     }
 
     @Override
@@ -71,8 +70,7 @@ public class LLMIntentClassifier implements IntentClassifier {
 
             // AIDEV-NOTE: 简化实现，同步调用
             // 实际场景应该使用流式响应或异步处理
-            var model = clientSelector.getUserPreferredModel(userConversationInfo.jobClawUserId(), false);
-            var response = ChatClient.builder((ChatModel) model).build().prompt(prompt).call().entity(IntentClassificationRes.class);
+            var response = simpleLlmCaller.call(userConversationInfo, new Prompt(prompt), IntentClassificationRes.class);
             if (List.of(PresetAgentIntro.HELP, PresetAgentIntro.LIST_AGENTS, PresetAgentIntro.SWITCH_AGENT, PresetAgentIntro.RESET)
                     .contains(response.intentType())) {
                 return IntentClassificationRes.unknown("系统意图识别异常: " + response.intentType().getDescription());

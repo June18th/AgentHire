@@ -76,7 +76,8 @@ public class JobAgentTools {
             ToolContext toolContext) {
         log.info("工具调用：从 URL爬取职位信息 - {}", url);
         ChannelReceiveMessage msg = (ChannelReceiveMessage) toolContext.getContext().get("msg");
-        UserConversationInfo userConversationInfo = (UserConversationInfo) toolContext.getContext().get("conversation");
+        UserConversationInfo userConversationInfo = (UserConversationInfo) toolContext.getContext().get("user");
+
         JobFetchTaskResponse taskResponse = jobFetchService.fetchFromUrl(userConversationInfo, url, msg);
         return buildTaskCreatedMessage(taskResponse, "网页");
     }
@@ -137,7 +138,8 @@ public class JobAgentTools {
             ToolContext toolContext) {
         log.info("工具调用：从文本提取职位信息，文本: {}, 文件: {}", text == null ? "-" : text.length(), path);
         ChannelReceiveMessage msg = (ChannelReceiveMessage) toolContext.getContext().get("msg");
-        UserConversationInfo userConversationInfo = (UserConversationInfo) toolContext.getContext().get("conversation");
+        UserConversationInfo userConversationInfo = (UserConversationInfo) toolContext.getContext().get("user");
+
         JobFetchTaskResponse taskResponse = jobFetchService.fetchFromTextOrLocalFile(userConversationInfo, text, path, msg);
         String sourceType = (text != null && !text.isBlank()) ? "文本" : "文件/图片";
         var ans = buildTaskCreatedMessage(taskResponse, sourceType);
@@ -297,7 +299,7 @@ public class JobAgentTools {
                         
             用户: "第2条的薪资改成20k-30k,学历改成本科"
             → 调用此工具,传入 draftId=2, jobInfo={"salary": "20k-30k", "education": "本科"}
-            
+                        
             用户: "/updateDraft 3"
             → 先询问用户要修改哪些字段,然后根据回复调用此工具
             """, returnDirect = true)

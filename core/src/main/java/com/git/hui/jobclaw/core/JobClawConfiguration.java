@@ -1,10 +1,6 @@
 package com.git.hui.jobclaw.core;
 
 import com.git.hui.jobclaw.core.agent.BizAgent;
-import com.git.hui.jobclaw.core.agent.IIdentityAgent;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
-import com.git.hui.jobclaw.core.agent.llm.UserPreferenceBasedLlmCaller;
 import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.agent.memory.FileSystemChatMemoryRepository;
 import com.git.hui.jobclaw.core.channel.ChannelRegistry;
@@ -19,7 +15,6 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.model.SpringAIModelProperties;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -57,13 +52,6 @@ public class JobClawConfiguration {
         return new ChannelRegistry();
     }
 
-
-    @Bean
-    @ConditionalOnMissingBean(LlmCaller.class)
-    public LlmCaller llmCaller(ClientSelector clientSelector,
-                               IIdentityAgent identityAgent) {
-        return new UserPreferenceBasedLlmCaller(clientSelector, identityAgent);
-    }
 
     @Bean
     public ChatMemory chatMemory(FileSystemChatMemoryRepository chatMemoryRepository) {

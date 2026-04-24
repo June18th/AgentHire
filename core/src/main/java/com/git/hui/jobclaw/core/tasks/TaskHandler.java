@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.core.tasks;
 
-import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
@@ -8,6 +8,7 @@ import org.jobrunr.jobs.annotations.Job;
 import org.jobrunr.jobs.context.JobRunrDashboardLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -15,15 +16,15 @@ public class TaskHandler {
 
     private static final Logger LOGGER = new JobRunrDashboardLogger(LoggerFactory.getLogger(TaskHandler.class));
 
-    private final LlmCaller agent;
+    private final LlmCaller llmCaller;
     private final TaskRepository taskRepository;
 
     private final AiUserPreferenceProperties aiUserPreferenceProperties;
 
     private final ChannelEventPublisher channelEventPublisher;
 
-    public TaskHandler(LlmCaller agent, TaskRepository taskRepository, AiUserPreferenceProperties aiModelProperties, ChannelEventPublisher channelEventPublisher) {
-        this.agent = agent;
+    public TaskHandler(LlmCaller simpleLlmCaller, TaskRepository taskRepository, AiUserPreferenceProperties aiModelProperties, ChannelEventPublisher channelEventPublisher) {
+        this.llmCaller = simpleLlmCaller;
         this.taskRepository = taskRepository;
         this.aiUserPreferenceProperties = aiModelProperties;
         this.channelEventPublisher = channelEventPublisher;
@@ -42,10 +43,8 @@ public class TaskHandler {
         try {
             LOGGER.info("Starting task: {}", task);
             String agentInput = formatTaskForAgent(inProgress);
-            TaskResult result = agent.prompt(
-                    new UserConversationInfo(task.getJobClawUserId(), null, task.getId(), false),
-                    agentInput,
-                    TaskResult.class);
+            var result = llmCaller.call(new UserConversationInfo(task.getJobClawUserId(), null, task.getId(), false),
+                    new Prompt(agentInput), TaskResult.class);
             taskRepository.save(inProgress.withFeedback(result.feedback()).withStatus(result.newStatus()));
             notifyUser(task, result);
             LOGGER.info("Finished task: {} with status {}", task.getName(), result.newStatus());

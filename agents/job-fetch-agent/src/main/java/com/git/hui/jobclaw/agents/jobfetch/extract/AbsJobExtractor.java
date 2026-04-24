@@ -13,7 +13,6 @@ import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.prompt.PromptTemplate;
@@ -70,11 +69,8 @@ public abstract class AbsJobExtractor implements JobExtractor {
         SystemMessage systemMessage = new SystemMessage(promptResource);
         chatMemory.add(conversationId, systemMessage);
 
-        // 工具
-        var model = getModel(userConversationInfo.jobClawUserId(), message);
-
         var initUserMsg = buildUserMessage(message);
-        var itemList = extractByPage(initUserMsg, chatMemory, model, conversationId);
+        var itemList = extractByPage(userConversationInfo, initUserMsg, chatMemory, conversationId);
 
         if (CollectionUtils.isEmpty(itemList)) {
             return List.of();
@@ -83,7 +79,10 @@ public abstract class AbsJobExtractor implements JobExtractor {
         return itemList.stream().map(this::toBo).filter(Objects::nonNull).collect(Collectors.toList());
     }
 
-    protected List<String> extractByPage(UserMessage initUserMsg, ChatMemory chatMemory, ChatModel model, String conversationId) {
+    protected List<String> extractByPage(UserConversationInfo userConversationInfo,
+                                         UserMessage initUserMsg,
+                                         ChatMemory chatMemory,
+                                         String conversationId) {
         List<String> itemList = new ArrayList<>();
         StringBuilder remain = new StringBuilder();
         int cnt = 0;
@@ -104,7 +103,7 @@ public abstract class AbsJobExtractor implements JobExtractor {
                     // 一行显示日志
                     log.debug("{}#req: {}", conversationId, StringUtils.replaceChars(query.toString(), "\n", ""));
                 }
-                ChatResponse response = model.call(query);
+                ChatResponse response = jobLlmCaller.response(userConversationInfo, query);
                 AssistantMessage assistantMessage = response.getResult().getOutput();
                 if (log.isDebugEnabled()) {
                     // 一行显示和日志
@@ -136,10 +135,6 @@ public abstract class AbsJobExtractor implements JobExtractor {
             }
         }
         return itemList;
-    }
-
-    protected ChatModel getModel(String jobClawUserId, ChannelReceiveMessage message) {
-        return jobLlmCaller.getChatModel(jobClawUserId, !CollectionUtils.isEmpty(message.getMedias()));
     }
 
     protected UserMessage buildUserMessage(ChannelReceiveMessage message) {

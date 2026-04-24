@@ -2,16 +2,17 @@ package com.git.hui.jobclaw.agents.jobfetch;
 
 import com.git.hui.jobclaw.agents.jobfetch.service.JobFetchService;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
+import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.impl.AbsBizAgent;
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
+import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,6 @@ import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 职位抓取Agent
@@ -36,8 +36,8 @@ public class JobFetchAgent extends AbsBizAgent {
 
     private final JobAgentTools jobAgentTools;
 
-    public JobFetchAgent(ClientSelector clientSelector, JobFetchService jobFetchService, ChatMemory chatMemory, JobAgentTools jobAgentTools) {
-        super(clientSelector, chatMemory);
+    public JobFetchAgent(ModelProviders modelProviders, JobFetchService jobFetchService, IIdentityAgent identityAgent, ChatMemory chatMemory, JobAgentTools jobAgentTools) {
+        super(modelProviders, chatMemory, identityAgent);
         this.jobFetchService = jobFetchService;
         this.jobAgentTools = jobAgentTools;
     }
@@ -184,6 +184,7 @@ public class JobFetchAgent extends AbsBizAgent {
 
     @Override
     public ToolCallback[] getTools() {
+        if (jobAgentTools == null) return new ToolCallback[]{};
         return ToolCallbacks.from(jobAgentTools);
     }
 
@@ -201,11 +202,7 @@ public class JobFetchAgent extends AbsBizAgent {
     public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         if (CollectionUtils.isEmpty(message.getFiles()) && CollectionUtils.isEmpty(message.getMedias())) {
             // 需要判断从网络爬去，还是从文本中提取
-            ChatClient chatClient = getChatClient(message.getJobClawUserId());
-            return chatClient.prompt(message.getMessage())
-                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
-                    .toolContext(Map.of("msg", message))
-                    .call().content();
+            return llmCaller.call(userConversationInfo, new Prompt(message.getMessage()), message);
         } else {
             // 如果包含附件
             var path = CollectionUtils.isEmpty(message.getFiles()) ? message.getMedias().get(0).getFilePath() : message.getFiles().get(0).getFilePath();
@@ -219,13 +216,7 @@ public class JobFetchAgent extends AbsBizAgent {
         log.info("JobFetchAgent process!");
         if (CollectionUtils.isEmpty(message.getFiles()) && CollectionUtils.isEmpty(message.getMedias())) {
             // 需要判断从网络爬去，还是从文本中提取
-            ChatClient chatClient = getChatClient(message.getJobClawUserId());
-            return chatClient.prompt(message.getMessage())
-                    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
-                    .toolContext(Map.of("msg", message, "conversation", userConversationInfo))
-                    .stream()
-                    .chatResponse()
-                    .map(LlmRspCell::of);
+            return llmCaller.stream(userConversationInfo, new Prompt(message.getMessage()), message, LlmRspCell::of);
         } else {
             // 如果包含附件
             var path = CollectionUtils.isEmpty(message.getFiles()) ? message.getMedias().get(0).getFilePath() : message.getFiles().get(0).getFilePath();

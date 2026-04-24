@@ -1,11 +1,11 @@
 package com.git.hui.jobclaw.agents.identity.soul;
 
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -38,9 +38,12 @@ public class UserAgentSoulExtractor {
 
     private static final int MAX_CONVERSATION_FOR_EXTRACTION = 50;
     private final String promptTemplate;
+    private final LlmCaller llmCaller;
 
     public UserAgentSoulExtractor(
-            @Value("classpath:/prompts/agent-soul-extraction-prompt.md") Resource promptResource) {
+            @Value("classpath:/prompts/agent-soul-extraction-prompt.md") Resource promptResource,
+            LlmCaller simpleLlmCaller) {
+        this.llmCaller = simpleLlmCaller;
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
             log.info("SoulExtractor initialized with prompt template");
@@ -53,32 +56,33 @@ public class UserAgentSoulExtractor {
     /**
      * Extract agent soul asynchronously.
      *
-     * @param jobClawUserId user ID
+     * @param user user ID
      * @param currentSoul current soul profile (may be empty)
      * @param messages conversation messages
      * @param userProfile user profile content (user.md)
      * @return CompletableFuture with updated soul markdown
      */
-    public CompletableFuture<String> extractAsync(String jobClawUserId, String currentSoul, 
-                                                   List<Message> messages, String userProfile) {
-        return CompletableFuture.supplyAsync(() -> extract(jobClawUserId, currentSoul, messages, userProfile));
+    public CompletableFuture<String> extractAsync(UserConversationInfo user, String currentSoul,
+                                                  List<Message> messages, String userProfile) {
+        return CompletableFuture.supplyAsync(() -> extract(user, currentSoul, messages, userProfile));
     }
 
     /**
      * Extract agent soul synchronously.
      *
-     * @param jobClawUserId user ID
+     * @param user user ID
      * @param currentSoul current soul profile (may be empty)
      * @param messages conversation messages
      * @param userProfile user profile content (user.md)
      * @return updated soul markdown, or existing soul if failed
      */
-    public String extract(String jobClawUserId, String currentSoul, List<Message> messages, String userProfile) {
+    public String extract(UserConversationInfo user, String currentSoul, List<Message> messages, String userProfile) {
         if (messages == null || messages.isEmpty()) {
             log.debug("No messages to extract soul from");
             return currentSoul;
         }
 
+        String jobClawUserId = user.jobClawUserId();
         try {
             log.info("Extracting soul for user: {} ({} messages)", jobClawUserId, messages.size());
 
@@ -96,8 +100,7 @@ public class UserAgentSoulExtractor {
                     .replace("{conversation_history}", conversationText);
 
             // Call AI to extract soul
-            var model = (ChatModel) SpringUtil.getBean(ClientSelector.class).getUserPreferredModel(jobClawUserId, false);
-            String updatedSoul = model.call(prompt);
+            String updatedSoul = llmCaller.call(user, new Prompt(prompt));
 
             // Validate and clean soul
             updatedSoul = validateSoul(updatedSoul, jobClawUserId);

@@ -56,8 +56,4 @@ public class WebSearchCrawler implements JobCrawler {
         log.info("开始爬取URL! {} -> {}", originMsg, url);
         return List.of();
     }
-
-    protected ChatModel getModel(String jobClawUserId) {
-        return jobLlmCaller.getChatModel(jobClawUserId, false);
-    }
 }

@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.agents;
 
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.plugins.jobs.JobLibraryTool;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.context.annotation.Bean;
@@ -13,10 +13,4 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class JobRecommendConfiguration {
-
-    @Bean
-    public JobRecommendAgent jobRecommendAgent(ClientSelector clientSelector, ChatMemory chatMemory, JobLibraryTool jobLibraryTool) {
-        return new JobRecommendAgent(clientSelector, chatMemory, jobLibraryTool);
-    }
-
 }

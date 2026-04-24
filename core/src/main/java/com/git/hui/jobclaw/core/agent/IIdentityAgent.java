@@ -22,6 +22,15 @@ public interface IIdentityAgent {
     boolean triggerToCollectIdentity(UserConversationInfo conversation, String userMessage);
 
     /**
+     * 基于用户偏好设置，构建机器人的偏好特征
+     *
+     * @param jobClawUserId 用户id
+     * @return 系统提示语
+     */
+    String buildSoulPrompt(String jobClawUserId);
+
+
+    /**
      * 基于用户偏好设置，构建专有的系统提示语
      *
      * @param jobClawUserId 用户id

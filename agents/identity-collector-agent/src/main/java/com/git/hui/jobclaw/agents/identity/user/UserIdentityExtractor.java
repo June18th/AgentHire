@@ -1,11 +1,11 @@
 package com.git.hui.jobclaw.agents.identity.user;
 
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -37,8 +37,11 @@ public class UserIdentityExtractor {
     private static final int MAX_CONVERSATION_FOR_EXTRACTION = 50;
     private final String promptTemplate;
 
+    private final LlmCaller llmCaller;
+
     public UserIdentityExtractor(
-            @Value("classpath:/prompts/user-identity-extraction-prompt.md") Resource promptResource) {
+            @Value("classpath:/prompts/user-identity-extraction-prompt.md") Resource promptResource, LlmCaller simpleLlmCaller) {
+        this.llmCaller = simpleLlmCaller;
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
             log.info("UseridentityExtractor initialized with prompt template");
@@ -51,29 +54,30 @@ public class UserIdentityExtractor {
     /**
      * Extract user identity asynchronously.
      *
-     * @param jobClawUserId user ID
+     * @param userConversationInfo user ID
      * @param currentIdentity current identity profile (may be empty)
      * @param messages new conversation messages
      * @return CompletableFuture with updated identity markdown
      */
-    public CompletableFuture<String> extractAsync(String jobClawUserId, String currentIdentity, List<Message> messages) {
-        return CompletableFuture.supplyAsync(() -> extract(jobClawUserId, currentIdentity, messages));
+    public CompletableFuture<String> extractAsync(UserConversationInfo userConversationInfo, String currentIdentity, List<Message> messages) {
+        return CompletableFuture.supplyAsync(() -> extract(userConversationInfo, currentIdentity, messages));
     }
 
     /**
      * Extract user identity synchronously.
      *
-     * @param jobClawUserId user ID
-     * @param currentidentity current identity profile (may be empty)
+     * @param userConversationInfo user ID
+     * @param currentIdentity current identity profile (may be empty)
      * @param messages new conversation messages
      * @return updated identity markdown, or existing identity if failed
      */
-    public String extract(String jobClawUserId, String currentidentity, List<Message> messages) {
+    public String extract(UserConversationInfo userConversationInfo, String currentIdentity, List<Message> messages) {
         if (messages == null || messages.isEmpty()) {
             log.debug("No messages to extract identity from");
-            return currentidentity;
+            return "";
         }
 
+        String jobClawUserId = userConversationInfo.jobClawUserId();
         try {
             log.info("Extracting identity for user: {} ({} messages)", jobClawUserId, messages.size());
 
@@ -81,29 +85,28 @@ public class UserIdentityExtractor {
             String conversationText = formatConversation(messages);
 
             // Use existing identity or empty
-            String existingidentity = currentidentity != null ? currentidentity : "无现有画像";
+            String existingIdentity = currentIdentity != null ? currentIdentity : "无现有画像";
 
             // Build prompt
             String prompt = promptTemplate
-                    .replace("{current_identity}", existingidentity)
+                    .replace("{current_identity}", existingIdentity)
                     .replace("{conversation_history}", conversationText);
 
             // Call AI to extract identity
-            var model = (ChatModel) SpringUtil.getBean(ClientSelector.class).getUserPreferredModel(jobClawUserId, false);
-            String updatedidentity = model.call(prompt);
+            String updatedIdentity = llmCaller.call(userConversationInfo, new Prompt(prompt));
 
             // Validate and clean identity
-            updatedidentity = validateidentity(updatedidentity, jobClawUserId);
+            updatedIdentity = validateidentity(updatedIdentity, jobClawUserId);
 
             log.info("identity extracted successfully for user: {} ({} chars)",
-                    jobClawUserId, updatedidentity.length());
+                    jobClawUserId, updatedIdentity.length());
 
-            return updatedidentity;
+            return updatedIdentity;
 
         } catch (Exception e) {
             log.error("Failed to extract identity for user: {}", jobClawUserId, e);
             // Fallback to existing identity
-            return currentidentity;
+            return currentIdentity;
         }
     }
 

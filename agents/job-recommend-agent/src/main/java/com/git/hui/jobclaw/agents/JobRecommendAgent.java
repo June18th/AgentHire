@@ -1,25 +1,28 @@
 package com.git.hui.jobclaw.agents;
 
+import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.impl.AbsBizAgent;
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
 import com.git.hui.jobclaw.core.agent.llm.UserPreferenceBasedLlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
+import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
+import com.git.hui.jobclaw.core.tasks.TaskManager;
+import com.git.hui.jobclaw.core.tools.AutoDiscoveredTool;
 import com.git.hui.jobclaw.plugins.jobs.JobLibraryTool;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 职位推荐Agent
@@ -29,13 +32,36 @@ import java.util.Map;
  * @date 2026/4/21
  */
 @Slf4j
+@Component
 public class JobRecommendAgent extends AbsBizAgent {
     private final JobLibraryTool jobLibraryTool;
+    private final TaskManager taskManager;
+    private final Resource workspace;
+    private final List<AutoDiscoveredTool<?>> autoDiscoveredTools;
 
-    public JobRecommendAgent(ClientSelector clientSelector, ChatMemory chatMemory, JobLibraryTool jobLibraryTool) {
-        super(clientSelector, chatMemory);
+    public JobRecommendAgent(ModelProviders modelProviders,
+                             IIdentityAgent identityAgent,
+                             ChatMemory chatMemory,
+                             TaskManager taskManager,
+                             @Value("${agent.workspace:Unknown}")
+                             Resource workspace,
+                             List<AutoDiscoveredTool<?>> autoDiscoveredTools,
+                             JobLibraryTool jobLibraryTool) {
+        super(modelProviders, chatMemory, identityAgent);
         this.jobLibraryTool = jobLibraryTool;
+        this.taskManager = taskManager;
+        this.autoDiscoveredTools = autoDiscoveredTools;
+        this.workspace = workspace;
     }
+
+    @PostConstruct
+    public void init() {
+        this.llmCaller = new UserPreferenceBasedLlmCaller(
+                modelProviders, identityAgent, chatMemory, taskManager, autoDiscoveredTools, getSystemPrompt()
+        );
+        this.llmCaller.setWorkspace(workspace);
+    }
+
 
     private static final String SYSTEM_PROMPT = """
             你是专业的职位推荐助手,帮助用户找到最适合的职位。
@@ -187,27 +213,18 @@ public class JobRecommendAgent extends AbsBizAgent {
     @Override
     public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         log.info("JobRecommendAgent process: {}", message.getMessage());
-        ChatClient chatClient = getChatClient(userConversationInfo.jobClawUserId());
-        Prompt prompt = SpringUtil.getBean(UserPreferenceBasedLlmCaller.class)
-                .buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
-        return chatClient.prompt(prompt)
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
-                .toolContext(Map.of("msg", message, "conversation", userConversationInfo, "jobClawUserId", userConversationInfo.jobClawUserId()))
-                .call()
-                .content();
+//
+//        Prompt prompt = SpringUtil.getBean(UserPreferenceBasedLlmCaller.class)
+//                .buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
+
+        return ((UserPreferenceBasedLlmCaller) llmCaller).call(userConversationInfo, message);
     }
 
     @Override
     public Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         log.info("JobRecommendAgent stream: {}", message.getMessage());
-        ChatClient chatClient = getChatClient(userConversationInfo.jobClawUserId());
-        Prompt prompt = SpringUtil.getBean(UserPreferenceBasedLlmCaller.class)
-                .buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
-        return chatClient.prompt(prompt)
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
-                .toolContext(Map.of("msg", message, "conversation", userConversationInfo, "jobClawUserId", userConversationInfo.jobClawUserId()))
-                .stream()
-                .chatResponse()
-                .map(LlmRspCell::of);
+//        Prompt prompt = SpringUtil.getBean(UserPreferenceBasedLlmCaller.class)
+//                .buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
+        return ((UserPreferenceBasedLlmCaller) llmCaller).stream(userConversationInfo, message);
     }
 }

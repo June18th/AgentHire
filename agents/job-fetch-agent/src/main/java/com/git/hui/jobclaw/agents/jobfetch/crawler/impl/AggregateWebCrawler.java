@@ -9,13 +9,11 @@ import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -96,12 +94,7 @@ public class AggregateWebCrawler implements JobCrawler {
         log.info("开始爬取URL! {} -> {}", originMsg, url);
 
         try {
-            // 创建ChatClient并构建工具
-            ChatModel model = getModel(userConversationInfo.jobClawUserId());
-            ChatClient client = ChatClient.builder(model)
-                    .defaultTools()
-                    .build();
-            SmartWebFetchTool webFetchTool = SmartWebFetchTool.builder(client)
+            SmartWebFetchTool webFetchTool = SmartWebFetchTool.builder(jobLlmCaller.simpleClient(userConversationInfo))
                     // fixme 为了安全起见，不应该关闭这个安全校验
                     .domainSafetyCheck(false)
                     .summaryEnable(false)
@@ -118,7 +111,7 @@ public class AggregateWebCrawler implements JobCrawler {
             String userMessage = String.format("%s\n网页地址：%s\n%s", originMsg, url, gatherResConverter.getFormat());
 
             // 执行分页提取
-            List<String> itemList = extractByPage(chatMemory, userMessage, model, tools, userConversationInfo.conversationId());
+            List<String> itemList = extractByPage(userConversationInfo, chatMemory, userMessage, tools, userConversationInfo.conversationId());
 
             if (itemList.isEmpty()) {
                 log.info("未从网页中提取到职位信息: {}", url);
@@ -147,16 +140,17 @@ public class AggregateWebCrawler implements JobCrawler {
      *
      * @param chatMemory     聊天内存
      * @param userMessage    用户消息(包含网页内容)
-     * @param model          聊天模型
+     * @param user          用户信息
      * @param tools          工具回调数组
      * @param conversationId 会话ID
      * @return 提取的原始JSON字符串列表
      */
-    private List<String> extractByPage(ChatMemory chatMemory,
-                                       String userMessage,
-                                       ChatModel model,
-                                       ToolCallback[] tools,
-                                       String conversationId) {
+    private List<String> extractByPage(
+            UserConversationInfo user,
+            ChatMemory chatMemory,
+            String userMessage,
+            ToolCallback[] tools,
+            String conversationId) {
         List<String> itemList = new ArrayList<>();
         StringBuilder remain = new StringBuilder();
         int cnt = 0;
@@ -193,7 +187,7 @@ public class AggregateWebCrawler implements JobCrawler {
                     log.debug("{}#req: {}", conversationId, StringUtils.replaceChars(query.toString(), "\n", ""));
                 }
 
-                ChatResponse response = model.call(query);
+                ChatResponse response = jobLlmCaller.response(user, query);
                 AssistantMessage assistantMessage = response.getResult().getOutput();
 
                 if (log.isDebugEnabled()) {
@@ -321,9 +315,5 @@ public class AggregateWebCrawler implements JobCrawler {
             log.warn("解析职位信息失败: {}", jsonStr, e);
             return null;
         }
-    }
-
-    protected ChatModel getModel(String jobClawUserId) {
-        return jobLlmCaller.getChatModel(jobClawUserId, false);
     }
 }

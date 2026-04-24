@@ -1,10 +1,10 @@
 package com.git.hui.jobclaw.agents.identity.info;
 
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
+import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -34,8 +34,12 @@ public class UserAgentInfoExtractor {
 
     private final String promptTemplate;
 
+    private final LlmCaller llmCaller;
+
     public UserAgentInfoExtractor(
-            @Value("classpath:/prompts/agent-info-extraction-prompt.md") Resource promptResource) {
+            @Value("classpath:/prompts/agent-info-extraction-prompt.md") Resource promptResource,
+            LlmCaller simpleLlmCaller) {
+        this.llmCaller = simpleLlmCaller;
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
             log.info("InfoExtractor initialized with prompt template");
@@ -48,27 +52,28 @@ public class UserAgentInfoExtractor {
     /**
      * Extract/generate agent info asynchronously.
      *
-     * @param jobClawUserId user ID
+     * @param user user ID
      * @param currentInfo current info card (may be empty)
      * @param userProfile user profile content (user.md)
      * @param soulProfile soul profile content (soul.md)
      * @return CompletableFuture with updated info markdown
      */
-    public CompletableFuture<String> extractAsync(String jobClawUserId, String currentInfo,
-                                                   String userProfile, String soulProfile) {
-        return CompletableFuture.supplyAsync(() -> extract(jobClawUserId, currentInfo, userProfile, soulProfile));
+    public CompletableFuture<String> extractAsync(UserConversationInfo user, String currentInfo,
+                                                  String userProfile, String soulProfile) {
+        return CompletableFuture.supplyAsync(() -> extract(user, currentInfo, userProfile, soulProfile));
     }
 
     /**
      * Extract/generate agent info synchronously.
      *
-     * @param jobClawUserId user ID
+     * @param user user ID
      * @param currentInfo current info card (may be empty)
      * @param userProfile user profile content (user.md)
      * @param soulProfile soul profile content (soul.md)
      * @return updated info markdown, or existing info if failed
      */
-    public String extract(String jobClawUserId, String currentInfo, String userProfile, String soulProfile) {
+    public String extract(UserConversationInfo user, String currentInfo, String userProfile, String soulProfile) {
+        String jobClawUserId = user.jobClawUserId();
         try {
             log.info("Generating info for user: {}", jobClawUserId);
 
@@ -84,8 +89,7 @@ public class UserAgentInfoExtractor {
                     .replace("{soul_profile}", existingSoulProfile);
 
             // Call AI to generate info
-            var model = (ChatModel) SpringUtil.getBean(ClientSelector.class).getUserPreferredModel(jobClawUserId, false);
-            String updatedInfo = model.call(prompt);
+            String updatedInfo = llmCaller.call(user, new Prompt(prompt));
 
             // Validate and clean info
             updatedInfo = validateInfo(updatedInfo, jobClawUserId);

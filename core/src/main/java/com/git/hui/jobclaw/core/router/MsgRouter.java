@@ -2,7 +2,7 @@ package com.git.hui.jobclaw.core.router;
 
 import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
@@ -19,6 +19,7 @@ import com.git.hui.jobclaw.core.router.intent.IntentClassifier;
 import com.git.hui.jobclaw.core.router.intent.SessionAgentBinder;
 import com.git.hui.jobclaw.core.router.intent.classifier.IntentClassificationRes;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -53,7 +54,7 @@ public class MsgRouter {
 
     public MsgRouter(ChannelRegistry channelRegistry,
                      ChannelEventPublisher channelEventPublisher,
-                     LlmCaller llmCaller,
+                     LlmCaller simpleLlmCaller,
                      IIdentityAgent identityAgent,
                      IntentClassifier compositeIntentClassifier,
                      AgentRouter agentRouter,
@@ -62,17 +63,13 @@ public class MsgRouter {
                      SystemCommandDispatcher commandDispatcher) {
         this.channelRegistry = channelRegistry;
         this.channelEventPublisher = channelEventPublisher;
-        this.llmCaller = llmCaller;
+        this.llmCaller = simpleLlmCaller;
         this.identityAgent = identityAgent;
         this.intentClassifier = compositeIntentClassifier;
         this.agentRouter = agentRouter;
         this.sessionBinder = sessionBinder;
         this.agentRegistry = agentRegistry;
         this.commandDispatcher = commandDispatcher;
-    }
-
-    private LlmCaller getLlmCaller() {
-        return llmCaller;
     }
 
     /**
@@ -147,6 +144,8 @@ public class MsgRouter {
         }
 
         log.info("Agent 开始执行用户请求：{}", agent.getAgentIntro());
+        // 保存当前Agent到用户对话信息
+        conversationInfo.setAgent(agent.getAgentIntro().getAgentId());
         // 执行Agent
         try {
             String response = null;
@@ -176,10 +175,10 @@ public class MsgRouter {
     private void fallbackToLlm(ChannelReceiveMessage msg, UserConversationInfo conversationInfo) {
         try {
             if (msg.isStream()) {
-                Flux<LlmRspCell> streamRes = getLlmCaller().streamResponse(conversationInfo, msg);
+                Flux<LlmRspCell> streamRes = llmCaller.stream(conversationInfo, new Prompt(msg.getMessage()), LlmRspCell::of);
                 sendTextResponse(msg, null, streamRes);
             } else {
-                var response = getLlmCaller().respondToMultiModal(conversationInfo, msg);
+                var response = llmCaller.call(conversationInfo, new Prompt(msg.getMessage()));
                 sendTextResponse(msg, response);
             }
         } catch (Exception e) {

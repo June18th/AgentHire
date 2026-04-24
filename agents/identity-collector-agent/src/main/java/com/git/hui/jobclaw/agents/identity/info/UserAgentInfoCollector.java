@@ -135,7 +135,7 @@ public class UserAgentInfoCollector implements InfoCollector {
             log.info("[Info] Starting async info.md generation for user: {}", jobClawUserId);
 
             // Extract info asynchronously
-            infoExtractor.extractAsync(jobClawUserId, "", userMd, soulMd)
+            infoExtractor.extractAsync(buildUserConversationInfo(state), "", userMd, soulMd)
                     .thenAccept(infoMd -> {
                         if (infoMd != null && !infoMd.isBlank()) {
                             // Save info.md

@@ -93,12 +93,12 @@ public class IntentBasedAgentRouter implements AgentRouter {
         if (defaultAgent.isPresent()) {
             return new RouterResult(
                     defaultAgent.get().getAgentIntro().getAgentId(),
-                    true,
+                    false,
                     "未找到合适Agent，使用默认");
         }
 
         // 5. 最兜底：创建__unknown__标记，让MsgRouter处理
-        return new RouterResult("__unknown__", true, "无可用Agent");
+        return new RouterResult("__unknown__", false, "无可用Agent");
     }
 
     @Override

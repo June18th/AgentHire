@@ -4,20 +4,18 @@ import com.git.hui.jobclaw.agents.identity.init.CollectionState;
 import com.git.hui.jobclaw.agents.identity.init.InfoCollector;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityExtractor;
 import com.git.hui.jobclaw.agents.identity.user.UserIdentityManager;
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
 import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -64,6 +62,8 @@ public class AiBasedIdentityCollector implements InfoCollector {
     private final ChannelEventPublisher channelEventPublisher;
     private final ContextWindowProperties contextWindowProperties;
 
+    private final LlmCaller llmCaller;
+
     // Track collection states per user
     private final Map<String, CollectionState> collectionStates = new ConcurrentHashMap<>();
 
@@ -82,11 +82,13 @@ public class AiBasedIdentityCollector implements InfoCollector {
                                     UserIdentityExtractor useridentityExtractor,
                                     ChannelEventPublisher channelEventPublisher,
                                     ContextWindowProperties contextWindowProperties,
+                                    LlmCaller simpleLlmCaller,
                                     @Value("classpath:/prompts/user-identity-collect-prompt.md") Resource promptResource) {
         this.useridentityManager = useridentityManager;
         this.useridentityExtractor = useridentityExtractor;
         this.channelEventPublisher = channelEventPublisher;
         this.contextWindowProperties = contextWindowProperties;
+        this.llmCaller = simpleLlmCaller;
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
             log.info("AiBasedIdentityCollector initialized with prompt template");
@@ -233,11 +235,11 @@ public class AiBasedIdentityCollector implements InfoCollector {
         log.info("[UserIdentity] Completing AI-driven collection for user: {}", state.getJobClawUserId());
 
         // Use UserIdentityExtractor to generate identity.md from conversation
-        String identity = useridentityExtractor.extract(state.getJobClawUserId(), "", history);
+        String identity = useridentityExtractor.extract(buildUserConversationInfo(state), "", history);
 
         if (identity == null || identity.isBlank()) {
             // Fallback to simple identity
-            identity = buildSimpleidentity(state);
+            identity = buildSimpleIdentity(state);
         }
 
         // Save identity
@@ -268,7 +270,7 @@ public class AiBasedIdentityCollector implements InfoCollector {
     /**
      * Build simple identity as fallback
      */
-    private String buildSimpleidentity(CollectionState state) {
+    private String buildSimpleIdentity(CollectionState state) {
         Instant now = Instant.now();
         return """
                 # User identity Profile
@@ -300,23 +302,17 @@ public class AiBasedIdentityCollector implements InfoCollector {
             conversationWithSystem.add(new SystemMessage(systemPrompt));
             conversationWithSystem.addAll(messages);
 
-            // Call AI model with streaming
-            var chatModel = (ChatModel) SpringUtil.getBean(ClientSelector.class)
-                    .getUserPreferredModel(jobClawUserId, false);
-
             Prompt prompt = Prompt.builder()
                     .messages(conversationWithSystem)
                     .build();
 
-            log.debug("[UserIdentity] Calling AI with streaming for user: {}", jobClawUserId);
 
-            // Return streaming flux directly
-            return chatModel.stream(prompt)
-                    .map(LlmRspCell::of)
+            UserConversationInfo userConversationInfo = buildUserConversationInfo(state);
+            log.debug("[UserIdentity] Calling AI with streaming for user: {}", jobClawUserId);
+            return llmCaller.stream(userConversationInfo, prompt, LlmRspCell::of)
                     .doOnError(error -> {
                         log.error("[UserIdentity] Streaming error for user: {}", jobClawUserId, error);
                     });
-
         } catch (Exception e) {
             log.error("[UserIdentity] Failed to call AI for user: {}", jobClawUserId, e);
             return Flux.just(new LlmRspCell(null, "现在大模型响应出了点问题，请稍后再试~", null));

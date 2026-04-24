@@ -2,7 +2,50 @@ package com.git.hui.jobclaw.core.agent.models;
 
 import com.git.hui.jobclaw.core.utils.MD5Utils;
 
-public record UserConversationInfo(String jobClawUserId, String channel, String conversationId, boolean group) {
+//public record UserConversationInfo(String jobClawUserId, String channel, String conversationId, boolean group) {
+//
+//}
+
+public class UserConversationInfo {
+    private String jobClawUserId;
+    private String channel;
+    private String conversationId;
+    private boolean group;
+
+    private String agent;
+
+    public UserConversationInfo(String jobClawUserId, String channel, String conversationId, boolean group) {
+        this.jobClawUserId = jobClawUserId;
+        this.channel = channel;
+        this.conversationId = conversationId;
+        this.group = group;
+    }
+
+    public String jobClawUserId() {
+        return jobClawUserId;
+    }
+
+    public String channel() {
+        return channel;
+    }
+
+    public String conversationId() {
+        return conversationId;
+    }
+
+    public boolean group() {
+        return group;
+    }
+
+    public UserConversationInfo setAgent(String agent) {
+        this.agent = agent;
+        return this;
+    }
+
+    public String agent() {
+        return agent;
+    }
+
     public static UserConversationInfo parse(String conversationId) {
         // 原始的 conversationId 是按照 jobClawUserId:channel:conversationId:group 的格式进行组装的，所以我们首先进行解析，将会话的JobClawUserId依然保存，用于用户会话的隔离
 

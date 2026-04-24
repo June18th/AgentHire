@@ -2,7 +2,7 @@ package com.git.hui.jobclaw.core.agent.impl;
 
 import cn.hutool.core.util.NumberUtil;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
@@ -12,12 +12,15 @@ import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import com.git.hui.jobclaw.core.preference.repository.AiUserPreferenceService;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
+import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import com.git.hui.jobclaw.core.utils.SensitiveUtil;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.support.ToolCallbacks;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -38,20 +41,19 @@ import java.util.Map;
 public class PreferenceSettingBizAgent extends AbsBizAgent {
 
     private final List<ChannelBinder> channelBinders;
-    private final ConfigurationManager configurationManager;
     private final AiUserPreferenceProperties aiUserPreferenceProperties;
 
     private final AiUserPreferenceService aiUserPreferenceService;
 
 
-    public PreferenceSettingBizAgent(ClientSelector clientSelector,
+    public PreferenceSettingBizAgent(ModelProviders modelProviders,
                                      List<ChannelBinder> channelBinders,
-                                     ConfigurationManager configurationManager,
                                      AiUserPreferenceProperties aiUserPreferenceProperties,
-                                     ChatMemory chatMemory, AiUserPreferenceService aiUserPreferenceService) {
-        super(clientSelector, chatMemory);
+                                     ChatMemory chatMemory,
+                                     IIdentityAgent identityAgent,
+                                     AiUserPreferenceService aiUserPreferenceService) {
+        super(modelProviders, chatMemory, identityAgent);
         this.channelBinders = channelBinders;
-        this.configurationManager = configurationManager;
         this.aiUserPreferenceProperties = aiUserPreferenceProperties;
         this.aiUserPreferenceService = aiUserPreferenceService;
     }
@@ -80,16 +82,17 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
     }
 
     @Override
+    public ToolCallback[] getTools() {
+        return ToolCallbacks.from(this);
+    }
+
+    @Override
     public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         if (!NumberUtil.isNumber(userConversationInfo.jobClawUserId())) {
             return "仅绑定求职派账号的用户才可以使用服务偏好配置Agent哦~";
         }
-        ChatClient client = getChatClient(userConversationInfo.jobClawUserId());
-        return client.prompt(message.getMessage())
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
-                .toolContext(Map.of("jobClawUserId", userConversationInfo.jobClawUserId()))
-                .call()
-                .content();
+
+        return llmCaller.call(userConversationInfo, new Prompt(message.getMessage()));
     }
 
     @Override
@@ -98,13 +101,7 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
             return Flux.just(new LlmRspCell(null, "仅绑定求职派账号的用户才可以使用服务偏好配置Agent哦~", null));
         }
 
-        ChatClient client = getChatClient(userConversationInfo.jobClawUserId());
-        return client.prompt(message.getMessage())
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, userConversationInfo.genId()))
-                .toolContext(Map.of("jobClawUserId", userConversationInfo.jobClawUserId()))
-                .stream()
-                .chatResponse()
-                .map(LlmRspCell::of);
+        return llmCaller.stream(userConversationInfo, new Prompt(message.getMessage()), LlmRspCell::of);
     }
 
 
@@ -117,7 +114,8 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
             @JsonPropertyDescription("模型类型, 如 TXT, VISION, IMAGE, VIDEO, EMBEDDING, ASR, TTS")
             ModelConfig.ModelType type,
             ToolContext toolContext) {
-        String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
+        UserConversationInfo user = llmCaller.getUser(toolContext);
+        String jobClawUserId = user.jobClawUserId();
 
         AiUserPreferenceProperties.UserPreferenceEntry entry = aiUserPreferenceProperties.getUserPreference(jobClawUserId);
         var modelPreference = entry.getModels();
@@ -158,7 +156,8 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
             @JsonPropertyDescription("模型APIKEY")
             String apiKey,
             ToolContext toolContext) {
-        String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
+        UserConversationInfo user = llmCaller.getUser(toolContext);
+        String jobClawUserId = user.jobClawUserId();
         AiUserPreferenceProperties.UserPreferenceEntry entry = aiUserPreferenceProperties.getUserPreference(jobClawUserId);
         var tag = entry.getProviders().get(provider);
         if (tag == null) {
@@ -172,7 +171,8 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
 
     @Tool(description = "查询显示用户的当前个人偏好设置")
     public AiUserPreferenceProperties.UserPreferenceEntry showMyPreference(ToolContext toolContext) {
-        String jobClawUserId = (String) toolContext.getContext().get("jobClawUserId");
+        UserConversationInfo user = llmCaller.getUser(toolContext);
+        String jobClawUserId = user.jobClawUserId();
         AiUserPreferenceProperties.UserPreferenceEntry entry = aiUserPreferenceProperties.getUserPreference(jobClawUserId);
         return securityReturn(entry);
     }

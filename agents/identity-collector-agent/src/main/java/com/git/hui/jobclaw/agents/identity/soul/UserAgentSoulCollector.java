@@ -2,20 +2,18 @@ package com.git.hui.jobclaw.agents.identity.soul;
 
 import com.git.hui.jobclaw.agents.identity.init.CollectionState;
 import com.git.hui.jobclaw.agents.identity.init.InfoCollector;
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
 import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -53,6 +51,8 @@ public class UserAgentSoulCollector implements InfoCollector {
     private final ChannelEventPublisher channelEventPublisher;
     private final ContextWindowProperties contextWindowProperties;
 
+    private final LlmCaller llmCaller;
+
     // Track collection states per user
     private final Map<String, CollectionState> collectionStates = new ConcurrentHashMap<>();
 
@@ -72,11 +72,13 @@ public class UserAgentSoulCollector implements InfoCollector {
                                   UserAgentSoulExtractor userAgentSoulExtractor,
                                   ChannelEventPublisher channelEventPublisher,
                                   ContextWindowProperties contextWindowProperties,
+                                  LlmCaller simpleLlmCaller,
                                   @Value("classpath:/prompts/agent-soul-collect-prompt.md") Resource promptResource) {
         this.soulManager = soulManager;
         this.userAgentSoulExtractor = userAgentSoulExtractor;
         this.channelEventPublisher = channelEventPublisher;
         this.contextWindowProperties = contextWindowProperties;
+        this.llmCaller = simpleLlmCaller;
 
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
@@ -236,22 +238,14 @@ public class UserAgentSoulCollector implements InfoCollector {
             List<Message> messages = new ArrayList<>();
             messages.add(new SystemMessage(systemPrompt));
             messages.addAll(history);
-
-            // Call AI model with streaming
-            var model = (ChatModel) SpringUtil.getBean(ClientSelector.class)
-                    .getUserPreferredModel(state.getJobClawUserId(), false);
-
             Prompt prompt = new Prompt(messages);
 
             log.debug("[Soul] Calling AI with streaming for user: {}", state.getJobClawUserId());
-
-            // Return streaming flux directly
-            return model.stream(prompt)
-                    .map(LlmRspCell::of)
+            // Call AI model with streaming
+            return llmCaller.stream(buildUserConversationInfo(state), prompt, LlmRspCell::of)
                     .doOnError(error -> {
                         log.error("[Soul] Streaming error for user: {}", state.getJobClawUserId(), error);
                     });
-
         } catch (Exception e) {
             log.error("[Soul] Failed to call AI for collection: {}", state.getJobClawUserId(), e);
             return Flux.just(new LlmRspCell(null, "现在大模型响应出了点问题,请稍后再试~", null));
@@ -267,7 +261,7 @@ public class UserAgentSoulCollector implements InfoCollector {
         try {
             // Extract soul from conversation history
             String soulMd = userAgentSoulExtractor.extract(
-                    state.getJobClawUserId(),
+                    buildUserConversationInfo(state),
                     "", // No existing soul
                     history,
                     "" // No user profile yet

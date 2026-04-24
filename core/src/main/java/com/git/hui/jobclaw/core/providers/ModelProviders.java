@@ -81,7 +81,6 @@ public class ModelProviders {
             case EMBEDDING -> preference.getModels().getEmbedding();
             case ASR -> preference.getModels().getAsr();
             case TTS -> preference.getModels().getTts();
-            default -> throw new RuntimeException("未定义的模型类型: " + modelType);
         };
 
         if (StringUtils.isBlank(preferModel) && !DEFAULT_PREFERENCE.equals(userId)) {

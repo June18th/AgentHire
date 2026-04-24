@@ -52,6 +52,37 @@ public class IdentityAgent implements IIdentityAgent {
         return false;
     }
 
+    @Override
+    public String buildSoulPrompt(String jobClawUserId) {
+        StringBuilder sb = new StringBuilder();
+
+        // 1. Load global agent.md (operation manual)
+        String agentMd = agentIdentityManager.loadAgentIdentity();
+        if (agentMd != null && !agentMd.isBlank()) {
+            sb.append("## Agent Operation Manual\n");
+            sb.append(agentMd);
+            sb.append("\n\n");
+            log.debug("Injected agent.md for user: {} ({} chars)", jobClawUserId, agentMd.length());
+        }
+
+        // 2. Load user-level soul.md (personality)
+        String soulMd = agentSoulManager.loadSoul(jobClawUserId);
+        if (soulMd != null && !soulMd.isBlank()) {
+            sb.append("## Your Soul & Personality\n");
+            sb.append(soulMd);
+            sb.append("\n\n");
+            log.debug("Injected soul.md for user: {} ({} chars)", jobClawUserId, soulMd.length());
+        }
+        String result = sb.toString();
+        if (result.isBlank()) {
+            log.debug("No identity documents to inject for user: {}", jobClawUserId);
+            return null;
+        }
+
+        log.debug("Built system prompt for user: {} ({} chars total)", jobClawUserId, result.length());
+        return result;
+    }
+
     /**
      * Build system prompt by injecting identity documents.
      *
@@ -148,7 +179,7 @@ public class IdentityAgent implements IIdentityAgent {
             String currentIdentity = useridentityManager.loadIdentity(jobClawUserId);
 
             // Extract and update identity asynchronously
-            useridentityExtractor.extractAsync(jobClawUserId, currentIdentity, messages)
+            useridentityExtractor.extractAsync(conversationInfo, currentIdentity, messages)
                     .thenAcceptAsync(updatedIdentity -> {
                         if (StringUtils.isNotBlank(updatedIdentity)) {
                             useridentityManager.saveIdentity(jobClawUserId, updatedIdentity);

@@ -1,16 +1,15 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
-import com.git.hui.jobclaw.core.agent.llm.ClientSelector;
+import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.utils.FileUtils;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
 import com.git.hui.jobclaw.core.utils.files.YamlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -52,12 +51,16 @@ public class SessionSummarizer {
     private final ContextWindowProperties properties;
     private final Path conversationsDir;
 
+    private final LlmCaller llmCaller;
+
     public SessionSummarizer(
             @Value("${agent.workspace:Unknown}") Resource workspaceDir,
             ContextWindowProperties properties,
-            @Value("classpath:/prompts/session-summary-prompt.md") Resource promptResource) throws IOException {
+            @Value("classpath:/prompts/session-summary-prompt.md") Resource promptResource,
+            LlmCaller simpleLlmCaller) throws IOException {
         this.conversationsDir = workspaceDir.getFile().toPath().resolve("conversations");
         this.properties = properties;
+        this.llmCaller = simpleLlmCaller;
 
         // Load prompt template
         try {
@@ -84,7 +87,7 @@ public class SessionSummarizer {
             log.info("Generating summary for conversation: {} ({} messages)", conversation, messages.size());
             try {
 
-                String summary = summarize(conversation.jobClawUserId(), messages);
+                String summary = summarize(conversation, messages);
                 if (summary != null && !summary.isBlank()) {
                     // 将会话摘要，保存到对应的文件中
                     Map<String, String> frontmatter = new LinkedHashMap<>();
@@ -164,7 +167,7 @@ public class SessionSummarizer {
      * @param messages conversation messages to summarize
      * @return summary text, or empty string if failed
      */
-    public String summarize(String jobClawUserId, List<Message> messages) {
+    public String summarize(UserConversationInfo userConversationInfo, List<Message> messages) {
         if (messages == null || messages.isEmpty()) {
             return "";
         }
@@ -179,9 +182,7 @@ public class SessionSummarizer {
             String prompt = promptTemplate.replace("{conversation_history}", conversationText);
 
             // Call AI to generate summary
-            ChatModel model = (ChatModel) SpringUtil.getBean(ClientSelector.class).getUserPreferredModel(jobClawUserId,
-                    false);
-            String summary = model.call(prompt);
+            String summary = llmCaller.call(userConversationInfo, new Prompt(prompt));
 
             // Validate and clean summary
             summary = validateSummary(summary);

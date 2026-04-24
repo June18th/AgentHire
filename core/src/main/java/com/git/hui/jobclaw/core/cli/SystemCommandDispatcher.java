@@ -88,6 +88,7 @@ public class SystemCommandDispatcher {
             if (handler.supports(normalized)) {
                 log.debug("执行系统命令: {}, 处理器: {}", normalized, handler.getClass().getSimpleName());
                 try {
+                    conversationInfo.setAgent("CLI-" + handler.getIntentType().getAgentId());
                     return handler.handle(msg, conversationInfo, normalized, process);
                 } catch (Exception e) {
                     log.error("执行系统命令失败: {}", normalized, e);

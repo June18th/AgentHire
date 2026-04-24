@@ -56,4 +56,11 @@ public interface InfoCollector {
      * @return collector type
      */
     AiUserPreferenceProperties.CollectorType getCollectorType();
+
+    default UserConversationInfo buildUserConversationInfo(CollectionState state) {
+        return new UserConversationInfo(state.getJobClawUserId(),
+                state.getActiveChannel(),
+                state.getConversationId(),
+                false);
+    }
 }

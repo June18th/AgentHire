@@ -1,24 +1,45 @@
 package com.git.hui.jobclaw.core.agent.llm;
 
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
-import com.git.hui.jobclaw.core.agent.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
+import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
+import com.git.hui.jobclaw.core.providers.ModelConfig;
+import com.git.hui.jobclaw.core.providers.ModelProviders;
+import com.git.hui.jobclaw.core.tasks.TaskManager;
+import com.git.hui.jobclaw.core.tools.AutoDiscoveredTool;
+import com.git.hui.jobclaw.core.tools.CheckListTool;
+import com.git.hui.jobclaw.core.tools.McpTool;
+import com.git.hui.jobclaw.core.tools.TaskTool;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springaicommunity.agent.tools.FileSystemTools;
+import org.springaicommunity.agent.tools.ShellTools;
+import org.springaicommunity.agent.tools.SkillsTool;
+import org.springaicommunity.agent.tools.SmartWebFetchTool;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
+import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.Media;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.util.CollectionUtils;
+import org.springframework.core.io.Resource;
 import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,81 +47,83 @@ import java.util.Map;
 
 /**
  * 会自动注入用户偏好的LlmCaller
+ * 适用于基于个人信息的推荐、对话场景
  *
  * @author YiHui
  * @date 2026/4/9
  */
 @Slf4j
-public class UserPreferenceBasedLlmCaller implements LlmCaller {
+public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
+    private final TaskManager taskManager;
 
-    private final ClientSelector clientSelector;
+    private final List<AutoDiscoveredTool<?>> autoDiscoveredTools;
 
-    private final IIdentityAgent identityAgent;
-
-    public UserPreferenceBasedLlmCaller(ClientSelector clientSelector,
-                                        IIdentityAgent identityAgent) {
-        this.clientSelector = clientSelector;
-        this.identityAgent = identityAgent;
+    public UserPreferenceBasedLlmCaller(ModelProviders modelProviders,
+                                        IIdentityAgent identityAgent,
+                                        ChatMemory chatMemory,
+                                        TaskManager taskManager,
+                                        List<AutoDiscoveredTool<?>> autoDiscoveredTools,
+                                        String systemPrompt,
+                                        ToolCallback... tools) {
+        super(chatMemory, identityAgent, modelProviders, systemPrompt, tools);
+        this.taskManager = taskManager;
+        this.autoDiscoveredTools = autoDiscoveredTools;
     }
 
-
-    @Override
-    public String respondTo(UserConversationInfo conversationInfo, String question) {
+    public Flux<LlmRspCell> stream(UserConversationInfo conversationInfo, ChannelReceiveMessage message) {
         String jobClawUserId = conversationInfo.jobClawUserId();
-        return clientSelector.getClient(jobClawUserId, conversationInfo.channel(), false)
-                .prompt(buildSoulPrompt(jobClawUserId, question))
+        Prompt prompt = buildSoulPrompt(jobClawUserId, message);
+        ChatClient client = getClient(conversationInfo, prompt);
+        return client.prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
-                .toolContext(Map.of("jobClawUserId", jobClawUserId))
-                .call()
-                .content();
-    }
-
-    @Override
-    public <T> T prompt(UserConversationInfo conversationInfo, String input, Class<T> result) {
-        String jobClawUserId = conversationInfo.jobClawUserId();
-        return clientSelector.getClient(conversationInfo.jobClawUserId(), conversationInfo.channel(), false)
-                .prompt(buildSoulPrompt(jobClawUserId, input))
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
-                .toolContext(Map.of("jobClawUserId", jobClawUserId))
-                .call()
-                .entity(result);
-    }
-
-    @Override
-    public Flux<LlmRspCell> streamResponse(UserConversationInfo conversationInfo, ChannelReceiveMessage message) {
-        String jobClawUserId = conversationInfo.jobClawUserId();
-        return clientSelector.getClient(jobClawUserId, conversationInfo.channel(), hasMedia(message))
-                .prompt(buildSoulPrompt(jobClawUserId, message))
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
-                .toolContext(Map.of("jobClawUserId", jobClawUserId))
+                .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
                 .stream()
                 .chatResponse()
                 .map(LlmRspCell::of);
     }
 
-    @Override
-    public String respondToMultiModal(UserConversationInfo conversationInfo, ChannelReceiveMessage message) {
+    public String call(UserConversationInfo conversationInfo, ChannelReceiveMessage message) {
         // Execute with conversation memory
         String jobClawUserId = conversationInfo.jobClawUserId();
-        return clientSelector.getClient(jobClawUserId, conversationInfo.channel(), hasMedia(message))
-                .prompt(buildSoulPrompt(jobClawUserId, message))
+        Prompt prompt = buildSoulPrompt(jobClawUserId, message);
+        ChatClient client = getClient(conversationInfo, prompt);
+        return client.prompt(buildSoulPrompt(jobClawUserId, message))
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
-                .toolContext(Map.of("jobClawUserId", jobClawUserId))
+                .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
                 .call()
                 .content();
     }
 
 
-    private boolean hasMedia(ChannelReceiveMessage message) {
-        return !CollectionUtils.isEmpty(message.getMedias()) || !CollectionUtils.isEmpty(message.getFiles());
-    }
-
-
     /**
-     * Build prompt with system identity documents for simple text question.
+     * 根据用户 + 会话，获取对应的LLM客户端
+     * @param user 用户对话信息
+     * @return
      */
-    public Prompt buildSoulPrompt(String jobClawUserId, String question) {
-        return buildSoulPrompt(jobClawUserId, null, question);
+    protected ChatClient getClient(UserConversationInfo user, Prompt prompt) {
+        // 判断message中是否包含media
+        ModelConfig.ModelType model = ModelConfig.ModelType.TEXT;
+        if (prompt.getUserMessages().stream().anyMatch(m -> m.getMedia() != null)) {
+            model = ModelConfig.ModelType.VISION;
+        }
+
+        boolean multiModal = model == ModelConfig.ModelType.VISION;
+        String userId = user.jobClawUserId();
+        String channel = user.channel();
+
+        String key;
+        if (StringUtils.isBlank(channel)) {
+            key = multiModal ? userId + "_m" : userId;
+        } else {
+            key = multiModal ? userId + "_" + channel + "_m" : userId + "_" + channel;
+        }
+        var client = super.chatClientMap.get(key);
+        if (client == null) {
+            client = initClient(userId, multiModal);
+            log.info("[{}] init UserPreferenceBasedLlmCaller for user: {}, channel: {}", user.agent(), user.jobClawUserId(), user.channel());
+            super.chatClientMap.put(key, client);
+        }
+        return client;
     }
 
     public Prompt buildSoulPrompt(String jobClawUserId, String defaultSystemPrompt, String question) {
@@ -221,5 +244,64 @@ public class UserPreferenceBasedLlmCaller implements LlmCaller {
             }
         }
         return null;
+    }
+
+
+    public static final String AGENT_MD = "AGENT.private.md";
+
+    private ChatClient initClient(String userId, boolean multiModal) {
+        try {
+            String agentPrompt;
+            if (StringUtils.isNotBlank(systemPrompt)) {
+                agentPrompt = systemPrompt;
+            } else {
+                Resource agentMd = workspace.createRelative(AGENT_MD);
+                if (!agentMd.exists()) {
+                    agentMd = workspace.createRelative("AGENT.md");
+                }
+                agentPrompt = agentMd.getContentAsString(StandardCharsets.UTF_8);
+            }
+
+            var defaultSystem = buildSystemPrompt(agentPrompt);
+            var model = modelProviders.getModel(userId, multiModal ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT);
+            var chatClientBuilder = ChatClient.builder((ChatModel) model);
+
+            chatClientBuilder.defaultAdvisors(new SimpleLoggerAdvisor())
+                    .defaultSystem(defaultSystem)
+//                    .defaultToolCallbacks(mcpToolProvider.getToolCallbacks())
+                    .defaultToolCallbacks(SkillsTool.builder().addSkillsDirectory(skillsDir(workspace).toString()).build())
+                    .defaultTools(
+                            CheckListTool.builder().build(),
+                            TaskTool.builder().taskManager(taskManager).build(),
+                            McpTool.builder().configurationManager(SpringUtil.getBean(ConfigurationManager.class)).build(),
+                            //Bash execution tool
+                            ShellTools.builder().build(),// built-in shell tools
+                            // Read, Write and Edit files tool // fixme 这里需要限制访问权限
+                            FileSystemTools.builder().build(),// built-in file system tools
+                            // Smart web fetch tool
+                            SmartWebFetchTool.builder(chatClientBuilder.clone().build()).build())
+                    .defaultAdvisors(
+                            ToolCallAdvisor.builder().build(),
+                            MessageChatMemoryAdvisor.builder(chatMemory).build()
+                    );
+
+
+            if (autoDiscoveredTools != null && !autoDiscoveredTools.isEmpty()) {
+                autoDiscoveredTools.forEach(autoDiscoveredTool -> chatClientBuilder.defaultTools(autoDiscoveredTool.tool()));
+            }
+            if (super.tools != null && super.tools.length > 0) {
+                chatClientBuilder.defaultToolCallbacks(tools);
+            }
+
+            return chatClientBuilder.build();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static Path skillsDir(Resource workspace) throws IOException {
+        Path skillsDir = workspace.getFile().toPath().resolve("skills");
+        Files.createDirectories(skillsDir);
+        return skillsDir;
     }
 }
