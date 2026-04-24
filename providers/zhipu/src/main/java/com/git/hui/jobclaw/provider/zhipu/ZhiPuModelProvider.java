@@ -38,7 +38,7 @@ import java.util.Objects;
  * @date 2026/4/10
  */
 public class ZhiPuModelProvider implements ModelProvider {
-    private final static String DEFAULT_BASE_URL = "https://open.bigmodel.cn";
+    private final static String DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas";
     private final ObjectProvider<RestClient.Builder> restClientBuilderProvider;
     private final ObjectProvider<WebClient.Builder> webClientBuilderProvider;
     private final ObjectProvider<ResponseErrorHandler> responseErrorHandler;
