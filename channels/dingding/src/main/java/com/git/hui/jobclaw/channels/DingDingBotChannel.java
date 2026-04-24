@@ -140,21 +140,23 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
         if (channelConfig.getScope() == ChannelConfig.ChannelScope.OWNER) {
             // 仅作者才能使用
             if (user == null || !String.valueOf(user.userId()).equals(robotOwnerUserId)) {
-                errorResponse(msg, "这个机器人只为创作者本人服务哦~，如有需要您可以联系 @作者 为您授权");
+                errorResponse(msg, "这个机器人只为创作者本人服务哦~，若您是机器人的拥有者，请到个人中心->渠道配置->钉钉机器人->绑定钉钉账号: " + dingDingId);
                 return null;
             }
             jobClawUserId = robotOwnerUserId;
         } else if (channelConfig.getScope() == ChannelConfig.ChannelScope.LOGIN) {
             if (user == null) {
                 log.warn("[DingDing] Failed to find user for staffId: {}", dingDingId);
-                errorResponse(msg, "您的个人求职派还没有绑定钉钉渠道哦，请到个人中心->钉钉渠道->绑定：" + dingDingId);
+                errorResponse(msg, "您的个人求职派还没有绑定钉钉渠道哦，请到个人中心->渠道配置->钉钉机器人->绑定钉钉账号: " + dingDingId);
                 return null;
             }
             jobClawUserId = String.valueOf(user.userId());
         } else if (channelConfig.getScope() == ChannelConfig.ChannelScope.VIP) {
-            if (user == null || (user.role() != UserRoleEnum.VIP && user.role() != UserRoleEnum.ADMIN)) {
-                errorResponse(msg, "这个机器人属于VIP专享哦~，您可以到求职派开通VIP既可畅享对话");
+            if (user == null) {
+                errorResponse(msg, "这个机器人属于VIP专享哦~，请先到个人中心->渠道配置->钉钉机器人->绑定钉钉账号: " + dingDingId);
                 return null;
+            } else if (user.role() != UserRoleEnum.VIP && user.role() != UserRoleEnum.ADMIN) {
+                errorResponse(msg, "这个机器人属于VIP专享哦~，您可以到求职派开通VIP既可畅享对话");
             }
             jobClawUserId = String.valueOf(user.userId());
         } else if (channelConfig.getScope() == ChannelConfig.ChannelScope.PUBLIC) {

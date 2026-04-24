@@ -27,6 +27,7 @@
 
         <!-- Spring AI Agent Utils -->
         <spring-ai-agent-utils.version>0.7.0</spring-ai-agent-utils.version>
+        <tool-search.version>2.0.1</tool-search.version>
     </properties>
 
     <url/>

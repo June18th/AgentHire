@@ -18,6 +18,7 @@ import org.springaicommunity.agent.tools.FileSystemTools;
 import org.springaicommunity.agent.tools.ShellTools;
 import org.springaicommunity.agent.tools.SkillsTool;
 import org.springaicommunity.agent.tools.SmartWebFetchTool;
+import org.springaicommunity.tool.search.ToolSearchToolCallAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -34,7 +35,6 @@ import org.springframework.core.io.Resource;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -176,6 +176,12 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
             var model = modelProviders.getModel(userId, multiModal ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT);
             var chatClientBuilder = ChatClient.builder((ChatModel) model);
 
+            // 为了避免工具较多
+            ToolCallAdvisor toolCallAdvisor = SpringUtil.getBeanOrNull(ToolSearchToolCallAdvisor.class);
+            if (toolCallAdvisor == null) {
+                toolCallAdvisor = ToolCallAdvisor.builder().build();
+            }
+
             chatClientBuilder.defaultAdvisors(new SimpleLoggerAdvisor())
                     .defaultSystem(defaultSystem)
 //                    .defaultToolCallbacks(mcpToolProvider.getToolCallbacks())
@@ -191,7 +197,7 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
                             // Smart web fetch tool
                             SmartWebFetchTool.builder(chatClientBuilder.clone().build()).build())
                     .defaultAdvisors(
-                            ToolCallAdvisor.builder().build(),
+                            toolCallAdvisor,
                             MessageChatMemoryAdvisor.builder(chatMemory).build()
                     );
 

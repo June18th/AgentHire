@@ -37,7 +37,7 @@ public class IdentityCollectorSelector {
             }
             return collectorMap.get(collectorType);
         } else {
-            return collectorMap.get(AiUserPreferenceProperties.CollectorType.RULE_BASED);
+            return collectorMap.get(AiUserPreferenceProperties.CollectorType.AI_BASED);
         }
     }
 }

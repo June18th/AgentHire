@@ -88,10 +88,10 @@ agent:
   workspace: ${AGENT_WORKSPACE:file:./workspace/}
   context:
     window:
-      trim-enabled: ${AGENT_CONTEXT_WINDOW_ENABLED:false}   # 上下文压缩开关
-      summary-enabled: ${AGENT_CONTEXT_SUMMARY:false} # 自动提炼会话总结内容开关
+      trim-enabled: ${AGENT_CONTEXT_WINDOW_ENABLED:true}   # 上下文压缩开关
+      summary-enabled: ${AGENT_CONTEXT_SUMMARY:true} # 自动提炼会话总结内容开关
       summary-update-frequency: ${AGENT_CONTEXT_SUMMARY_UPDATE_FREQUENCY:10} # 刷新频率
-      identity-auto-update: ${AGENT_CONTEXT_IDENTITY_AUTO_UPDATE:false} # 自动更新用户身份信息开关
+      identity-auto-update: ${AGENT_CONTEXT_IDENTITY_AUTO_UPDATE:true} # 自动更新用户身份信息开关
       max-messages: ${AGENT_CONTEXT_MAX_MESSAGES:20} # 最大消息数
       keep-recent: ${AGENT_CONTEXT_KEEP_RECENT:10} # 保留最近消息数
       max-tokens: ${AGENT_CONTEXT_MAX_TOKENS:8000} # Token上限
@@ -122,29 +122,49 @@ agent:
         2: !!seq [ ]
   tools:
     playwright:
-      enabled: true # 是否启用playwright
-      headless: true # 是否启用无头模式
+      enabled: ${AGENT_TOOL_PLAYWRIGHT_ENABLED:true} # 是否启用playwright
+      headless: ${AGENT_PLAYWRIGHT_HEADLESS:true} # 是否启用无头模式
+    dynamic-discovery:
+      enabled: ${AGENT_TOOL_DYNAMIC_DISCOVERY_ENABLED:true}
+      max-results: ${AGENT_TOOL_DYNAMIC_DISCOVERY_MAX_RESULTS:10}
+      lucene-min-score-threshold: ${AGENT_TOOL_DYNAMIC_DISCOVERY_LUCENE_MIN_SCORE_THRESHOLD:0.25}
   ai:
     preference: # 用户维度的模型配置偏好
       - user-id: total # 所有用户共用的机器人配置
-        collector: AI_BASED # 基于AI的个人用户信息采集
+        collector: ${AGENT_AI_COLLECTOR:AI_BASED} # 基于AI的个人用户信息采集
         channels: # 后台主动推送消息时，推送渠道的优先级
           - feishu
           - dingding
-        models:
-          vision: zhipufree#GLM-4V-Flash # 视觉理解模型，选择智谱的 GLM-4V-Flash
-          text: zhipufree#GLM-4-Flash # 文本对话模型，选择智谱的 GLM-4-Flash
-      - user-id: 2 # userId = 2 默认是管理员账号，也可以通过个人信息 -> 偏好设置进行维护修改
-        collector: RULE_BASED # 基于规则的个人用户信息采集
-        channels:
           - wechat-clawbot
-          - dingding
         models:
-          vision: silicon#deepseek-ai/DeepSeek-OCR
-          text: silicon#Qwen/Qwen2.5-7B-Instruct
-
+          vision: ${AGENT_AI_PREFERENCE_VISION:zhipufree#GLM-4V-Flash} # 视觉理解模型，选择智谱的 GLM-4V-Flash
+          text: ${AGENT_AI_PREFERENCE_TEXT:zhipufree#GLM-4-Flash} # 文本对话模型，选择智谱的 GLM-4-Flash
+#      - user-id: 2 # userId = 2 默认是管理员账号，也可以通过个人信息 -> 偏好设置进行维护修改
+#        collector: RULE_BASED # 基于规则的个人用户信息采集
+#        channels:
+#          - wechat-clawbot
+#          - dingding
+#        models:
+#          vision: zhipufree#GLM-4-Flash
+#          text: zhipufree#GLM-4V-Flash
+#        providers:
+#          zhipufree:
+#            api-style: openai
+#            api-key: ${ZHIPU_API_KEY:}
+#            base-url: https://open.bigmodel.cn/api/paas/v4
+#            completions-path: /chat/completions
+#            embeddings-path: /embeddings
+#            images-path: /images/embeddings
+#            models:
+#              - name: GLM-4-Flash
+#                type: TEXT
+#                multimodal: false
+#            - name: GLM-4V-Flash
+#              type: VISION
+#              multimodal: true
     providers:
       zhipufree:
+        api-key: ${ZHIPU_API_KEY:}
         api-style: openai
         base-url: https://open.bigmodel.cn/api/paas/v4
         completions-path: /chat/completions
@@ -173,6 +193,7 @@ agent:
             type: VIDEO
             multimodal: false
       silicon:
+        api-key: ${SILICON_API_KEY:}
         api-style: openai
         base-url: https://api.siliconflow.cn
         completions-path: /v1/chat/completions
@@ -216,11 +237,11 @@ agent:
 
 jobrunr:
   background-job-server:
-    enabled: true
-    worker-count: 1
+    enabled: ${AGENT_JOB_BACKGROUND_JOB_SERVER_ENABLED:true}
+    worker-count: ${AGENT_JOB_WORKER_COUNT:1}
   dashboard:
-    enabled: true
-    port: 8099
+    enabled: ${AGENT_JOB_DASHBOARD_ENABLED:true}
+    port: ${AGENT_JOB_DASHBOARD_PORT:8099}
 
 
 # 修改日志级别

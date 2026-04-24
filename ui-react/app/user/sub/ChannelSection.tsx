@@ -117,10 +117,10 @@ export default function ChannelSection() {
         title: editingDingtalkBot ? "更新成功" : "绑定成功",
         description: editingDingtalkBot ? "钉钉机器人更新成功" : "钉钉机器人绑定成功",
       });
+      await loadChannelData();
       setDingtalkDialogOpen(false);
       setDingtalkForm({ appId: "", appSecret: "", mode: "WEBHOOK", scope: "OWNER", botName: "", aiCardId: "" });
       setEditingDingtalkBot(null);
-      loadChannelData();
     } catch (error: any) {
       toast({
         title: editingDingtalkBot ? "更新失败" : "绑定失败",
@@ -149,10 +149,10 @@ export default function ChannelSection() {
         title: editingFeishuBot ? "更新成功" : "绑定成功",
         description: editingFeishuBot ? "飞书机器人更新成功" : "飞书机器人绑定成功",
       });
+      await loadChannelData();
       setFeishuDialogOpen(false);
       setFeishuForm({ appId: "", appSecret: "", mode: "WEBHOOK", scope: "OWNER", botName: "" });
       setEditingFeishuBot(null);
-      loadChannelData();
     } catch (error: any) {
       toast({
         title: editingFeishuBot ? "更新失败" : "绑定失败",

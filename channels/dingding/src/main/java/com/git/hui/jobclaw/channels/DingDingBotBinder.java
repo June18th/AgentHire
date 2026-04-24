@@ -103,6 +103,8 @@ public class DingDingBotBinder implements ChannelBinder {
         keyValues.put(prefix + "app-id", config.getAppId());
         if (!config.getAppSecret().contains("***")) {
             keyValues.put(prefix + "app-secret", config.getAppSecret());
+        } else {
+            config.setAppSecret(configurationManager.getProperty(prefix + "app-secret"));
         }
         keyValues.put(prefix + "mode", config.getMode().name());
         keyValues.put(prefix + "state", config.getState().name());

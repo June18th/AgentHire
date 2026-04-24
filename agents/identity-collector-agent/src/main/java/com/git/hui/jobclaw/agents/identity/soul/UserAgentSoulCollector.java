@@ -248,7 +248,7 @@ public class UserAgentSoulCollector implements InfoCollector {
                     });
         } catch (Exception e) {
             log.error("[Soul] Failed to call AI for collection: {}", state.getJobClawUserId(), e);
-            return Flux.just(new LlmRspCell(null, "现在大模型响应出了点问题,请稍后再试~", null));
+            return Flux.just(new LlmRspCell(null, "现在大模型响应出了点问题,请稍后再试~\n" + e.getMessage(), null));
         }
     }
 
