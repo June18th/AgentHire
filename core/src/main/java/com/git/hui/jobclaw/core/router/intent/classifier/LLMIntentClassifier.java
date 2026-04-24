@@ -1,9 +1,12 @@
 package com.git.hui.jobclaw.core.router.intent.classifier;
 
+import com.git.hui.jobclaw.core.agent.BizAgent;
 import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.router.intent.AgentRegistry;
 import com.git.hui.jobclaw.core.router.intent.IntentClassifier;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
@@ -29,12 +32,7 @@ public class LLMIntentClassifier implements IntentClassifier {
             您是一个意图分类器，请分析用户的消息意图。
 
             可分类的意图类型：
-            - COLLECT: 投递简历、收集岗位信息（用户想投递岗位、录入岗位信息）
-            - RECOMMEND: 推荐岗位（用户想要推荐、想让系统帮忙找岗位）
-            - SUBSCRIBE: 订阅推送（用户想订阅某个岗位的推送通知）
-            - QUERY: 信息查询（用户想查询岗位状态、投递记录等）
-            - PROFILE: 用户画像管理（用户想修改个人信息、偏好设置）
-            - CHAT: 通用聊天Agent（当无法匹配上面意图时，采用这个通用的聊天Agent）
+            {{BizAgent}}
             - UNKNOWN: 无法确定
 
             用户消息：{{message}}
@@ -66,7 +64,12 @@ public class LLMIntentClassifier implements IntentClassifier {
         }
 
         try {
-            String prompt = PROMPT_TEMPLATE.replace("{{message}}", message);
+            List<BizAgent> list = SpringUtil.getBean(AgentRegistry.class).getAllAgents(userConversationInfo.jobClawUserId());
+            StringBuilder sb = new StringBuilder();
+            for (BizAgent agent : list) {
+                sb.append("- ").append(agent.getAgentIntro().getAgentId()).append(": ").append(agent.getAgentIntro().getIntro()).append("\n");
+            }
+            String prompt = PROMPT_TEMPLATE.replace("{{BizAgent}}", sb).replace("{{message}}", message);
 
             // AIDEV-NOTE: 简化实现，同步调用
             // 实际场景应该使用流式响应或异步处理

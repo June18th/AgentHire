@@ -137,40 +137,7 @@ public class JobFetchAgent extends AbsBizAgent {
             - 如果用户同时提供URL和文本,优先处理URL
             """;
 
-    private static final AgentIntro INTRO = new AgentIntro() {
-        @Override
-        public String getAgentId() {
-            return "jobFetchAgent";
-        }
 
-        @Override
-        public String getIntro() {
-            return "职位信息获取专家";
-        }
-
-        @Override
-        public String getDescription() {
-            return """
-                    JobFetchAgent是专门用于获取职业信息的Agent，支持两种获取方式：
-                                        
-                    🕷️ 网络爬虫模式
-                    - 从招聘网站自动爬取职位信息
-                    - 支持智联招聘、前程无忧、拉勾网、BOSS直聘等主流平台
-                    - 自动解析网页结构，提取结构化数据
-                                        
-                    📄 内容提取模式
-                    - 从文本内容中提取职位信息
-                    - 支持文件上传（PDF、Word、Excel、CSV等）
-                    - 支持图片OCR识别（招聘海报、截图等）
-                    - 支持HTML网页内容解析
-                                        
-                    💡 使用示例
-                    - "帮我从这个链接爬取职位：https://xxx.com/jobs"
-                    - "从这段文字中提取职位信息：[粘贴文本]"
-                    - "分析这个PDF文件中的招聘信息"
-                    """;
-        }
-    };
 
     @Override
     public AgentPermission permission() {
@@ -190,12 +157,12 @@ public class JobFetchAgent extends AbsBizAgent {
 
     @Override
     public AgentIntro getAgentIntro() {
-        return INTRO;
+        return PresetAgentIntro.COLLECT;
     }
 
     @Override
     public List<AgentIntro> getSupportedIntents() {
-        return List.of(INTRO, PresetAgentIntro.CHAT);
+        return List.of(PresetAgentIntro.COLLECT, PresetAgentIntro.CHAT);
     }
 
     @Override

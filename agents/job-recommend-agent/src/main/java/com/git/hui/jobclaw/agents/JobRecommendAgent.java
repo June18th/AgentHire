@@ -153,36 +153,7 @@ public class JobRecommendAgent extends AbsBizAgent {
             - 适时给出建议和指导
             """;
 
-    private static final AgentIntro AGENT_INTRO = new AgentIntro() {
-        @Override
-        public String getAgentId() {
-            return "jobRecommendAgent";
-        }
 
-        @Override
-        public String getIntro() {
-            return "智能职位推荐助手";
-        }
-
-        @Override
-        public String getDescription() {
-            return """
-                    JobRecommendAgent 是专业的职位推荐助手,根据用户的个人偏好和求职需求,从职位库中智能检索并推荐最匹配的岗位。
-                                        
-                    🎯 核心能力
-                    1. 智能理解用户求职偏好
-                    2. 多维度精准筛选(地点/行业/公司类型/岗位等)
-                    3. 个性化职位推荐
-                    4. 求职建议和指导
-                                        
-                    💡 使用示例
-                    - "帮我找北京的国企秋招职位"
-                    - "我是2026届计算机专业,想找互联网公司"
-                    - "有哪些筛选条件可以选择?"
-                    - "推荐适合我的职位"
-                    """;
-        }
-    };
 
     @Override
     public AgentPermission permission() {
@@ -191,7 +162,7 @@ public class JobRecommendAgent extends AbsBizAgent {
 
     @Override
     public AgentIntro getAgentIntro() {
-        return AGENT_INTRO;
+        return PresetAgentIntro.RECOMMEND;
     }
 
 
@@ -202,7 +173,7 @@ public class JobRecommendAgent extends AbsBizAgent {
 
     @Override
     public List<AgentIntro> getSupportedIntents() {
-        return List.of(AGENT_INTRO, PresetAgentIntro.CHAT);
+        return List.of(PresetAgentIntro.RECOMMEND, PresetAgentIntro.CHAT);
     }
 
     @Override
