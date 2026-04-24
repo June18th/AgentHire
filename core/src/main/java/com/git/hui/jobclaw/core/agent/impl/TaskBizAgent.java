@@ -1,7 +1,6 @@
 package com.git.hui.jobclaw.core.agent.impl;
 
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
-import com.git.hui.jobclaw.core.agent.llm.UserPreferenceBasedLlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
@@ -9,48 +8,30 @@ import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import com.git.hui.jobclaw.core.tasks.TaskManager;
-import com.git.hui.jobclaw.core.tools.AutoDiscoveredTool;
-import jakarta.annotation.PostConstruct;
+import com.git.hui.jobclaw.core.tools.TaskTool;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.support.ToolCallbacks;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
-import java.util.List;
-
 /**
- * 通用的聊天Agent，主要用于用户未指定特定业务Agent时，与用户继续普通的聊天场景
+ * 任务提醒类的业务Agent
  * @author YiHui
  * @date 2026/4/17
  */
 @Component
-public class CustomChatBizAgent extends AbsBizAgent {
+public class TaskBizAgent extends AbsBizAgent {
     private final TaskManager taskManager;
-    private final Resource workspace;
-    private final List<AutoDiscoveredTool<?>> autoDiscoveredTools;
 
-    public CustomChatBizAgent(ModelProviders modelProviders,
-                              IIdentityAgent identityAgent,
-                              ChatMemory chatMemory,
-                              TaskManager taskManager,
-                              @Value("${agent.workspace:Unknown}")
-                              Resource workspace,
-                              List<AutoDiscoveredTool<?>> autoDiscoveredTools) {
+    public TaskBizAgent(ModelProviders modelProviders,
+                        IIdentityAgent identityAgent,
+                        ChatMemory chatMemory,
+                        TaskManager taskManager) {
         super(modelProviders, chatMemory, identityAgent);
         this.taskManager = taskManager;
-        this.workspace = workspace;
-        this.autoDiscoveredTools = autoDiscoveredTools;
     }
-
-    @PostConstruct
-    public void init() {
-        this.llmCaller = new UserPreferenceBasedLlmCaller(
-                modelProviders, identityAgent, chatMemory, taskManager, autoDiscoveredTools, getSystemPrompt()
-        );
-        this.llmCaller.setWorkspace(workspace);
-    }
-
 
     @Override
     public AgentPermission permission() {
@@ -59,22 +40,22 @@ public class CustomChatBizAgent extends AbsBizAgent {
 
     @Override
     public AgentIntro getAgentIntro() {
-        return PresetAgentIntro.CHAT;
-    }
-
-    @Override
-    public List<AgentIntro> getSupportedIntents() {
-        return List.of(PresetAgentIntro.CHAT);
+        return PresetAgentIntro.TASK;
     }
 
     @Override
     public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
-        return llmCaller.call(userConversationInfo, message);
+        return llmCaller.call(userConversationInfo, new Prompt(message.getMessage()));
     }
 
     @Override
     public Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         return llmCaller.stream(userConversationInfo, message, LlmRspCell::of);
+    }
+
+    @Override
+    public ToolCallback[] getTools() {
+        return ToolCallbacks.from(TaskTool.builder().taskManager(taskManager).build());
     }
 
     @Override

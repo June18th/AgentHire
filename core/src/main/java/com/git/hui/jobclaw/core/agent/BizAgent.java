@@ -37,7 +37,9 @@ public interface BizAgent {
      * 获取Agent支持处理的意图类型列表
      * AIDEV-NOTE: 返回空数组表示支持所有意图类型
      */
-    List<AgentIntro> getSupportedIntents();
+    default List<AgentIntro> getSupportedIntents() {
+        return List.of(getAgentIntro());
+    }
 
     /**
      * 检查Agent是否支持处理指定意图

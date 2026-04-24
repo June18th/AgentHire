@@ -1,7 +1,6 @@
 package com.git.hui.jobclaw.core.agent.llm;
 
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
-import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
@@ -28,13 +27,10 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.content.Media;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
@@ -44,6 +40,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * 会自动注入用户偏好的LlmCaller
@@ -70,7 +67,7 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
         this.autoDiscoveredTools = autoDiscoveredTools;
     }
 
-    public Flux<LlmRspCell> stream(UserConversationInfo conversationInfo, ChannelReceiveMessage message) {
+    public <T> Flux<T> stream(UserConversationInfo conversationInfo, ChannelReceiveMessage message, Function<ChatResponse, T> func) {
         String jobClawUserId = conversationInfo.jobClawUserId();
         Prompt prompt = buildSoulPrompt(jobClawUserId, message);
         ChatClient client = getClient(conversationInfo, prompt);
@@ -79,7 +76,7 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
                 .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
                 .stream()
                 .chatResponse()
-                .map(LlmRspCell::of);
+                .map(func);
     }
 
     public String call(UserConversationInfo conversationInfo, ChannelReceiveMessage message) {
@@ -167,83 +164,9 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
             throw new IllegalArgumentException("Message cannot be null");
         }
 
-        String textContent = (message.getMessage() != null && !message.getMessage().isBlank())
-                ? message.getMessage()
-                : "Please analyze the attached media.";
-
-        var userMessage = UserMessage.builder().text(textContent);
-
-        // Add images as media
-        List<Media> mediaList = new ArrayList<>();
-
-        if (message.getMedias() != null) {
-            for (var image : message.getMedias()) {
-                try {
-                    Media media = createImageMedia(image);
-                    if (media != null) {
-                        mediaList.add(media);
-                    }
-                } catch (Exception e) {
-                    log.warn("Failed to load image: {}", image.getFilePath(), e);
-                }
-            }
-        }
-
-        // Add files as media (if supported by the model)
-        if (message.getFiles() != null) {
-            for (var file : message.getFiles()) {
-                try {
-                    Media media = createFileMedia(file);
-                    if (media != null) {
-                        mediaList.add(media);
-                    }
-                } catch (Exception e) {
-                    log.warn("Failed to load file: {}", file.getFilePath(), e);
-                }
-            }
-        }
-
-        // Add media to prompt if any
-        if (!mediaList.isEmpty()) {
-            userMessage.media(mediaList);
-        }
-
-        messages.add(userMessage.build());
+        var userMessage = buildUserMessage(message);
+        messages.add(userMessage);
         return new Prompt(messages);
-    }
-
-
-    /**
-     * Create Media object from ImageContent
-     */
-    private Media createImageMedia(ChannelReceiveMessage.MediaMsg image) {
-        if (image.getData() != null && image.getData().length > 0) {
-            // Inline image data (byte array)
-            MimeType mimeType = MimeType.valueOf(image.getMimeType());
-            return new Media(mimeType, new ByteArrayResource(image.getData()));
-        } else if (image.getFilePath() != null) {
-            // Image from file path
-            Path path = image.getFilePath();
-            if (path.toFile().exists()) {
-                MimeType mimeType = MimeType.valueOf(image.getMimeType());
-                return new Media(mimeType, new FileSystemResource(path.toFile()));
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Create Media object from FileContent
-     */
-    private Media createFileMedia(ChannelReceiveMessage.FileMsg file) {
-        if (file.getFilePath() != null) {
-            Path path = file.getFilePath();
-            if (path.toFile().exists()) {
-                MimeType mimeType = MimeType.valueOf(file.getMimeType());
-                return new Media(mimeType, new FileSystemResource(path.toFile()));
-            }
-        }
-        return null;
     }
 
 

@@ -48,6 +48,9 @@ public enum PresetAgentIntro implements BizAgent.AgentIntro {
      */
     CHAT("chat", "通用聊天对话Agent", "通用对话聊天", ""),
 
+
+    TASK("task", "周期、定时提醒累任务Agent", "周期、定时提醒累任务Agent", ""),
+
     /**
      * PREFERENCE_SETTING: 用户偏好设置
      * 触发场景：用户想修改偏好设置

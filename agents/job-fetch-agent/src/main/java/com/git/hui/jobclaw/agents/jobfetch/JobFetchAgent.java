@@ -202,7 +202,7 @@ public class JobFetchAgent extends AbsBizAgent {
     public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         if (CollectionUtils.isEmpty(message.getFiles()) && CollectionUtils.isEmpty(message.getMedias())) {
             // 需要判断从网络爬去，还是从文本中提取
-            return llmCaller.call(userConversationInfo, new Prompt(message.getMessage()), message);
+            return llmCaller.call(userConversationInfo, message);
         } else {
             // 如果包含附件
             var path = CollectionUtils.isEmpty(message.getFiles()) ? message.getMedias().get(0).getFilePath() : message.getFiles().get(0).getFilePath();
@@ -216,7 +216,7 @@ public class JobFetchAgent extends AbsBizAgent {
         log.info("JobFetchAgent process!");
         if (CollectionUtils.isEmpty(message.getFiles()) && CollectionUtils.isEmpty(message.getMedias())) {
             // 需要判断从网络爬去，还是从文本中提取
-            return llmCaller.stream(userConversationInfo, new Prompt(message.getMessage()), message, LlmRspCell::of);
+            return llmCaller.stream(userConversationInfo, message, LlmRspCell::of);
         } else {
             // 如果包含附件
             var path = CollectionUtils.isEmpty(message.getFiles()) ? message.getMedias().get(0).getFilePath() : message.getFiles().get(0).getFilePath();

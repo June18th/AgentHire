@@ -11,14 +11,22 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
 
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -95,7 +103,8 @@ public class BizAgentLlmCaller extends SimpleLlmCaller {
     }
 
 
-    public String call(UserConversationInfo user, Prompt prompt, ChannelReceiveMessage msg) {
+    public String call(UserConversationInfo user, ChannelReceiveMessage msg) {
+        Prompt prompt = new Prompt(buildUserMessage(msg));
         ChatClient client = getClient(user, prompt);
 
         return client.prompt(prompt)
@@ -113,17 +122,19 @@ public class BizAgentLlmCaller extends SimpleLlmCaller {
 
         return client.prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, user.genId()))
-                .toolContext(Map.of("user", user))
+                .toolContext(Map.of("jobClawUserId", user.jobClawUserId(), "user", user))
                 .call()
                 .content();
     }
 
-    public <T> Flux<T> stream(UserConversationInfo user, Prompt prompt, ChannelReceiveMessage msg, Function<ChatResponse, T> func) {
+    public <T> Flux<T> stream(UserConversationInfo user, ChannelReceiveMessage msg, Function<ChatResponse, T> func) {
+        Prompt prompt = new Prompt(buildUserMessage(msg));
         ChatClient client = getClient(user, prompt);
 
         return client.prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, user.genId()))
                 .toolContext(Map.of(
+                        "jobClawUserId", user.jobClawUserId(),
                         "user", user,
                         "msg", msg
                 ))
@@ -138,7 +149,7 @@ public class BizAgentLlmCaller extends SimpleLlmCaller {
 
         return client.prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, user.genId()))
-                .toolContext(Map.of("user", user))
+                .toolContext(Map.of("jobClawUserId", user.jobClawUserId(), "user", user))
                 .stream()
                 .chatResponse().map(func);
 
@@ -154,5 +165,83 @@ public class BizAgentLlmCaller extends SimpleLlmCaller {
 
     public void refreshCache() {
         chatClientMap.clear();
+    }
+
+
+    protected UserMessage buildUserMessage(ChannelReceiveMessage message) {
+        // Add images as media
+        List<Media> mediaList = new ArrayList<>();
+
+        if (message.getMedias() != null) {
+            for (var image : message.getMedias()) {
+                try {
+                    Media media = createImageMedia(image);
+                    if (media != null) {
+                        mediaList.add(media);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to load image: {}", image.getFilePath(), e);
+                }
+            }
+        }
+
+        // Add files as media (if supported by the model)
+        if (message.getFiles() != null) {
+            for (var file : message.getFiles()) {
+                try {
+                    Media media = createFileMedia(file);
+                    if (media != null) {
+                        mediaList.add(media);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to load file: {}", file.getFilePath(), e);
+                }
+            }
+        }
+
+        String textContent = (message.getMessage() != null && !message.getMessage().isBlank())
+                ? message.getMessage()
+                : "Please analyze the attached media.";
+        var msgBuilder = UserMessage.builder().text(textContent);
+
+        // Add media to prompt if any
+        if (!mediaList.isEmpty()) {
+            msgBuilder.media(mediaList);
+        }
+        return msgBuilder.build();
+    }
+
+
+    /**
+     * Create Media object from ImageContent
+     */
+    protected Media createImageMedia(ChannelReceiveMessage.MediaMsg image) {
+        if (image.getData() != null && image.getData().length > 0) {
+            // Inline image data (byte array)
+            MimeType mimeType = MimeType.valueOf(image.getMimeType());
+            return new Media(mimeType, new ByteArrayResource(image.getData()));
+        } else if (image.getFilePath() != null) {
+            // Image from file path
+            Path path = image.getFilePath();
+            if (path.toFile().exists()) {
+                MimeType mimeType = MimeType.valueOf(image.getMimeType());
+                return new Media(mimeType, new FileSystemResource(path.toFile()));
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Create Media object from FileContent
+     */
+    protected Media createFileMedia(ChannelReceiveMessage.FileMsg file) {
+        if (file.getFilePath() != null) {
+            Path path = file.getFilePath();
+            if (path.toFile().exists()) {
+                MimeType mimeType = MimeType.valueOf(file.getMimeType());
+                return new Media(mimeType, new FileSystemResource(path.toFile()));
+            }
+        }
+        return null;
     }
 }

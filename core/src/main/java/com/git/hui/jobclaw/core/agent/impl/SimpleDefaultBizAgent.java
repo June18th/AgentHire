@@ -88,13 +88,13 @@ public class SimpleDefaultBizAgent extends AbsBizAgent {
                     可用命令：
                     %s
                     """, SpringUtil.getBean(SystemCommandDispatcher.class).getAllCommandDescriptions());
-            default -> ((UserPreferenceBasedLlmCaller) llmCaller).call(userConversationInfo, message);
+            default -> llmCaller.call(userConversationInfo, message);
         };
     }
 
     @Override
     public Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
-        return ((UserPreferenceBasedLlmCaller) llmCaller).stream(userConversationInfo, message);
+        return llmCaller.stream(userConversationInfo, message, LlmRspCell::of);
     }
 
     @Override

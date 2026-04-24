@@ -217,7 +217,7 @@ public class JobRecommendAgent extends AbsBizAgent {
 //        Prompt prompt = SpringUtil.getBean(UserPreferenceBasedLlmCaller.class)
 //                .buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
 
-        return ((UserPreferenceBasedLlmCaller) llmCaller).call(userConversationInfo, message);
+        return llmCaller.call(userConversationInfo, message);
     }
 
     @Override
@@ -225,6 +225,6 @@ public class JobRecommendAgent extends AbsBizAgent {
         log.info("JobRecommendAgent stream: {}", message.getMessage());
 //        Prompt prompt = SpringUtil.getBean(UserPreferenceBasedLlmCaller.class)
 //                .buildSoulPrompt(userConversationInfo.jobClawUserId(), getSystemPrompt(), message);
-        return ((UserPreferenceBasedLlmCaller) llmCaller).stream(userConversationInfo, message);
+        return llmCaller.stream(userConversationInfo, message, LlmRspCell::of);
     }
 }
