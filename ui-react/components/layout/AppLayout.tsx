@@ -5,6 +5,7 @@ import { useLoginModal } from "@/hooks/useLoginModal";
 import { Bell, User, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react"
+import { PiLogo } from "@/components/brand/PiLogo";
 import {
   Dialog,
   DialogContent,
@@ -188,11 +189,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     >
                       <Home className="w-7 h-7 text-blue-600" />
                     </button>
-                    <span className="text-2xl font-bold text-blue-600">求职派</span>
+                    <PiLogo />
                   </div>
                 ) : (
-                  <a href="/" className="text-2xl font-bold text-blue-600">
-                    🚦求职派
+                  <a href="/" className="transition-opacity hover:opacity-80">
+                    <PiLogo />
                   </a>
                 )}
               </div>

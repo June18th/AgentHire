@@ -14,7 +14,10 @@ export const metadata: Metadata = {
   description: "专业的职位招聘和求职平台",
   generator: '一灰灰',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico' },
+    ],
   }
 }
 

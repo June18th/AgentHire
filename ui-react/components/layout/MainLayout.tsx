@@ -1,4 +1,5 @@
 import React from 'react';
+import { PiLogo } from '@/components/brand/PiLogo';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,7 +10,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-8">
               <div className="flex items-center">
-                <a href="/" className="text-2xl font-bold text-blue-600">🚦求职派</a>
+                <a href="/" className="transition-opacity hover:opacity-80">
+                  <PiLogo />
+                </a>
               </div>
             </div>
           </div>
