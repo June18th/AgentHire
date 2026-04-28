@@ -107,7 +107,7 @@ public class AgentExecutor {
      */
     private String printPlantUml() {
         // 在线 mermaid绘制地址：https://mermaid.live/
-        // GraphRepresentation representation = compiledGraph.getGraph(GraphRepresentation.Type.MERMAID, "校招派智能体", true);
+        // GraphRepresentation representation = compiledGraph.getGraph(GraphRepresentation.Type.MERMAID, "求职派智能体", true);
         // System.out.println(">>>>>>>>>>>> online mermaid render site:  https://mermaid.live/");
 
         // 在线uml绘制地址： https://www.plantuml.com/plantuml/uml/SyfFKj2rKt3CoKnELR1Io4ZDoSa700002

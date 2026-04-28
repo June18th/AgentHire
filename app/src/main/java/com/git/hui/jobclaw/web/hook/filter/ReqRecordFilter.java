@@ -124,7 +124,7 @@ public class ReqRecordFilter implements Filter {
         Map<String, Object> payload = SpringUtil.getBean(SessionHelper.class).getPayloadWithoutVerify(token);
         Object paiCodingUserId = payload.get("pid");
         if (paiCodingUserId != null) {
-            // 表示当前用户是基于技术派账号登陆的，我们需要验证下技术派的账号是否有发生变更：这里主要是为了避免技术派切换了账号，但是校招派还是老账号的情况
+            // 表示当前用户是基于技术派账号登陆的，我们需要验证下技术派的账号是否有发生变更：这里主要是为了避免技术派切换了账号，但是求职派还是老账号的情况
             PaiCodingLoginHelper.PaiCodingUserStatus status = SpringUtil.getBean(PaiCodingLoginHelper.class).paiCodingUserChanged(request, response, Long.parseLong(paiCodingUserId.toString()));
             if (status == PaiCodingLoginHelper.PaiCodingUserStatus.CHANGED || status == PaiCodingLoginHelper.PaiCodingUserStatus.LOGOUT) {
                 return;

@@ -53,7 +53,7 @@ public class WechatBlogPublishService {
             cover: https://spring.hhui.top/spring-blog/imgs/231026/logo.jpg
             ---
                             
-            校招派今日上新校招岗位{ocCnt}条、实习岗位{internshipCnt}条，找工作的小伙伴重点关注一波哦
+            求职派今日上新校招岗位{ocCnt}条、实习岗位{internshipCnt}条，找工作的小伙伴重点关注一波哦
                             
             {text}
             ```
@@ -112,7 +112,7 @@ public class WechatBlogPublishService {
         }
 
         String promp = new PromptTemplate(blogs)
-                .render(Map.of("title", "校招派快讯【" + DateUtil.todayStr() + "】"
+                .render(Map.of("title", "求职派快讯【" + DateUtil.todayStr() + "】"
                         , "text", text
                         , "ocCnt", ocCnt
                         , "internshipCnt", internshipCnt

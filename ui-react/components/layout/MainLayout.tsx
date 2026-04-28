@@ -9,7 +9,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-8">
               <div className="flex items-center">
-                <a href="/" className="text-2xl font-bold text-blue-600">🚦校招派</a>
+                <a href="/" className="text-2xl font-bold text-blue-600">🚦求职派</a>
               </div>
             </div>
           </div>

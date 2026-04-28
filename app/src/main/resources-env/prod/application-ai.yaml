@@ -38,7 +38,7 @@ spring:
           servers-configuration: classpath:mcp-servers.json
         # 如果想要体验 MCP Server，请将下面的 false 改成 true
         enabled: false
-        name: 校招派MCP
+        name: 求职派MCP
         version: 1.0.0
         request-timeout: 30s
         # 注意，这里使用的是异步，因此代码中获取的也应该是异步的 McpAsyncClient

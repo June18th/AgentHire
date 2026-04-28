@@ -343,7 +343,7 @@ export default function ProgressPage() {
       <header className="bg-white border-b">
         <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-gray-900">校招派Agent</h1>
+            <h1 className="text-2xl font-bold text-gray-900">求职派Agent</h1>
             <h3 className="text-sm text-gray-500">
               任务录入，全自动实现数据提取、清洗、上线流程
             </h3>

@@ -32,16 +32,14 @@ public class DotenvEnvironmentProcessor implements ApplicationContextInitializer
         log.info("[Dotenv] DotenvEnvironmentProcessor.initialize() called");
         
         ConfigurableEnvironment environment = applicationContext.getEnvironment();
-        Path dotenvPath = Path.of(System.getProperty("user.dir"), DOTENV_FILE);
+        Path dotenvPath = findDotenvFile();
         
-        log.info("[Dotenv] Looking for .env file at: {}", dotenvPath.toAbsolutePath());
-        
-        if (!Files.isRegularFile(dotenvPath)) {
-            log.warn("[Dotenv] .env file not found at: {}, skipping", dotenvPath.toAbsolutePath());
+        if (dotenvPath == null) {
+            log.warn("[Dotenv] .env file not found, skipping");
             return;
         }
 
-        log.info("[Dotenv] .env file found, loading properties...");
+        log.info("[Dotenv] .env file found at: {}, loading properties...", dotenvPath.toAbsolutePath());
         Map<String, Object> properties = loadDotenv(dotenvPath);
         if (properties.isEmpty()) {
             log.warn("[Dotenv] No properties loaded from .env file");
@@ -64,6 +62,26 @@ public class DotenvEnvironmentProcessor implements ApplicationContextInitializer
     @Override
     public int getOrder() {
         return Ordered.HIGHEST_PRECEDENCE;
+    }
+
+    /**
+     * 从当前工作目录向上查找 .env 文件，直到项目根目录或文件系统根。
+     * 项目根目录的判断标准：同时存在 pom.xml 和 mvnw 文件。
+     */
+    private Path findDotenvFile() {
+        Path dir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        while (dir != null) {
+            Path dotenvPath = dir.resolve(DOTENV_FILE);
+            if (Files.isRegularFile(dotenvPath)) {
+                return dotenvPath;
+            }
+            // 到达项目根目录（pom.xml + mvnw），不再继续向上查找
+            if (Files.isRegularFile(dir.resolve("pom.xml")) && Files.isRegularFile(dir.resolve("mvnw"))) {
+                break;
+            }
+            dir = dir.getParent();
+        }
+        return null;
     }
 
     private Map<String, Object> loadDotenv(Path dotenvPath) {

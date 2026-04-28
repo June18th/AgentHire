@@ -1,21 +1,52 @@
 # JobClaw 首次启动指南
 
 > **文档说明**: 本文档提供 JobClaw V2 版本的完整启动指引，帮助新用户快速配置和运行系统。
-> 
-> **最后更新**: 2026-04-24
+>
+> **最后更新**: 2026-04-27
 
 ---
 
 ## 一、环境配置
 
-### 1.1 复制环境变量文件
+### 1.1 安装 Java 21
+
+项目要求 **Java 21**，请先确认已安装并设为默认版本：
+
+```bash
+java -version
+# 确认输出包含 "21" 版本号
+```
+
+**使用 jenv 管理多版本（推荐）**：
+
+```bash
+# 安装 Java 21
+brew install openjdk@21
+
+# 通过 jenv 注册并设为全局默认
+jenv add /opt/homebrew/Cellar/openjdk@21/21.0.9/libexec/openjdk.jdk/Contents/Home
+jenv global 21
+
+# 确认 JAVA_HOME 正确指向 Java 21
+echo $JAVA_HOME
+# 应输出类似: /Users/<you>/.jenv/versions/21
+```
+
+> **注意**: 即使 `java -version` 显示 21，也要确认 `JAVA_HOME` 指向 21。如果 `JAVA_HOME` 仍指向旧版本，jenv 的 export 插件可能未生效。检查方式：
+> ```bash
+> jenv enable-plugin export   # 确保 export 插件已启用
+> eval "$(jenv init -)"       # 重新加载 jenv
+> echo $JAVA_HOME             # 确认输出为 21 的路径
+> ```
+
+### 1.2 复制环境变量文件
 
 ```bash
 # 将示例配置文件复制为实际配置文件
 cp .env.example .env
 ```
 
-### 1.2 配置数据库（避免污染初始数据）
+### 1.3 配置数据库（避免污染初始数据）
 
 ```bash
 # 拷贝初始化数据库文件
@@ -25,12 +56,12 @@ cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db
 JOBCLAW_DATABASE_NAME=jobclaw-my
 ```
 
-**说明**: 
+**说明**:
 - 项目提供了一份初始化数据 `workspace/datas/jobclaw.mv.db`
 - 为避免污染初始数据，建议拷贝一份并重命名
 - 修改 `.env` 中的 `JOBCLAW_DATABASE_NAME` 指向新文件名
 
-### 1.3 配置大模型 API Key
+### 1.4 配置大模型 API Key
 
 **默认模型**: 智谱 GLM-4-Flash (文本) 和 GLM-4V-Flash (视觉)
 
@@ -50,16 +81,16 @@ ZHIPU_API_KEY=your_zhipu_api_key_here
 - **`user-id`**: 用户标识符
   - `total`: 保留关键字，表示全局默认配置，适用于所有未配置个人 API Key 的用户
   - `{userId}`: JobClaw 用户 ID，表示该用户的个性化模型偏好配置
-  
+
 - **`channels`**: 消息推送渠道优先级
   - 后台主动推送消息时，按此顺序尝试推送渠道
   - 例如：`[wechat-clawbot, dingding, feishu]` 表示优先推送到微信，失败则尝试钉钉，最后飞书
-  
+
 - **`models`**: 默认模型配置
   - `vision`: 视觉理解模型（支持图片识别、OCR 等）
   - `text`: 文本对话模型（用于普通聊天、问答等）
   - 格式：`{providerName}#{modelName}`，如 `silicon#Qwen/Qwen3-8B`
-  
+
 - **`providers`**: 模型提供商接入信息
   - **Key**: 提供商名称（自定义，如 `silicon`、`zhipufree`、`openai` 等）
   - **Value**: 提供商的接入配置
@@ -114,42 +145,81 @@ cp app/src/main/resources/application.yml app/src/main/resources/application-pri
 # Git 已忽略此文件，不会提交到版本控制
 ```
 
+### 1.5 配置 MCP 客户端（跨平台）
+
+项目使用 Spring AI MCP 客户端，配置文件中包含 Windows 特定命令。macOS/Linux 用户需切换配置：
+
+```bash
+# 在 .env 文件中修改 MCP_SERVERS_CONFIG
+# Windows 用户保持默认：
+MCP_SERVERS_CONFIG=classpath:mcp-servers.json
+
+# macOS/Linux 用户改为：
+MCP_SERVERS_CONFIG=classpath:mcp-servers-mac.json
+```
+
+**说明**：
+- `mcp-servers.json` — Windows 环境的 MCP 服务配置（包含 `cmd /c` 等 Windows 命令）
+- `mcp-servers-mac.json` — macOS/Linux 环境的 MCP 服务配置（默认为空，可按需添加）
+
 ---
 
 ## 二、启动项目
 
-### 2.1 后端启动
+### 2.1 首次构建
+
+首次运行或代码变更后，需先构建项目：
 
 ```bash
-# 使用 Maven Wrapper 启动
-./mvnw spring-boot:run
+./mvnw install -DskipTests
+```
 
-# 或使用 Maven 命令
-mvn spring-boot:run
+> 如果 `mvnw` 没有执行权限，先运行：`chmod +x mvnw`
+
+### 2.2 启动后端
+
+```bash
+./mvnw spring-boot:run -pl app
 ```
 
 **说明**:
+- `-pl app` 指定只运行 app 模块（Spring Boot 主应用所在模块）
+- 启动成功后自动打开浏览器，访问项目主页
+- 应用运行在 `http://localhost:8087`
 
-- 启动之后会自动打开浏览器，访问项目主页
+> **macOS 用户提示**: 如果启动时报 `不支持发行版本 21` 错误，说明 `JAVA_HOME` 未指向 Java 21，请参考 [1.1 节](#11-安装-java-21) 排查。也可在启动命令中显式指定：
+> ```bash
+> JAVA_HOME=$(/usr/libexec/java_home -v 21) ./mvnw spring-boot:run -pl app
+> ```
 
-### 2.2 前端启动（可选）
+### 2.3 前端启动（可选）
 
-如果你需要进行前端开发，可以起独立的前端应用
+前端基于 Next.js 15 + React 19 + TailwindCSS + shadcn/ui，静态导出后部署到 Spring Boot 的 `static/` 目录。
+
+**环境要求**: Node.js 18+、pnpm
 
 ```bash
 cd ui-react
+
+# 安装依赖
 pnpm install
+
+# 启动开发服务器（热更新）
 pnpm dev
 ```
 
-前端应用将运行在 `http://localhost:3000`
+前端应用将运行在 `http://localhost:3000`，修改代码后会自动刷新。
 
-
-修改完之后，使用命令进行发布
+**构建并部署到后端**：
 
 ```bash
+# 构建 + 清理旧文件 + 复制到 Spring Boot static 目录
 pnpm run deploy
 ```
+
+执行后需重启后端才能看到前端变更。或者开发时前后端同时运行（后端 8087、前端 3000），通过前端 dev server 代理 API 请求。
+
+> **说明**: 前端默认以静态导出模式运行（`next.config.js` 中 `output: 'export'`），不支持 Next.js 服务端特性（如 API Routes、动态服务端渲染）。
 
 ---
 
@@ -391,11 +461,31 @@ API Key: 从 OpenAI 平台获取
 
 ## 七、常见问题
 
-### Q1: 为什么建议使用自己的数据库副本？
+### Q1: 启动报错 "不支持发行版本 21"
+
+**A**: `JAVA_HOME` 指向了旧版本的 Java。即使 `java -version` 显示 21，Maven 编译使用的是 `JAVA_HOME` 指向的 JDK。
+
+排查步骤：
+1. 检查 `echo $JAVA_HOME`，确认路径包含 `21` 而非 `17` 或其他版本
+2. 如果使用 jenv，确认 export 插件已启用：`jenv enable-plugin export`
+3. 重新加载 shell：`eval "$(jenv init -)"` 或新开终端
+4. 临时方案：启动时显式指定 `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./mvnw spring-boot:run -pl app`
+
+### Q2: 启动报错 "Failed to start process with command: [cmd, /c, npx...]"
+
+**A**: MCP 客户端加载了 Windows 特定的 `mcp-servers.json`。macOS/Linux 用户需在 `.env` 中设置：
+
+```bash
+MCP_SERVERS_CONFIG=classpath:mcp-servers-mac.json
+```
+
+Windows 用户保持默认 `MCP_SERVERS_CONFIG=classpath:mcp-servers.json` 即可。
+
+### Q3: 为什么建议使用自己的数据库副本？
 
 **A**: 避免在开发过程中污染初始数据，方便随时重置环境。如果测试过程中数据混乱，可以直接删除 `jobclaw-my.mv.db` 并重新拷贝一份。
 
-### Q2: 如何切换大模型提供商？
+### Q4: 如何切换大模型提供商？
 
 **A**: 有两种方式：
 1. **界面配置**: 在「个人中心」→「偏好设置」中修改模型配置
@@ -403,7 +493,7 @@ API Key: 从 OpenAI 平台获取
 
 支持的提供商包括：智谱、硅基流动、阿里云、OpenAI、豆包等。
 
-### Q3: 为什么要绑定钉钉/飞书账号？
+### Q5: 为什么要绑定钉钉/飞书账号？
 
 **A**: 绑定后可以基于 JobClawUserId 构建个性化的用户偏好和会话历史。未绑定时，系统只能基于 OpenId 存储数据，功能受限且无法跨设备同步。
 
@@ -413,11 +503,11 @@ API Key: 从 OpenAI 平台获取
 - 跨设备的偏好同步
 - 更精准的职位推荐
 
-### Q4: 微信 ClawBot 为什么不支持流式输出？
+### Q6: 微信 ClawBot 为什么不支持流式输出？
 
 **A**: 这是微信平台的限制。微信的消息接口不支持流式传输，因此无法实现打字机效果。钉钉和飞书支持更丰富的消息格式和流式输出，提供更好的用户体验。
 
-### Q5: 启动时遇到数据库错误怎么办？
+### Q7: 启动时遇到数据库错误怎么办？
 
 **A**: 检查以下几点：
 1. 确认已拷贝 `jobclaw.mv.db` 为 `jobclaw-my.mv.db`
@@ -425,16 +515,16 @@ API Key: 从 OpenAI 平台获取
 3. 确认数据库文件路径正确
 4. 如果仍有问题，删除 `workspace/datas/` 下的所有 `.db` 文件，重新启动让系统自动创建
 
-### Q6: 如何查看系统日志？
+### Q8: 如何查看系统日志？
 
 **A**: 日志文件位于 `logs/` 目录：
 - `logs/oc.log`: 主应用日志
 - `logs/arch/`: 归档日志
 - `logs/req-oc.log`: 请求日志
 
-### Q7: 如何重置用户配置？
+### Q9: 如何重置用户配置？
 
-**A**: 
+**A**:
 1. 删除 `workspace/users/{userId}/` 目录下的所有文件
 2. 删除 `workspace/conversations/{userId}/` 目录下的会话文件
 3. 重启应用或重新登录

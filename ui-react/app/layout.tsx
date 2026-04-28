@@ -10,7 +10,7 @@ import AppLayout from "@/components/layout/AppLayout"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "校招派 - 职位招聘平台",
+  title: "求职派 - 职位招聘平台",
   description: "专业的职位招聘和求职平台",
   generator: '一灰灰',
   icons: {

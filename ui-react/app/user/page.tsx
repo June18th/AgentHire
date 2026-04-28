@@ -183,7 +183,7 @@ export default function UserPage() {
       // 完成mcp相关配置
       let mcpConfigs = {
         mcpServers: {
-          校招派: data.config,
+          求职派: data.config,
         },
       };
       setMcpConfig(JSON.stringify(mcpConfigs, null, 2));

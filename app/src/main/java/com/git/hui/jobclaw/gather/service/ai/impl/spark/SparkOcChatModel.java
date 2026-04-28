@@ -13,7 +13,7 @@ import java.util.Collections;
 
 
 /**
- * 星火大模型，适配校招派
+ * 星火大模型，适配求职派
  *
  * @author YiHui
  * @date 2025/7/30

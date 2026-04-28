@@ -22,7 +22,7 @@ import java.util.Map;
 public class OcAgentState extends AgentState {
 
     /**
-     * 校招派智能体的外部输入，对象格式为 GatherTaskEntity
+     * 求职派智能体的外部输入，对象格式为 GatherTaskEntity
      */
     public static final String INPUT = "input";
 

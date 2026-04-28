@@ -135,7 +135,7 @@ public class AdminOfferGatherController {
     }
 
     /**
-     * 校招派Agent运行
+     * 求职派Agent运行
      *
      * @param req
      * @param request

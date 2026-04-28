@@ -188,11 +188,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     >
                       <Home className="w-7 h-7 text-blue-600" />
                     </button>
-                    <span className="text-2xl font-bold text-blue-600">校招派</span>
+                    <span className="text-2xl font-bold text-blue-600">求职派</span>
                   </div>
                 ) : (
                   <a href="/" className="text-2xl font-bold text-blue-600">
-                    🚦校招派
+                    🚦求职派
                   </a>
                 )}
               </div>
@@ -349,7 +349,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <footer className="bg-white border-t py-6 mt-auto">
         <div className="px-10">
           <div className="flex flex-col items-center justify-center text-center">
-            <p className="text-gray-500 mb-2">© {new Date().getFullYear()} 校招派 - 专注于校园招聘信息</p>
+            <p className="text-gray-500 mb-2">© {new Date().getFullYear()} 求职派 - 专注于校园招聘信息</p>
             <div className="flex space-x-4 text-sm text-gray-500">
               <a href="#" className="hover:text-blue-600 transition-colors">关于我们</a>
               <a href="#" className="hover:text-blue-600 transition-colors">隐私政策</a>

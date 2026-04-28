@@ -66,7 +66,7 @@ public class PaiCodingLoginHelper {
     public PaiCodingUserStatus paiCodingUserChanged(HttpServletRequest request, HttpServletResponse response, Long lastLoginPaiUserId) {
         String jwt = getPaiCodingToken(request);
         if (jwt == null) {
-            // 技术派已退出，校招派需要同步退出
+            // 技术派已退出，求职派需要同步退出
             return PaiCodingUserStatus.LOGOUT;
         }
         Map<String, Object> map = sessionHelper.getPayloadWithoutVerify(jwt);

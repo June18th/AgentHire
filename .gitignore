@@ -60,3 +60,5 @@ workspace/AGENT.private.md
 workspace/tasks
 workspace/users
 workspace/sessions
+app/src/main/resources/application-private.yml
+app/workspace/datas/jobclaw-my.mv.db

@@ -7,7 +7,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.data.util.Pair;
 
 /**
- * 校招派大模型集成的统一接口
+ * 求职派大模型集成的统一接口
  *
  * @author YiHui
  * @date 2025/7/30
