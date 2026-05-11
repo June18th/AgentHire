@@ -1,70 +1,101 @@
-# ai-oc
+# JobClaw（求职派）
 
-## 后端工程
+JobClaw 是一个面向求职场景的 OpenClaw 风格多 Agent 实战项目。它不再只是“校招信息采集、解析、展示”应用，而是把 IM Channel、消息路由、意图识别、Agent 注册、模型 Provider、工具 Plugin、用户画像和职位数据业务拆成可替换模块，形成一个可以本地运行、可以二次开发的 Java AI Agent 工程。
 
-后端相关工程放置在 [app](app/) 目录下
+## 当前架构
 
-### 技术栈
+![求职派当前多 Agent 架构](docs/imgs/jobclaw-current-agent-architecture.png)
 
-jdk17 + SpringBoot3.5.3 + H2/MySql + SpringJPA + SpringAI + LangGraph4J
+```text
+IM 渠道层
+  -> 消息网关适配器
+  -> 对话管理 Agent
+  -> 业务 Agent
+  -> 工具调用 Agent / 模型路由 Agent / 任务调度 Agent
+  -> 消息推送
+```
 
-### 启动
+核心思路：
 
-本地开发时，数据库指向h2，直接启动即可；如果需要体验大模型的数据抓取录入，需要修改启动参数
+- `channels/`：把微信、钉钉、飞书等入口统一成 `ChannelReceiveMessage`。
+- `core/`：提供 Agent/Channel 抽象、事件总线、对话管理、路由、会话绑定、意图识别、模型选择、记忆和任务能力。
+- `agents/`：承载可插拔业务 Agent，例如身份采集、岗位抓取、岗位推荐。
+- `providers/`：隔离智谱、OpenAI 兼容、阿里、Anthropic 等模型接入。
+- `plugins/`：提供 Playwright、职位库检索等工具能力。
+- `app/`：组装所有模块，并保留 Web 管理、职位库、草稿、用户、支付、MCP Server 等应用域。
 
-1. 到智谱清言申请账号，注册一个API Key
-    - api申请地址: [智谱清言API Key](https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys)
+更完整的当前架构说明见 [求职派 OpenClaw 式多 Agent 架构总览](docs/03、架构篇/00-✅求职派OpenClaw式多Agent架构总览.md)。
 
-2. 传入大模型ApiKey
-   a. 命令行传参方式
-    - 编辑启动命令
-    - 点击 Modify options, 在菜单栏中，开启 `Program arguments`
-    - 添加命令行参数 `--zhipuai-api-key=xxx`
+## 技术栈
 
-   ![命令行配置.webp](docs/imgs/01-1.webp)
+- Java 21
+- Spring Boot 4.0.5
+- Spring AI 2.0.0-M4
+- Spring Modulith
+- LangGraph4J
+- JPA / Hibernate
+- H2 / MySQL
+- React 19 / Next.js 15 / TailwindCSS / shadcn/ui
 
-   b. 直接修改配置参数
-    - 打开文件： [application-ai.yml](app/src/main/resources-env/dev/application-ai.yml)
-    - 修改参数: `api-key:`
+## 模块结构
 
-3. 入口类，直接启动
+```text
+JobClaw/
+├── app/                     # Spring Boot 主应用，组装所有模块
+├── core/                    # Agent Runtime 核心抽象、路由、事件、模型、记忆
+├── channels/                # 微信、钉钉、飞书等消息入口
+├── providers/               # 大模型 Provider 接入
+├── plugins/                 # 工具插件
+├── agents/                  # 业务 Agent
+├── ui-react/                # Next.js 前端
+└── docs/                    # 项目文档与语雀导出资料
+```
 
-说明：
+## 后端启动
 
-- dev 环境：使用h2数据库, 对应的数据库文件为：[app/src/main/resources/ai-oc.mv.db](app/src/main/resources/ai-oc.mv.db)
-- test/prod 环境：使用MySql数据库
-
-## 前端工程
-
-前端相关工程放置在 [ui-react](ui-react/) 目录下
-
-### 技术栈
-
-react + next.js + tailwindcss
-
-推荐nodejs=18.x, next.js=15+
-
-### 启动
+首次启动建议参考 [JobClaw 首次启动指南](docs/getting-started.md)。
 
 ```bash
-# 安装依赖
+cp .env.example .env
+cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db
+# 在 .env 中设置 JOBCLAW_DATABASE_NAME=jobclaw-my，并配置 ZHIPU_API_KEY
+
+./mvnw spring-boot:run -pl app
+```
+
+默认访问地址：`http://localhost:8087`
+
+常用命令：
+
+```bash
+./mvnw clean package -DskipTests
+./mvnw test
+./mvnw test -Dtest=ExcelLoadTest
+```
+
+## 前端启动
+
+```bash
+cd ui-react
 pnpm install
-
-# 本地开发
 pnpm dev
-
-# 打包
-pnpm build 
-
-# 发布到SpringBoot的static目录下
+pnpm build
 pnpm run deploy
 ```
 
-## plan
+`pnpm run deploy` 会把静态产物复制到 `app/src/main/resources/static/`。
 
-v2迭代计划： [plan.md](./docs/plan.md)
+## IM 系统命令
 
+- `/help`：查看帮助
+- `/agents`：查看可用 Agent
+- `/current`：查看当前会话绑定的 Agent
+- `/agent <agentId>`：切换 Agent
+- `/reset`：重置会话
 
-## 首次启动说明
+## 文档
 
-参考文档: [JobClaw首次启动指南](docs/getting-started.md)
+- [首次启动指南](docs/getting-started.md)
+- [OpenClaw 式多 Agent 架构总览](docs/03、架构篇/00-✅求职派OpenClaw式多Agent架构总览.md)
+- [语雀知识库导出目录](docs/yuque-export-index.md)
+- [迭代计划](docs/plan.md)

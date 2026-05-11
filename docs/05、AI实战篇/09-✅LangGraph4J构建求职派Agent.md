@@ -1,11 +1,8 @@
 # 一、版本速览
-截止到 Release 0.0.2 版本的时候，校招派主要还是借助SpringAI实现的单智能体应用，借助SpringAI 实现目标数据的解析，提取出校招信息并保存到数据库中。
+截止到 Release 0.0.2 版本的时候，求职派主要还是借助SpringAI实现的单智能体应用，借助SpringAI 实现目标数据的解析，提取出校招信息并保存到数据库中。
 
 
-
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1755070401858-fb742ce0-bb88-48ec-9fcc-14d5738f2a01.png)
-
 
 
 从信息录入到最终数据同步到正式业务表有下面几步：
@@ -17,25 +14,20 @@
 5. 发布数据到正式库
 
 
-
 现阶段，数据清洗这一阶段的AI能力还较弱，更多依赖于人工处理，这也是影响整个链路自动化执行的瓶颈点；如果这一阶段能打通，那我们就可以完成一个真正自动化的多智能体应用了。
 
 
+接下来，我们朝这个方向努力一下，来实现一个完全体的求职派智能体。
 
-接下来，我们朝这个方向努力一下，来实现一个完全体的校招派智能体。
-
-# 二、校招派智能体构建
+# 二、求职派智能体构建
 ## 1.流程拆解
 前面的章节已经把业务流程跑通了一遍，接下来就该把这条链路落地成一套可执行的智能体工作流。
-
 
 
 整体思路很简单：围绕“校招信息从进到出”的生命周期，把事情拆成四步，交给四个各司其职的 Agent 去干。
 
 
-
 我们定义四个智能体，分别执行 任务分类 -> 任务采集 -> 数据清洗 -> 数据发布。
-
 
 
 + task_calssify: 它负责看懂你丢过来的东西到底是图片、Excel、CSV 还是纯文本，把任务分好类，后面才好按套路走。
@@ -44,22 +36,19 @@
 + draft_publish: 把满足发布条件的草稿数据自动推到正式库，形成对外可用的“干净源”。
 
 
-
-<!-- 这是一张图片，ocr 内容为： -->
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1755075770381-47ef1a49-bf99-4d76-b252-1ea68e08b437.png)
 
 由LangGraph4J生成的流程图
 
 
-
 ## 2.定义AgentState
-在 LangGraph 中，AgentState 用于图的状态共享，本质是一个`Map<String, Object>`，在校招派中，我们定义了一个 `OcAgentStat，`在内部持有各Agent的输入输出。
+在 LangGraph 中，AgentState 用于图的状态共享，本质是一个`Map<String, Object>`，在求职派中，我们定义了一个 `OcAgentStat，`在内部持有各Agent的输入输出。
 
 ```java
 public class OcAgentState extends AgentState {
 
     /**
-     * 校招派智能体的外部输入，对象格式为 GatherTaskEntity
+     * 求职派智能体的外部输入，对象格式为 GatherTaskEntity
      */
     public static final String INPUT = "input";
 
@@ -126,11 +115,10 @@ public class OcAgentState extends AgentState {
 
 ```
 
-AgentState 这块，核心其实就是把每个智能体的输入输出先想清楚。我们这版走了最省心的路子：每个 agent 各自维护一套输入和一套输出，边界清楚、耦合度低，调试起来不费脑子。要是后面你更偏向“全局状态一盘棋”，也可以换成一个“大对象”在图里流转，所有智能体直接往上读写，只是需要更严格的字段约束和并发约定，不然很容易把状态搅成一锅粥。  
+AgentState 这块，核心其实就是把每个智能体的输入输出先想清楚。我们这版走了最省心的路子：每个 agent 各自维护一套输入和一套输出，边界清楚、耦合度低，调试起来不费脑子。要是后面你更偏向“全局状态一盘棋”，也可以换成一个“大对象”在图里流转，所有智能体直接往上读写，只是需要更严格的字段约束和并发约定，不然很容易把状态搅成一锅粥。
 
 
 还有个容易踩坑的点一定要提：POJO 的序列化。LangGraph4j 自己搞了一套序列化协议，我们要按它的规矩来，不然状态在节点之间传着传着就花了。我的做法很朴素，直接自定义了个 POJO 的序列化器，底层用最常见的 JSON，把复杂对象统一成字符串再传。
-
 
 
 优点很实在：可读、可打日志、出问题也好定位；后面如果真要上更高性能的方案（比如 Protobuf），把序列化器替换掉就行，业务层不用动。
@@ -194,10 +182,10 @@ public abstract class BaseAgent {
 ## 4.任务自动分类：TaskClassifyAgent
 在单智能体场景中，用户在提交任务的时候，需要指定对应的任务类型，如下。
 
-<!-- 这是一张图片，ocr 内容为： -->
+
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1755081156215-c7818bc2-119b-428b-941a-e8ca4508c0ee.png)
 
-我们希望将这里改造成一个输入源，由 `<font style="color:#000000;background-color:#c7edcc;">TaskClassifyAgent</font>`根据输入信息来自动进行分类，让校招派表现得更加智能，(后续有更多不同任务提取类型时，无需做前端页面调整） 因此任务分类Agent的实现如下。
+我们希望将这里改造成一个输入源，由 `TaskClassifyAgent`根据输入信息来自动进行分类，让求职派表现得更加智能，(后续有更多不同任务提取类型时，无需做前端页面调整） 因此任务分类Agent的实现如下。
 
 ```java
 @Slf4j
@@ -276,7 +264,6 @@ public class TaskClassifyAgent extends BaseAgent {
 接下来就是核心的任务采集 Agent，也就是我们之前基于SpringAI实现的单智能体，根据用户的输入，与大模型进行交互，从而提取校招信息。
 
 
-
 直接复用之前实现的能力 `OfferGatherService`，有兴趣的小伙伴，可以将这里拆成下面几种：
 
 + 基于文本的任务采集Agent
@@ -320,17 +307,13 @@ public class TaskGatherAgent extends BaseAgent {
 大模型抽取的结果，底子多半取决于我们喂进去的信息源质量。
 
 
-
 源头够干净、字段够标准，准确率自然更稳一点；但就算输入很规整，也别指望模型次次都完全贴合预期，所以后置的数据处理是必须的。
-
 
 
 这里我会先把公司名称、招聘类型之类的字段统一映射到当前系统定义的枚举，确保内外口径一致；同时把各类链接做一遍合法性校验，能打开、能跳转、没毒瘤，才允许进库。
 
 
-
 数据清洗的具体玩法其实很有料，比如如何借助大模型做“反校对”、自动纠错、低置信度回退人工，这部分后面有机会单独拆一篇细讲。
-
 
 
 本文的重心还是搭建智能体，所以现在先把清洗逻辑作为工作流中的一个固定环节放好，跑通链路，等整体站稳再精细化打磨。
@@ -362,7 +345,6 @@ public class DraftWasherAgent extends BaseAgent {
     }
 }
 ```
-
 
 
 ## 7.数据发布：DraftPublishAgent
@@ -466,21 +448,16 @@ public class AgentExecutor {
 ```
 
 
-
 这段的关键在 GraphBuilder.build 的实现，它把整个工作流真正“落地成图”。
-
 
 
 在这里我们把 Node、Edge、ConditionalEdges 都定义好，但光盯着代码很容易迷糊——节点是谁、边怎么走、分支在哪拐，脑子想的很费劲。
 
 
-
 建议直接对照下面那张可视化图一起看：把每个 Node 对上对应的 Agent，把直连的 Edge 当成“顺流而下”的必经路径，再把 ConditionalEdges 看成“分叉路口”的路由规则。
 
 
-
 这样一来，代码里的 builder 链式调用就能和图上的流向一一对应，哪个环节先后执行、哪种条件会走哪条支路、循环回路从哪儿回到哪儿，一眼就明白了。
-
 
 
 ```java
@@ -492,7 +469,7 @@ public class AgentExecutor {
  */
 private String printPlantUml() {
     // 在线 mermaid绘制地址：https://mermaid.live/
-    // GraphRepresentation representation = compiledGraph.getGraph(GraphRepresentation.Type.MERMAID, "校招派智能体", true);
+    // GraphRepresentation representation = compiledGraph.getGraph(GraphRepresentation.Type.MERMAID, "求职派智能体", true);
 
     // 在线uml绘制地址： https://www.plantuml.com/plantuml/uml/SyfFKj2rKt3CoKnELR1Io4ZDoSa700002
     GraphRepresentation representation = compiledGraph.getGraph(GraphRepresentation.Type.PLANTUML, "TravelRecommendAgent", true);
@@ -505,7 +482,7 @@ private String printPlantUml() {
 }
 ```
 
-<!-- 这是一张图片，ocr 内容为： -->
+
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1755082387646-1fce409c-9c97-4457-ae02-47369131ac9f.png)
 
 项目正常启动之后，你就会看到上面的输出。
@@ -551,14 +528,13 @@ hexagon "check state" as condition3<<Condition>>
 
 ```
 
-<!-- 这是一张图片，ocr 内容为： -->
-![](https://cdn.nlark.com/yuque/0/2025/webp/35158118/1755082530591-b22e8064-43b1-433f-9efb-1035975fd065.webp)
 
+![](https://cdn.nlark.com/yuque/0/2025/webp/35158118/1755082530591-b22e8064-43b1-433f-9efb-1035975fd065.webp)
 
 
 注意上面的Agent的链路，实际上是有一个条件分支的，比如数据清洗之后，不符合发布的数据，draft_publish 就不会被执行，而是直接结束；具体的实现如下图。
 
-<!-- 这是一张图片，ocr 内容为： -->
+
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1755082839135-30cf7b54-22fa-48c9-8b0b-ba44f8107666.png)
 
 接下来就是封装一下调用入口。
@@ -574,7 +550,7 @@ public class AgentExecutor {
 ```
 
 ## 9.定义访问端点
-最后就是暴露智能体的驱动入口，直接在<font style="color:#000000;background-color:#c7edcc;">AdminOfferGatherController </font>中新建一个接口。
+最后就是暴露智能体的驱动入口，直接在AdminOfferGatherController 中新建一个接口。
 
 ```java
 @GetMapping(path = "/agentRun")
@@ -589,31 +565,25 @@ public OcAgentState agentRun(Long taskId) {
 最后就该验货了。
 
 
-
 最理想的当然是配个前端，把整条流程点点点跑起来，让人一眼看懂每个节点的输入输出和分支走向。这里用最朴素的方式走一遍：直接基于现有接口，把数据库里已经落盘的任务捞出来，当作起始输入，触发一连串的智能体执行。
-
 
 
 从 task_classify 到 task_gather，再到 draft_washer、draft_publish，全链路跑通，看状态怎么在 AgentState 里流转、看每个节点产出的字段有没有对齐我们约定的 schema，最后确认成功发布到正式库。
 
 
-
 这样先把后端链路打穿，等验证稳定了，再补前端交互，把可视化监控、节点日志、失败重试这些细节一起收拾干净。
-
 
 
 下面是一次完整执行的示例：
 
-<!-- 这是一张图片，ocr 内容为： -->
+
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1755082932893-8b0e0526-1cce-4838-be6b-e44ace5e632e.png)
 
-<!-- 这是一张图片，ocr 内容为： -->
+
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1755082962506-53275018-c800-4530-af42-ab3fe1bec1ba.png)
 
 
-
 我这里录了一个屏，大家感受下。
-
 
 
 [此处为语雀卡片，点击链接查看](about:blank#pUCiS)
@@ -622,23 +592,19 @@ public OcAgentState agentRun(Long taskId) {
 这篇就当抛砖引玉，给大家把用 LangGraph4J + Spring AI 搭出复杂多智能体的路径踩了一遍。
 
 
-
 照着文里的顺序撸，表面看门槛不高，真落地还是一堆门道：LangGraph 的设计理念很像流程引擎，但又不止是“画线连框”，它更在意状态如何在节点间流动、分支如何优雅决策、回路如何自洽收敛。
-
 
 
 就我个人的体感，智能体应用的开发难度不算上天，但也绝对谈不上“脚一伸就过河”——尤其在 Java 生态，能落到代码层细节的资料并不多，干货稀缺。所以别急着求“速成秘籍”，先把时间静下来，花一段功夫把 LangGraph 的玩法啃透，再挑一个真实业务把它跑起来。纸上谈兵一小时，不如线上跑通一分钟；没有真实场景托底，一切技巧都只是动听的传说。
 
 
-
 最后说一句，如果对于智能体的开发，有什么想法，欢迎沟通交流，毕竟我也没搞过消费级别的智能体应用开发，有经验的小伙伴请不吝赐教
 
 
-
 :::success
-文章中所列相关代码，可以在tag中获取 [https://github.com/liuyueyi/ai-oc/releases/tag/0.0.3](https://github.com/liuyueyi/ai-oc/releases/tag/0.0.3)
+文章中所列相关代码，可以在tag中获取 [https://github.com/liuyueyi/JobClaw/releases/tag/0.0.3](https://github.com/liuyueyi/JobClaw/releases/tag/0.0.3)
 
-相关实现，可以在 [https://github.com/liuyueyi/ai-oc/commit/b96552cb842f170a85b423d491a1685442b0e701](https://github.com/liuyueyi/ai-oc/commit/b96552cb842f170a85b423d491a1685442b0e701) 查看
+相关实现，可以在 [https://github.com/liuyueyi/JobClaw/commit/b96552cb842f170a85b423d491a1685442b0e701](https://github.com/liuyueyi/JobClaw/commit/b96552cb842f170a85b423d491a1685442b0e701) 查看
 
 :::
 

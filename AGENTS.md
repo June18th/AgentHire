@@ -4,7 +4,15 @@ This file provides guidance to Qoder (qoder.com) when working with code in this 
 
 ## Project Overview
 
-JobClaw (求职派) is a campus recruitment AI agent platform that collects, manages, and recommends job information through IM channels (WeChat/DingDing/FeiShu). It's a multi-module Maven project with a Next.js frontend.
+JobClaw (求职派) is an OpenClaw-style multi-agent practice project for job-search scenarios. It uses IM channels (WeChat/DingDing/FeiShu) as the user-facing entry, routes messages through a shared agent kernel, and composes identity collection, job fetching, job recommendation, task handling, model preferences, providers, and tools as replaceable modules.
+
+The current architecture is not a single "job collection agent". Treat it as a modular agent runtime:
+- `channels/` adapt external IM messages into the internal message model.
+- `core/` owns the event bus, message router, intent classification, session-agent binding, agent registry, model resolution, memory, and shared agent contracts.
+- `agents/` contains business agents such as identity collection, job fetching, and job recommendation.
+- `providers/` isolates model-provider integrations.
+- `plugins/` exposes tool capabilities such as Playwright browsing and job-library search.
+- `app/` assembles the runtime and keeps the web/admin/job-data business domains.
 
 **Tech stack**: Java 21, Spring Boot 4.0.5, Spring AI 2.0.0-M4, Spring Modulith, LangGraph4J, JPA/Hibernate, H2/MySQL, React 19, Next.js 15, TailwindCSS, shadcn/ui
 
@@ -85,7 +93,7 @@ JobClaw/              (parent POM, BOM management)
     └── job-recommend-agent/       Job recommendation
 ```
 
-Module dependency: `app` depends on all other modules. `core` is the shared foundation that channels, providers, plugins, and agents depend on.
+Module dependency: `app` depends on all other modules. `core` is the shared foundation that channels, providers, plugins, and agents depend on. Keep new business agents outside `app` unless they are only part of the web/admin job-data pipeline.
 
 ### Message Flow (the core pipeline)
 
@@ -157,7 +165,7 @@ Collection is triggered automatically by `IIdentityAgent.triggerToCollectIdentit
 ### App Module Business Domains
 
 `app/src/main/java/com/git/hui/jobclaw/`:
-- `agents/` — LangGraph4J-based agent implementations (DraftPublish, DraftWasher, TaskClassify, TaskGather)
+- `agents/` — LangGraph4J-based job-data workflow chain (TaskClassify, TaskGather, DraftWasher, DraftPublish)
 - `gather/` — AI-powered job data collection pipeline (GatherAiAgent, OfferGatherService)
 - `oc/` — Job info CRUD, draft management, MCP server endpoints
 - `user/` — User management, login (WeChat QR), membership, payments
