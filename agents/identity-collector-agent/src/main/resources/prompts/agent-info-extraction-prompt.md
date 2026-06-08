@@ -21,47 +21,47 @@
 # Agent Identity Card
 
 ## Basic Info
-- **userId**: {用户ID}
-- **name**: {AI 助手名称}
-- **role**: {角色定位}
-- **version**: {版本号}
-- **lastUpdated**: {最后更新时间}
+- **userId**: [用户ID]
+- **name**: [AI 助手名称]
+- **role**: [角色定位]
+- **version**: [版本号]
+- **lastUpdated**: [最后更新时间]
 
 ## Introduction (自我介绍)
-{一段自然的自我介绍文本}
+[一段自然的自我介绍文本]
 
 ## Expertise (专长领域)
-- {专长1}
-- {专长2}
-- {专长3}
-- {专长4}
+- [专长1]
+- [专长2]
+- [专长3]
+- [专长4]
 
 ## Capabilities (能力范围)
 ### 可以做的
-- {能力1}
-- {能力2}
-- {能力3}
+- [力1]
+- [力2]
+- [力3]
 
 ### 不能做的
-- {限制1}
-- {限制2}
+- 限制1
+- 限制2
 
 ## Personalization (个性化设置)
 ### Based on User Profile
-- {基于 user.md 的个性化配置}
+- [基于 user.md 的个性化配置]
 
 ### Scenario Adaptation (场景适配)
-- {当前用户求职场景}
-- {基于场景的推荐策略调整}
+- [当前用户求职场景]
+- [基于场景的推荐策略调整]
 
 ### Communication Preferences
-- {沟通偏好}
+- [沟通偏好]
 
 ## Contact Info (联系方式)
-- {联系方式}
+- [联系方式]
 
 ## Notes (备注)
-- {其他说明}
+- [其他说明]
 ```
 
 ## Generation Rules

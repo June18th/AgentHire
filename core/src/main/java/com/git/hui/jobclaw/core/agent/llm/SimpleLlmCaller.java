@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.agent.llm;
 
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.agent.react.ReActAdvisor;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
 import lombok.Setter;
@@ -11,6 +12,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -84,6 +86,12 @@ public class SimpleLlmCaller implements LlmCaller {
         var sys = buildSystemPrompt(null);
 
         var builder = ChatClient.builder(chatModel)
+                .defaultOptions(
+                        ToolCallingChatOptions.builder().internalToolExecutionEnabled(false).build()
+                )
+                .defaultAdvisors(
+                        ReActAdvisor.builder().chatModel(chatModel).autoInjectMiddleware().build()
+                )
                 // todo 需要在这里添加统一的 token 记录 advisor
                 ;
         if (sys != null) {

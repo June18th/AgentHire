@@ -336,12 +336,6 @@ public class AiBasedIdentityCollector implements InfoCollector {
                 .doOnNext(chunk -> {
                     if (chunk.content() != null) {
                         contentAccumulator.append(chunk.content());
-
-                        // Check if completion marker is present
-                        if (contentAccumulator.toString().contains(IDENTITY_COLLECTION_COMPLETE_MARKER)) {
-                            log.info("[UserIdentity] Completion marker detected for user: {}", jobClawUserId);
-                            completeCollection(state, conversationHistories.get(jobClawUserId), completeCallback);
-                        }
                     }
                 })
                 .doOnComplete(() -> {
@@ -349,6 +343,12 @@ public class AiBasedIdentityCollector implements InfoCollector {
                     String fullResponse = contentAccumulator.toString();
                     if (!fullResponse.isBlank()) {
                         history.add(new AssistantMessage(fullResponse));
+
+                        // Check if completion marker is present
+                        if (contentAccumulator.toString().contains(IDENTITY_COLLECTION_COMPLETE_MARKER)) {
+                            log.info("[UserIdentity] Completion marker detected for user: {}", jobClawUserId);
+                            completeCollection(state, conversationHistories.get(jobClawUserId), completeCallback);
+                        }
                     }
                 })
                 .doOnError(error -> {

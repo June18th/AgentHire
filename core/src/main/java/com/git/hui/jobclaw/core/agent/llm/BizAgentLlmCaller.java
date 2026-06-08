@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.core.agent.llm;
 
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.agent.react.ReActAdvisor;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
@@ -17,6 +18,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.Media;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
@@ -72,8 +74,14 @@ public class BizAgentLlmCaller extends SimpleLlmCaller {
 
         var chatModel = (ChatModel) modelProviders.getModel(user.jobClawUserId(), model);
 
+        // 使用自定义 ReActAdvisor 替代 ToolCallAdvisor，支持 Middleware 生命周期拦截
+        var reactBuilder = ReActAdvisor.builder().chatModel(chatModel).autoInjectMiddleware();
         var builder = ChatClient.builder(chatModel)
+                .defaultOptions(
+                        ToolCallingChatOptions.builder().internalToolExecutionEnabled(false).build()
+                )
                 .defaultAdvisors(
+                        reactBuilder.build(),
                         SimpleLoggerAdvisor.builder().build(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 );

@@ -12,9 +12,9 @@
 # User Soul Profile
 
 ## Basic Info
-- **jobClawUserId**: {用户ID}
-- **lastUpdated**: {最后更新时间}
-- **conversationCount**: {对话轮数}
+- **jobClawUserId**: [用户ID]
+- **lastUpdated**: [最后更新时间]
+- **conversationCount**: [对话轮数]
 
 ## Preferences (偏好)
 ### Job Preferences (求职偏好)
@@ -47,19 +47,19 @@
 - **awards**: [获奖情况]
 
 ## Key Facts (关键事实)
-- {重要事实1}
-- {重要事实2}
-- {重要事实3}
+- [重要事实1]
+- [重要事实2]
+- [重要事实3]
 
 ## History (历史行为)
 ### Recent Activities (最近活动)
-- {最近的行为记录}
+- [最近的行为记录]
 
 ### Applied Jobs (投递记录)
-- {投递的公司和岗位}
+- [投递的公司和岗位]
 
 ## Notes (备注)
-- {其他需要注意的信息}
+- [其他需要注意的信息]
 ```
 
 ## Extraction Rules

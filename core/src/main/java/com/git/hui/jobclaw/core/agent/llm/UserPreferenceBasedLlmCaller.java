@@ -2,6 +2,8 @@ package com.git.hui.jobclaw.core.agent.llm;
 
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
+import com.git.hui.jobclaw.core.agent.react.ReActAdvisor;
+import com.git.hui.jobclaw.core.agent.react.ReActMiddleware;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
@@ -18,11 +20,9 @@ import org.springaicommunity.agent.tools.FileSystemTools;
 import org.springaicommunity.agent.tools.ShellTools;
 import org.springaicommunity.agent.tools.SkillsTool;
 import org.springaicommunity.agent.tools.SmartWebFetchTool;
-import org.springaicommunity.tool.search.ToolSearchToolCallAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
-import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -30,6 +30,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.core.io.Resource;
 import reactor.core.publisher.Flux;
@@ -174,17 +175,19 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
             String agentPrompt = identityAgent.buildSystemPrompt(userId);
             var defaultSystem = buildSystemPrompt(agentPrompt);
             var model = modelProviders.getModel(userId, multiModal ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT);
-            var chatClientBuilder = ChatClient.builder((ChatModel) model);
+            var chatModel = (ChatModel) model;
+            var chatClientBuilder = ChatClient.builder(chatModel);
 
-            // 为了避免工具较多
-            ToolCallAdvisor toolCallAdvisor = SpringUtil.getBeanOrNull(ToolSearchToolCallAdvisor.class);
-            if (toolCallAdvisor == null) {
-                toolCallAdvisor = ToolCallAdvisor.builder().build();
-            }
+            // 禁用 Spring AI 的自动工具执行，由 ReActAdvisor 自行控制 ReAct 循环
+            chatClientBuilder.defaultOptions(
+                    ToolCallingChatOptions.builder().internalToolExecutionEnabled(false).build()
+            );
+
+            // 使用自定义 ReActAdvisor 替代 ToolCallAdvisor，支持 Middleware 生命周期拦截
+            var reactBuilder = ReActAdvisor.builder().chatModel(chatModel).autoInjectMiddleware();
 
             chatClientBuilder.defaultAdvisors(new SimpleLoggerAdvisor())
                     .defaultSystem(defaultSystem)
-//                    .defaultToolCallbacks(mcpToolProvider.getToolCallbacks())
                     .defaultToolCallbacks(SkillsTool.builder().addSkillsDirectory(skillsDir(workspace).toString()).build())
                     .defaultTools(
                             CheckListTool.builder().build(),
@@ -197,7 +200,7 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
                             // Smart web fetch tool
                             SmartWebFetchTool.builder(chatClientBuilder.clone().build()).build())
                     .defaultAdvisors(
-                            toolCallAdvisor,
+                            reactBuilder.build(),
                             MessageChatMemoryAdvisor.builder(chatMemory).build()
                     );
 

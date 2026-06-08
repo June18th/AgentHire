@@ -422,6 +422,8 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             } else {
                 StringBuilder thinking = new StringBuilder();
                 StringBuilder content = new StringBuilder();
+                StringBuilder toolInfo = new StringBuilder();
+                StringBuilder toolResultInfo = new StringBuilder();
                 String finalCardId = cardId;
                 stream.doOnNext(response -> {
                             if (log.isDebugEnabled()) {
@@ -430,6 +432,14 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                             if (StringUtils.isNotBlank(response.thinking())) {
                                 thinking.append(response.thinking());
                             }
+                            if (StringUtils.isNotBlank(response.tool())) {
+                                toolInfo.append(response.tool()).append("\n");
+                                log.info("[FeiShu] Tool call detected: {}", response.tool());
+                            }
+                            if (StringUtils.isNotBlank(response.toolResult())) {
+                                toolResultInfo.append(response.toolResult()).append("\n");
+                                log.info("[FeiShu] Tool result received, length={}", response.toolResult().length());
+                            }
                             if (!StringUtils.isEmpty(response.content())) {
                                 if (content.isEmpty()) {
                                     // 表示首次响应正文内容，此时为了更好的用户体验，我们可以调用飞书接口，将面板关闭
@@ -437,6 +447,14 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                                 }
 
                                 content.append(response.content());
+                            }
+                            // 更新工具调用信息
+                            if (toolInfo.length() > 0) {
+                                cardManager.updateStreamingCard(finalCardId, toolInfo.toString(), StreamCardUpdateContentType.TOOL_REQ);
+                            }
+                            // 更新工具执行结果
+                            if (toolResultInfo.length() > 0) {
+                                cardManager.updateStreamingCard(finalCardId, toolResultInfo.toString(), StreamCardUpdateContentType.TOOL_RSP);
                             }
                             cardManager.updateStreamingCard(finalCardId, thinking.toString(), content.toString(), false);
                             aiCardStatus.answerAiCard(originalMsg.robotId, feiShuOpenId, finalCardId);
@@ -639,6 +657,16 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                                                                 "tag": "markdown",
                                                                 "content": "",
                                                                 "element_id": "thinking_1"
+                                                            },
+                                                            {
+                                                                "tag": "markdown",
+                                                                "content": "",
+                                                                "element_id": "tool_req"
+                                                            },
+                                                            {
+                                                                "tag": "markdown",
+                                                                "content": "",
+                                                                "element_id": "tool_rsp"
                                                             }
                                                           ]
                                                         },

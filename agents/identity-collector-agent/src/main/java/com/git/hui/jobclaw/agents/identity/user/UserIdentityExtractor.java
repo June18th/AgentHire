@@ -44,7 +44,7 @@ public class UserIdentityExtractor {
         this.llmCaller = simpleLlmCaller;
         try {
             this.promptTemplate = promptResource.getContentAsString(StandardCharsets.UTF_8);
-            log.info("UseridentityExtractor initialized with prompt template");
+            log.info("UserIdentityExtractor initialized with prompt template");
         } catch (IOException e) {
             log.error("Failed to load user identity extraction prompt template", e);
             throw new RuntimeException("Failed to initialize UseridentityExtractor", e);
@@ -89,8 +89,9 @@ public class UserIdentityExtractor {
 
             // Build prompt
             String prompt = promptTemplate
-                    .replace("{current_identity}", existingIdentity)
+                    .replace("{current_soul}", existingIdentity)
                     .replace("{conversation_history}", conversationText);
+            prompt += "\n jobClawUserId = " + userConversationInfo.jobClawUserId();
 
             // Call AI to extract identity
             String updatedIdentity = llmCaller.call(userConversationInfo, new Prompt(prompt));

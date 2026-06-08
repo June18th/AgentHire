@@ -26,7 +26,7 @@ import java.util.List;
  * 默认业务Agent
  *
  * AIDEV-NOTE: 作为兜底Agent，处理无法识别的意图
- * 实际应该由LLM调用来处理通用对话
+ * 继承 AbsBizAgent，基于 Spring AI ChatClient + ToolCallAdvisor 自动处理工具调用
  *
  * @author YiHui
  * @date 2026/4/17
@@ -80,7 +80,6 @@ public class SimpleDefaultBizAgent extends AbsBizAgent {
     public String process(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
         String userMessage = message.getMessage();
 
-
         return switch (userMessage.toLowerCase()) {
             case "help", "/help" -> String.format("""
                     您好！我是求职派助手，请问有什么可以帮助您的？
@@ -88,12 +87,14 @@ public class SimpleDefaultBizAgent extends AbsBizAgent {
                     可用命令：
                     %s
                     """, SpringUtil.getBean(SystemCommandDispatcher.class).getAllCommandDescriptions());
+            // AIDEV-NOTE: 默认场景委托 ChatClient 处理，ToolCallAdvisor 自动执行工具调用
             default -> llmCaller.call(userConversationInfo, message);
         };
     }
 
     @Override
     public Flux<LlmRspCell> stream(UserConversationInfo userConversationInfo, ChannelReceiveMessage message) {
+        // AIDEV-NOTE: 全流式，Spring AI ToolCallAdvisor 自动处理工具调用循环
         return llmCaller.stream(userConversationInfo, message, LlmRspCell::of);
     }
 

@@ -310,16 +310,28 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
             } else {
                 StringBuilder thinking = new StringBuilder();
                 StringBuilder content = new StringBuilder();
+                StringBuilder toolInfo = new StringBuilder();
+                StringBuilder toolResultInfo = new StringBuilder();
                 String finalCardId = cardId;
                 stream.doOnNext(response -> {
                             log.debug("[DingDing] Received response chunk: {}", response);
                             if (StringUtils.isNotBlank(response.thinking())) {
                                 thinking.append(response.thinking());
                             }
-                            if (!StringUtils.isEmpty(response.content())) {
+                            if (StringUtils.isNotBlank(response.tool())) {
+                                toolInfo.append(response.tool()).append("\n");
+                                log.info("[DingDing] Tool call detected: {}", response.tool());
+                            }
+                            if (StringUtils.isNotBlank(response.toolResult())) {
+                                toolResultInfo.append(response.toolResult()).append("\n");
+                                log.info("[DingDing] Tool result received, length={}", response.toolResult().length());
+                            }
+                            if (StringUtils.isNotBlank(response.content())) {
                                 content.append(response.content());
                             }
-                            sdk.streamUpdate(finalCardId, thinking.toString(), content.toString(), false);
+                            // 构建展示内容：工具调用信息 + 工具结果 + 正文
+                            String displayContent = buildDisplayContent(toolInfo, toolResultInfo, content);
+                            sdk.streamUpdate(finalCardId, thinking.toString(), displayContent, false);
                             aiCardStatus.answerAiCard(originalMsg.getRobotId(), dingDingId, finalCardId);
                         })
                         .doOnError(error -> {
@@ -332,7 +344,8 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
                             log.info("[DingDing] Stream response completed for cardId: {}, total length: {}", finalCardId,
                                     content.length());
                             // 流式响应完成，标记卡片为结束状态
-                            sdk.streamUpdate(finalCardId, thinking.toString(), content.toString(), true);
+                            String displayContent = buildDisplayContent(toolInfo, toolResultInfo, content);
+                            sdk.streamUpdate(finalCardId, thinking.toString(), displayContent, true);
                             aiCardStatus.finishAiCard(originalMsg.getRobotId(), dingDingId, finalCardId);
                         }).subscribe();
             }
@@ -382,6 +395,34 @@ public class DingDingBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
             log.error("[DingDing] Failed to reply to DingDing: {}", content, e);
             return false;
         }
+    }
+
+    /**
+     * 构建展示内容，将工具调用信息和执行结果与正文内容组合展示
+     * <p>
+     * AIDEV-NOTE: 钉钉AI卡片不支持多字段独立更新，因此将工具信息拼接到正文前部展示
+     */
+    private String buildDisplayContent(StringBuilder toolInfo, StringBuilder toolResultInfo, StringBuilder content) {
+        StringBuilder display = new StringBuilder();
+
+        // 展示工具调用信息
+        if (toolInfo.length() > 0) {
+            display.append("**🔧 工具调用**\n").append(toolInfo);
+        }
+
+        // 展示工具执行结果
+        if (toolResultInfo.length() > 0) {
+            if (display.length() > 0) display.append("\n");
+            display.append("**📋 执行结果**\n").append(toolResultInfo);
+        }
+
+        // 展示正文内容
+        if (content.length() > 0) {
+            if (display.length() > 0) display.append("\n---\n");
+            display.append(content);
+        }
+
+        return display.toString();
     }
 
     /**
