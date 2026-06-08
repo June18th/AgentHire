@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  *     Answer text
  * </pre>
  */
-class ChatYamlSerializer {
+public class ChatYamlSerializer {
 
     private static final Set<MessageType> PERSISTABLE_MESSAGES = Set.of(MessageType.USER,
             MessageType.ASSISTANT,
@@ -36,7 +36,7 @@ class ChatYamlSerializer {
     private ChatYamlSerializer() {
     }
 
-    static List<Message> deserialize(String body) {
+    public static List<Message> deserialize(String body) {
         if (body == null || body.isBlank()) {
             return List.of();
         }
@@ -53,7 +53,7 @@ class ChatYamlSerializer {
                 .collect(Collectors.toList());
     }
 
-    static String serialize(List<Message> messages) {
+    public static String serialize(List<Message> messages) {
         List<Map<String, String>> entries = messages.stream()
                 .filter(msg -> PERSISTABLE_MESSAGES.contains(msg.getMessageType()) && !ObjectUtils.isEmpty(msg.getText()))
                 .map(msg -> {

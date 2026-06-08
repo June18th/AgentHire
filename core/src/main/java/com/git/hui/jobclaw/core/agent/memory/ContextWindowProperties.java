@@ -38,6 +38,21 @@ public class ContextWindowProperties {
     private boolean summaryEnabled = false;
 
     /**
+     * Whether compression before drop is enabled.
+     * When true, messages about to be truncated will be summarized first,
+     * and the summary is injected as context instead of losing the information.
+     *
+     * <p>AIDEV-NOTE: Phase 3 — 先压缩后丢弃策略
+     */
+    private boolean compressBeforeDrop = false;
+
+    /**
+     * Soft limit: when message count exceeds this, compression is triggered
+     * (before hard truncation by token count or max messages).
+     */
+    private int compressSoftLimit = 20;
+
+    /**
      * Frequency of updating session summaries.
      */
     private int summaryUpdateFrequency = 10;
@@ -107,4 +122,25 @@ public class ContextWindowProperties {
      * Maximum conversation turns for identity collection to prevent infinite loops.
      */
     private int maxIdentityCollectionTurns = 20;
+
+    // ==================== Phase 3: 情景记忆配置 ====================
+
+    /**
+     * Whether episodic memory (cross-session fact storage) is enabled.
+     *
+     * <p>AIDEV-NOTE: Phase 3 — 情景记忆开关
+     */
+    private boolean episodicEnabled = false;
+
+    /**
+     * Maximum number of episodic facts to keep per user.
+     * Oldest facts are evicted when this limit is reached.
+     */
+    private int episodicMaxFacts = 50;
+
+    /**
+     * Minimum conversation length (messages) to trigger episodic extraction.
+     * Short conversations are not worth extracting facts from.
+     */
+    private int episodicMinConversationLength = 6;
 }

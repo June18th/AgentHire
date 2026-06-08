@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.agent.react;
 
+import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
@@ -14,6 +15,7 @@ import java.util.List;
  * - 工具调用审批 / 权限控制
  * - 推理过程监控 / 限流
  * - 工具执行结果后处理
+ * - 记忆注入 / 提取（Phase 3）
  * <p>
  * 所有方法均有默认空实现，按需覆写即可。
  *
@@ -21,6 +23,20 @@ import java.util.List;
  * @date 2026/6/5
  */
 public interface ReActMiddleware {
+
+    /**
+     * 在 ReAct 循环开始前设置请求上下文。
+     * <p>
+     * 由 ReActAdvisor 在 runReactLoop 之前调用，
+     * 中间件可在此提取 userId、conversationId 等信息并缓存到内部字段，
+     * 供后续 beforeReasoning / afterActing 等钩子使用。
+     * <p>
+     * AIDEV-NOTE: Phase 3 新增 — 为 MemoryReActMiddleware 提供请求上下文
+     *
+     * @param request 当前请求（包含 prompt、options、context 等）
+     */
+    default void setContext(ChatClientRequest request) {
+    }
 
     /**
      * Reasoning 阶段前：LLM 即将进行推理

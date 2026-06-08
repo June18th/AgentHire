@@ -1,6 +1,7 @@
-package com.git.hui.jobclaw.core.agent.memory;
+package com.git.hui.jobclaw.core.agent.memory.archive;
 
 import com.git.hui.jobclaw.core.agent.llm.LlmCaller;
+import com.git.hui.jobclaw.core.agent.memory.ContextWindowProperties;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.utils.FileUtils;
 import com.git.hui.jobclaw.core.utils.files.YamlDocument;
@@ -8,6 +9,7 @@ import com.git.hui.jobclaw.core.utils.files.YamlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,15 +53,18 @@ public class SessionSummarizer {
     private final ContextWindowProperties properties;
     private final Path conversationsDir;
 
+    private final ConversationArchiveRepository archiveRepository;
+
     private final LlmCaller llmCaller;
 
     public SessionSummarizer(
             @Value("${agent.workspace:Unknown}") Resource workspaceDir,
             ContextWindowProperties properties,
             @Value("classpath:/prompts/session-summary-prompt.md") Resource promptResource,
-            LlmCaller simpleLlmCaller) throws IOException {
+            ConversationArchiveRepository archiveRepository, LlmCaller simpleLlmCaller) throws IOException {
         this.conversationsDir = workspaceDir.getFile().toPath().resolve("conversations");
         this.properties = properties;
+        this.archiveRepository = archiveRepository;
         this.llmCaller = simpleLlmCaller;
 
         // Load prompt template
@@ -86,28 +91,34 @@ public class SessionSummarizer {
         CompletableFuture.runAsync(() -> {
             log.info("Generating summary for conversation: {} ({} messages)", conversation, messages.size());
             try {
+                // Split into old (to compress) and recent (to keep)
+                int splitIndex = messages.size() - properties.getKeepRecent();
+                List<Message> oldMessages = messages.subList(0, splitIndex);
+                List<Message> recentMessages = messages.subList(splitIndex, messages.size());
 
-                String summary = summarize(conversation, messages);
-                if (summary != null && !summary.isBlank()) {
-                    // 将会话摘要，保存到对应的文件中
-                    Map<String, String> frontmatter = new LinkedHashMap<>();
-                    frontmatter.put("channel", conversation.channel());
-                    frontmatter.put("conversationId", conversation.conversationId());
-                    frontmatter.put("updatedAt", Instant.now().toString());
-                    frontmatter.put("summary", summary);
+                // Extract existing system messages from old messages (preserve them)
+                List<Message> oldNonSystem = oldMessages.stream()
+                        .filter(m -> !(m instanceof SystemMessage))
+                        .toList();
 
-                    // 保存会话摘要
-                    Path file = resolveFile(conversation);
-                    FileUtils.ensureDirectory(file.getParent());
+                // Only compress if there are enough non-system messages to summarize
+                if (oldNonSystem.size() < 4) {
+                    return;
+                }
 
-                    String body = "summary for " + messages.size() + " message!";
-                    String content = YamlParser.serialize(new YamlDocument(frontmatter, body));
-                    try {
-                        Files.writeString(file, content, StandardOpenOption.CREATE,
-                                StandardOpenOption.TRUNCATE_EXISTING);
-                    } catch (IOException e) {
-                        throw new RuntimeException("Failed to save conversation: " + conversation, e);
+                log.info("[Compress] Compressing {} old messages, keeping {} recent", oldNonSystem.size(), recentMessages.size());
+
+                try {
+                    // Generate summary of old messages
+                    String summary = summarize(conversation, oldNonSystem);
+                    if (summary != null && !summary.isBlank()) {
+                        // Save summary to file
+                        saveSummary(conversation, summary, oldNonSystem);
+                        // Archive the old messages before discarding them
+                        archiveRepository.archive(conversation, oldNonSystem, summary);
                     }
+                } catch (Exception e) {
+                    log.warn("[Compress] Failed to compress old messages, falling back to normal truncation", e);
                 }
             } catch (Exception e) {
                 log.error("Failed to generate summary, keeping existing", e);
@@ -115,6 +126,29 @@ public class SessionSummarizer {
             }
         });
     }
+
+    private void saveSummary(UserConversationInfo conversation, String summary, List<Message> messages) {
+        // 将会话摘要，保存到对应的文件中
+        Map<String, String> frontmatter = new LinkedHashMap<>();
+        frontmatter.put("channel", conversation.channel());
+        frontmatter.put("conversationId", conversation.conversationId());
+        frontmatter.put("updatedAt", Instant.now().toString());
+        frontmatter.put("summary", summary);
+
+        // 保存会话摘要
+        Path file = resolveFile(conversation);
+        FileUtils.ensureDirectory(file.getParent());
+
+        String body = "summary for " + messages.size() + " message!";
+        String content = YamlParser.serialize(new YamlDocument(frontmatter, body));
+        try {
+            Files.writeString(file, content, StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to save conversation: " + conversation, e);
+        }
+    }
+
 
     public String getSummaryInfo(UserConversationInfo conversation) {
         Path file = resolveFile(conversation);

@@ -1,6 +1,9 @@
 package com.git.hui.jobclaw.core.agent.memory;
 
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
+import com.git.hui.jobclaw.core.agent.memory.archive.ConversationArchiveRepository;
+import com.git.hui.jobclaw.core.agent.memory.archive.SessionSummarizer;
+import com.git.hui.jobclaw.core.agent.memory.episodic.FileSystemEpisodicMemory;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.utils.FileUtils;
 import com.git.hui.jobclaw.core.utils.MD5Utils;
@@ -55,18 +58,24 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
     private final SessionSummarizer sessionSummarizer;
     private final IIdentityAgent identityAgent;
     private final ContextWindowProperties contextWindowProperties;
+    private final FileSystemEpisodicMemory episodicMemory;
+    private final ConversationArchiveRepository archiveRepository;
 
     public FileSystemChatMemoryRepository(
             @Value("${agent.workspace:Unknown}") Resource workspaceDir,
             SmartWindowChatMemory smartWindow,
             SessionSummarizer sessionSummarizer,
             IIdentityAgent identityAgent,
-            ContextWindowProperties contextWindowProperties) throws IOException {
+            ContextWindowProperties contextWindowProperties,
+            FileSystemEpisodicMemory episodicMemory,
+            ConversationArchiveRepository archiveRepository) throws IOException {
         this.conversationsDir = workspaceDir.getFile().toPath().resolve("conversations");
         this.smartWindow = smartWindow;
         this.sessionSummarizer = sessionSummarizer;
         this.identityAgent = identityAgent;
         this.contextWindowProperties = contextWindowProperties;
+        this.episodicMemory = episodicMemory;
+        this.archiveRepository = archiveRepository;
     }
 
     @Override
@@ -98,24 +107,41 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
             YamlDocument doc = YamlParser.parse(Files.readString(file));
             List<Message> allMessages = ChatYamlSerializer.deserialize(doc.body());
 
-            // Apply smart window management
+            // Parse conversation info for archiving
+            UserConversationInfo conversationInfo = UserConversationInfo.parse(conversationId);
+
+            // Apply smart window management (Phase 3: includes compress-before-drop)
             List<Message> managedMessages = smartWindow.manage(allMessages);
 
-            // Inject summary if available
-            String summary = sessionSummarizer.getSummaryInfo(UserConversationInfo.parse(conversationId));
+            List<Message> result = new ArrayList<>();
+
+            // Inject session summary if available
+            String summary = sessionSummarizer.getSummaryInfo(conversationInfo);
             if (summary != null && !summary.isBlank()) {
                 Message summaryMessage = sessionSummarizer.createSummaryMessage(summary);
                 if (summaryMessage != null) {
-                    // Insert summary at the beginning
-                    List<Message> withSummary = new ArrayList<>();
-                    withSummary.add(summaryMessage);
-                    withSummary.addAll(managedMessages);
-                    log.debug("Injected summary for conversation: {}", conversationId);
-                    return withSummary;
+                    result.add(summaryMessage);
+                    log.debug("Injected session summary for conversation: {}", conversationId);
                 }
             }
 
-            return managedMessages;
+            // Inject episodic memory facts if available
+            if (contextWindowProperties.isEpisodicEnabled()) {
+                try {
+                    String userId = conversationInfo.jobClawUserId();
+                    // 无 query 时返回最近的事实
+                    String episodicContext = episodicMemory.retrieve(userId, null);
+                    if (episodicContext != null && !episodicContext.isBlank()) {
+                        result.add(new org.springframework.ai.chat.messages.SystemMessage(episodicContext));
+                        log.debug("Injected episodic memory for user: {}", userId);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to inject episodic memory for conversation: {}", conversationId, e);
+                }
+            }
+
+            result.addAll(managedMessages);
+            return result;
         } catch (IOException e) {
             throw new RuntimeException("Failed to read conversation: " + conversationId, e);
         }
@@ -175,9 +201,12 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
             throw new RuntimeException("Failed to save conversation: " + conversationId, e);
         }
 
-        // Async: Update user identity profile
+        // fixme 开启一个独立对话任务、明确告诉用户：会话压缩、历史记录归档，当前会话内容剪枝
         sessionSummarizer.autoAsyncSummarize(conversation, messages);
+
+        // Async: Update user identity profile
         identityAgent.asyncUpdateUserIdentityAsync(conversation, messages);
+        episodicMemory.asyncRecord(conversation, messages);
     }
 
 
@@ -185,6 +214,17 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
     public void deleteByConversationId(String conversationId) {
         try {
             Files.deleteIfExists(resolveFile(conversationId));
+
+            // Delete archived messages if archive repository is available
+            if (archiveRepository != null) {
+                try {
+                    UserConversationInfo conversationInfo = UserConversationInfo.parse(conversationId);
+                    archiveRepository.deleteAllArchives(conversationInfo);
+                    log.info("Deleted archives for conversation: {}", conversationId);
+                } catch (Exception e) {
+                    log.warn("Failed to delete archives for conversation: {}", conversationId, e);
+                }
+            }
         } catch (IOException e) {
             throw new RuntimeException("Failed to delete conversation: " + conversationId, e);
         }

@@ -27,7 +27,7 @@ IM Message → AbsChannel → ChannelEventPublisher → MsgRouter
 
 **当前不足：**
 1. ~~Agent 内部没有推理-行动循环，工具调用为一次性 Fire-and-Forget~~ ✅ Phase 1: ReActAdvisor 已实现 ReAct 循环
-2. 记忆管理仅有滑动窗口，缺少摘要压缩和长期记忆
+2. ~~记忆管理仅有滑动窗口，缺少摘要压缩和长期记忆~~ ✅ Phase 3: 三层记忆架构已实现（Working + Episodic + Long-term）
 3. ~~Agent 生命周期无拦截机制，无法注入横切关注点（日志、审计、限流）~~ ✅ Phase 2: ReActMiddleware 已实现生命周期 hooks
 4. 无结构化任务分解能力，复杂任务只能由单一 Agent 一口气完成
 5. Agent 能力无法沉淀复用，每次对话结束后经验丢失
@@ -40,7 +40,7 @@ IM Message → AbsChannel → ChannelEventPublisher → MsgRouter
 | **ReAct Loop** | reasoning → acting → reasoning 迭代循环，直到任务完成或达到上限 | ✅ 已实现：ReActAdvisor (Advisor 模式，collectList + runReactLoop) |
 | **Middleware** | 洋葱模型拦截 Agent/Reasoning/Acting/ModelCall 四个阶段 | ✅ 已实现：ReActMiddleware (观察者模式 hooks，可扩展为洋葱模型) |
 | **AgentState** | 统一的 `AgentState` 对象持有 context、toolContext、permissionContext，通过 Session 持久化 | 状态分散在 ChatMemory + SessionAgentBinder |
-| **Memory 分层** | 短期 Memory (InMemory) + 长期 LongTermMemory (语义检索) + 记忆压缩 | 仅 SmartWindow 滑动窗口 |
+| **Memory 分层** | 短期 Memory (InMemory) + 长期 LongTermMemory (语义检索) + 记忆压缩 | ✅ 已实现：SmartWindow 压缩 + EpisodicMemory + IIdentityAgent 长期记忆 |
 | **PlanNotebook** | 结构化任务分解为 SubTask，状态追踪 todo/in_progress/done | 无任务分解 |
 | **SkillBox** | Markdown 技能文件 + 动态加载/卸载 + 工具组联动 | 无能力沉淀 |
 | **Permission & HITL** | PermissionEngine + ConfirmResult 机制实现工具级权限控制和人工确认 | 无确认机制 |
@@ -58,7 +58,7 @@ Phase 1: ReAct 推理循环 ✅ (核心引擎升级 — ReActAdvisor)
   ↓
 Phase 2: ReActMiddleware 生命周期拦截 ✅ (观察者模式 hooks)
   ↓
-Phase 3: 记忆压缩与分层管理 (上下文增强)
+Phase 3: 记忆压缩与分层管理 ✅ (上下文增强)
   ↓
 Phase 4: PlanNotebook 任务分解 (复杂任务编排)
   ↓
@@ -297,6 +297,7 @@ public class LoggingReActMiddleware implements ReActMiddleware {
 | Middleware | 用途 | 状态 | 对应 AgentScope |
 |-----------|------|------|----------------|
 | `LoggingReActMiddleware` | 每轮推理和工具调用的日志 | ✅ 已完成 | - |
+| `MemoryReActMiddleware` | 情景记忆注入与记录 | ✅ 已完成 (Phase 3) | `LongTermMemory` |
 | `TokenCountMiddleware` | Token 使用量统计 | 待实现 | - |
 | `RateLimitMiddleware` | 推理调用限流 | 待实现 | - |
 | `AuditMiddleware` | 工具调用审计追踪 | 待实现 | - |
@@ -316,7 +317,7 @@ public class LoggingReActMiddleware implements ReActMiddleware {
 
 ---
 
-## 五、Phase 3：记忆压缩与分层管理
+## 五、Phase 3：记忆压缩与分层管理 ✅ 已完成
 
 ### 5.1 设计目标
 
@@ -461,15 +462,30 @@ public class MemoryReActMiddleware implements ReActMiddleware {
 
 ### 5.4 落地改动清单
 
-| 文件 | 改动 |
-|------|-----|
-| `core/agent/memory/CompressingWindowMemory.java` | **新增** - 摘要压缩窗口管理 |
-| `core/agent/memory/EpisodicMemory.java` | **新增** - 会话级记忆接口 |
-| `core/agent/memory/JdbcEpisodicMemory.java` | **新增** - JDBC 实现 |
-| `core/agent/memory/LongTermMemoryService.java` | **新增** - 长期记忆服务 |
-| `core/agent/memory/MemoryConfig.java` | **新增** - 记忆配置 |
-| `core/agent/memory/SmartWindowChatMemory.java` | **修改** - 作为 CompressingWindowMemory 的底层 |
-| `core/agent/react/MemoryReActMiddleware.java` | **新增** - 记忆管理中间件 |
+| 文件 | 状态 | 说明 |
+|------|------|------|
+| `core/agent/memory/SmartWindowChatMemory.java` | ✅ 已修改 | 新增 `compressOldMessages()` — 先压缩后丢弃策略 |
+| `core/agent/memory/EpisodicMemory.java` | ✅ 新增 | 情景记忆接口（record/retrieve/getAll/clear） |
+| `core/agent/memory/EpisodicFact.java` | ✅ 新增 | record(category, content, createdAt, sourceId) |
+| `core/agent/memory/FileSystemEpisodicMemory.java` | ✅ 新增 | 文件系统情景记忆实现（LLM 提取 + YAML 存储 + 关键词检索） |
+| `core/agent/memory/MemoryReActMiddleware.java` | ✅ 新增 | 记忆管理中间件（setContext 提取 userId + beforeReasoning 注入 + onComplete 记录） |
+| `core/agent/memory/ContextWindowProperties.java` | ✅ 已修改 | 新增 compressBeforeDrop / episodicEnabled 等配置项 |
+| `core/agent/memory/FileSystemChatMemoryRepository.java` | ✅ 已修改 | 集成情景记忆注入和记录 |
+| `core/agent/react/ReActMiddleware.java` | ✅ 已修改 | 新增 `setContext(ChatClientRequest)` 默认方法 |
+| `core/agent/react/ReActAdvisor.java` | ✅ 已修改 | 循环前调用 `notifySetContext(request)` |
+| `core/pom.xml` | ✅ 已修改 | 新增 hutool-json 依赖 |
+| `prompts/episodic-extract-prompt.md` | ✅ 新增 | LLM 提取情景记忆的提示词模板 |
+
+### 5.5 实际架构 vs 原计划对比
+
+| 维度 | 原计划 | 实际实现 |
+|------|--------|---------|
+| Working Memory | 新建 `CompressingWindowMemory` | 直接在 `SmartWindowChatMemory` 中增加 `compressOldMessages()` |
+| Episodic Memory 存储 | JDBC (`JdbcEpisodicMemory`) | 文件系统 (`FileSystemEpisodicMemory` + YAML) |
+| Long-term Memory | 新建 `LongTermMemoryService` | 复用已有 `IIdentityAgent`（soul.md / identity.md / info.md） |
+| 记忆检索 | Embedding 语义检索 | 关键词匹配 + 时间衰减 + 类别权重（简单起步） |
+| 上下文传递 | 未明确 | 新增 `ReActMiddleware.setContext()` + `ReActAdvisor.notifySetContext()` |
+| 去重机制 | 未明确 | Jaccard bigram 相似度（阈值 0.7） |
 
 ---
 
@@ -949,7 +965,7 @@ public sealed interface AgentEvent {
               │              │              │
      ┌────────▼──────┐ ┌────▼───────┐ ┌───▼──────────┐
      │ Phase 3:      │ │ Phase 4:   │ │ Phase 5:     │
-     │ 记忆压缩      │ │ 任务分解   │ │ 能力沉淀     │  ← 可并行推进
+     │ 记忆压缩  ✅  │ │ 任务分解   │ │ 能力沉淀     │  ← 可并行推进
      │ 与分层管理    │ │ PlanNote   │ │ Skill        │
      └───────────────┘ └────────────┘ └──────────────┘
                              │
@@ -965,13 +981,13 @@ public sealed interface AgentEvent {
 |------|---------|------|---------|------|
 | Phase 1: ReAct | 5-7 天 | 无 | `ReActAdvisor` + 工具调用循环 | ✅ 已完成 |
 | Phase 2: ReActMiddleware | 3-4 天 | Phase 1 | `ReActMiddleware` 接口 + `LoggingReActMiddleware` | ✅ 已完成 |
-| Phase 3: 记忆 | 4-5 天 | Phase 2 | 摘要压缩 + EpisodicMemory + `MemoryReActMiddleware` | 待实施 |
+| Phase 3: 记忆 | 4-5 天 | Phase 2 | 摘要压缩 + EpisodicMemory + `MemoryReActMiddleware` | ✅ 已完成 |
 | Phase 4: Plan | 3-4 天 | Phase 2 | PlanNotebook + `PlanHintReActMiddleware` | 待实施 |
 | Phase 5: Skill | 3-4 天 | Phase 2 | SkillBox + `SkillSedimentReActMiddleware` | 待实施 |
 | Phase 6: HITL | 3-4 天 | Phase 1 | PermissionEngine + 确认卡片 + `PermissionReActMiddleware` | 待实施 |
 
-**已完成：Phase 1 + Phase 2（约 8-11 天工作量）**
-**剩余：约 13-17 天**
+**已完成：Phase 1 + Phase 2 + Phase 3（约 12-16 天工作量）**
+**剩余：约 9-12 天**
 
 ---
 
@@ -981,7 +997,7 @@ public sealed interface AgentEvent {
 |------|----------------|-------------|---------------|
 | 推理模式 | ReAct 迭代循环 | ReActAdvisor (Advisor 模式) ✅ | ReAct 迭代循环 ✅ |
 | 生命周期 | Middleware 洋葱模型 | ReActMiddleware (观察者模式) ✅ | ReActMiddleware + 按需扩展洋葱模型 |
-| 记忆 | InMemory + LongTermMemory + 语义检索 | SmartWindow 滑动窗口 | 三层记忆 + 摘要压缩 (待实施) |
+| 记忆 | InMemory + LongTermMemory + 语义检索 | SmartWindow 滑动窗口 | 三层记忆 + 摘要压缩 ✅ (Working + Episodic + Long-term) |
 | 任务分解 | PlanNotebook + SubTask | 无 | PlanNotebook + SubTask (待实施) |
 | 能力沉淀 | SkillBox + Markdown 技能文件 | 无 | SkillBox + workspace/skills (待实施) |
 | 权限控制 | PermissionEngine + ConfirmResult | 无 | @RequireConfirm + 确认卡片 (待实施) |

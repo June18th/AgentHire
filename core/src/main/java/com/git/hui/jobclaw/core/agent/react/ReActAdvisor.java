@@ -88,6 +88,8 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
         List<Message> messages = new ArrayList<>(request.prompt().getInstructions());
         messages.add(output);
 
+        // Phase 3: 传递请求上下文给中间件
+        notifySetContext(request);
         ReactLoopResult loopResult = runReactLoop(messages, toolCalls, request, 1);
         if (loopResult != null && loopResult.finalResponse != null) {
             notifyComplete(loopResult.iterations(),
@@ -142,6 +144,8 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
                     List<Message> messages = new ArrayList<>(request.prompt().getInstructions());
                     messages.add(output);
 
+                    // Phase 3: 传递请求上下文给中间件
+                    notifySetContext(request);
                     try {
                         ReactLoopResult loopResult = runReactLoop(messages, toolCalls, request, 1);
                         if (loopResult != null && loopResult.finalResponse != null) {
@@ -465,6 +469,12 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
     }
 
     // ==================== Middleware 通知 ====================
+
+    private void notifySetContext(ChatClientRequest request) {
+        for (var mw : middlewares) {
+            try { mw.setContext(request); } catch (Exception e) { log.warn("Middleware setContext error", e); }
+        }
+    }
 
     private void notifyBeforeReasoning(List<Message> messages, int iter) {
         for (var mw : middlewares) {
