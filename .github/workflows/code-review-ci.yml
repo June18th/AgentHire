@@ -35,9 +35,38 @@ jobs:
       MAX_DIFF_CHARS: ${{ vars.AI_REVIEW_MAX_DIFF_CHARS }}
 
     steps:
+      - name: Check environment
+        shell: bash
+        run: |
+          echo "=== Environment Diagnostics ==="
+          echo "runner.os: $RUNNER_OS"
+          echo "runner.arch: $RUNNER_ARCH"
+          echo "---"
+          echo -n "python3 available: "; command -v python3 && python3 --version || echo "NOT FOUND"
+          echo -n "python  available: "; command -v python  && python  --version || echo "NOT FOUND"
+          echo -n "openssl available: "; command -v openssl && openssl version || echo "NOT FOUND"
+          echo -n "curl    available: "; command -v curl    && curl --version | head -1 || echo "NOT FOUND"
+          echo "PATH=$PATH"
+          echo "=== End Diagnostics ==="
+
       - name: Run AI review
         shell: bash
         run: |
+          set -euo pipefail
+          echo "[ai-review] step started at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+          if ! command -v python3 >/dev/null 2>&1; then
+            echo "[ai-review] FATAL: python3 not found in PATH, attempting to install..."
+            sudo apt-get update -qq && sudo apt-get install -y -qq python3
+            if ! command -v python3 >/dev/null 2>&1; then
+              echo "[ai-review] FATAL: python3 still not available after install attempt"
+              exit 2
+            fi
+            echo "[ai-review] python3 installed successfully: $(python3 --version)"
+          fi
+
+          echo "[ai-review] invoking python script..."
+          set +e
           python3 - <<'PY'
           import base64
           import json
@@ -402,3 +431,7 @@ jobs:
               traceback.print_exc()
               sys.exit(2)
           PY
+          PY_EXIT=$?
+          set -e
+          echo "[ai-review] python script exited with code: $PY_EXIT at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          exit $PY_EXIT
