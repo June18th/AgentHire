@@ -1,0 +1,342 @@
+name: AI Code Review
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - main
+      - v2
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-code-review-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  ai_code_review_for_pr:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.draft == false }}
+
+    env:
+      GH_APP_ID: ${{ secrets.GH_APP_ID }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
+      JT_OPENAI_API_KEY: ${{ secrets.JT_OPENAI_API_KEY }}
+      JT_OPENAI_API_URL: ${{ secrets.JT_OPENAI_API_URL }}
+      AI_REVIEW_PROMPT: ${{ secrets.AI_REVIEW_PROMPT }}
+      AI_REVIEW_MODEL: ${{ vars.AI_REVIEW_MODEL }}
+      MAX_DIFF_CHARS: ${{ vars.AI_REVIEW_MAX_DIFF_CHARS }}
+
+    steps:
+      - name: Run AI review
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          import tempfile
+          import time
+          import urllib.request
+
+          DEFAULT_REVIEW_PROMPT_TEMPLATE = """As a senior code reviewer, review the following pull request diff:
+
+          {code_diff}
+
+          Review rules:
+          1. Identify security issues, logic bugs, and boundary-value problems
+          2. Check style, naming, comments, formatting, and design quality
+          3. Strictly separate "must fix" from "suggested improvements"; prefer fewer findings over false positives
+
+          ## Must Fix
+          - Only include issues that can cause data loss, crashes, privilege bypass, injection, or obvious logic bugs
+          - If there are no must-fix issues, write "None"
+
+          ## Suggestions
+          - Readability, maintainability, structure, performance, naming, and boundary-value suggestions
+          - If there are no suggestions, write "None"
+
+          Output format:
+
+          ## Must Fix
+          - [Issue Type] Description with file location | Fix suggestion
+
+          ## Suggestions
+          - [Issue Type] Description with file location | Improvement suggestion
+          """
+
+          def getenv(name: str, default: str = "") -> str:
+              return os.getenv(name, default).strip()
+
+          def read_event() -> dict:
+              event_path = getenv("GITHUB_EVENT_PATH")
+              if not event_path:
+                  raise RuntimeError("missing GITHUB_EVENT_PATH")
+              with open(event_path, "r", encoding="utf-8") as handle:
+                  return json.load(handle)
+
+          def request(url: str, method: str = "GET", headers=None, body=None, timeout: int = 60):
+              request_headers = dict(headers or {})
+              payload = None
+              if body is not None:
+                  payload = json.dumps(body).encode("utf-8")
+                  request_headers.setdefault("Content-Type", "application/json")
+              req = urllib.request.Request(url, data=payload, headers=request_headers, method=method)
+              with urllib.request.urlopen(req, timeout=timeout) as response:
+                  raw = response.read()
+                  content_type = response.headers.get("Content-Type", "")
+                  charset = response.headers.get_content_charset() or "utf-8"
+                  text = raw.decode(charset, errors="replace")
+                  if "json" in content_type:
+                      return json.loads(text)
+                  return text
+
+          def request_json(url: str, method: str = "GET", headers=None, body=None, timeout: int = 60):
+              return request(url, method=method, headers=headers, body=body, timeout=timeout)
+
+          def request_text(url: str, headers=None, timeout: int = 60) -> str:
+              response = request(url, method="GET", headers=headers, timeout=timeout)
+              if isinstance(response, str):
+                  return response
+              raise RuntimeError(f"expected text response from {url}")
+
+          def b64url(data: bytes) -> str:
+              return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+          def sign_jwt(app_id: str, private_key_pem: str) -> str:
+              now = int(time.time())
+              header = {"alg": "RS256", "typ": "JWT"}
+              payload = {"iat": now - 60, "exp": now + 540, "iss": app_id}
+              signing_input = f"{b64url(json.dumps(header, separators=(',', ':')).encode())}.{b64url(json.dumps(payload, separators=(',', ':')).encode())}"
+
+              with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8", suffix=".pem") as key_file:
+                  key_file.write(private_key_pem)
+                  key_path = key_file.name
+
+              try:
+                  signed = subprocess.run(
+                      ["openssl", "dgst", "-sha256", "-sign", key_path, "-binary"],
+                      input=signing_input.encode("utf-8"),
+                      capture_output=True,
+                      check=True,
+                  ).stdout
+              finally:
+                  try:
+                      os.remove(key_path)
+                  except OSError:
+                      pass
+
+              signature = b64url(signed)
+              return f"{signing_input}.{signature}"
+
+          def get_installation_token(app_jwt: str, installation_id: str) -> str:
+              url = f"https://api.github.com/app/installations/{installation_id}/access_tokens"
+              headers = {
+                  "Authorization": f"Bearer {app_jwt}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "jobclaw-ai-review",
+              }
+              payload = request_json(url, method="POST", headers=headers, timeout=30)
+              token = payload.get("token", "").strip()
+              if not token:
+                  raise RuntimeError(f"missing installation token response: {payload}")
+              return token
+
+          def github_headers(token: str, accept: str = "application/vnd.github+json") -> dict:
+              return {
+                  "Authorization": f"Bearer {token}",
+                  "Accept": accept,
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "jobclaw-ai-review",
+              }
+
+          def fetch_pull_request_diff(repo: str, pr_number: int, token: str) -> str:
+              diff_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+              try:
+                  diff_text = request_text(diff_url, headers=github_headers(token, "application/vnd.github.v3.diff"), timeout=60)
+                  if diff_text.strip():
+                      return diff_text
+              except Exception as exc:
+                  print(f"diff endpoint failed, fallback to files API: {exc}")
+
+              files = []
+              page = 1
+              while True:
+                  files_url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/files?per_page=100&page={page}"
+                  page_items = request_json(files_url, headers=github_headers(token), timeout=60)
+                  if not page_items:
+                      break
+                  files.extend(page_items)
+                  if len(page_items) < 100:
+                      break
+                  page += 1
+
+              if not files:
+                  return ""
+
+              chunks = []
+              for item in files:
+                  filename = item.get("filename", "unknown")
+                  status = item.get("status", "unknown")
+                  additions = item.get("additions", 0)
+                  deletions = item.get("deletions", 0)
+                  patch = item.get("patch")
+                  chunks.append(f"### {filename}\nstatus: {status}, additions: {additions}, deletions: {deletions}\n")
+                  if patch:
+                      chunks.append(patch)
+                  else:
+                      chunks.append("[patch omitted by GitHub API]\n")
+              return "\n".join(chunks)
+
+          def call_llm(api_url: str, api_key: str, model: str, prompt_text: str) -> str:
+              payload = {
+                  "model": model,
+                  "messages": [
+                      {
+                          "role": "system",
+                          "content": "You are a senior code reviewer focused on finding issues and giving concise, accurate, actionable suggestions.",
+                      },
+                      {
+                          "role": "user",
+                          "content": prompt_text,
+                      },
+                  ],
+                  "stream": False,
+              }
+              headers = {
+                  "Authorization": f"Bearer {api_key}",
+                  "Content-Type": "application/json",
+                  "Accept": "application/json",
+                  "User-Agent": "jobclaw-ai-review",
+              }
+              response = request_json(api_url, method="POST", headers=headers, body=payload, timeout=120)
+              choices = response.get("choices", [])
+              if not choices:
+                  raise RuntimeError(f"unexpected response without choices: {response}")
+              message = choices[0].get("message", {})
+              content = (message.get("content") or "").strip()
+              if not content:
+                  raise RuntimeError(f"empty review content: {response}")
+              return content
+
+          def is_must_fix(content: str) -> bool:
+              if not content:
+                  return False
+
+              match = re.search(r"##\s*Must Fix\s*\n(.*?)(?=\n##\s*|$)", content, re.DOTALL | re.IGNORECASE)
+              if not match:
+                  return False
+
+              section = match.group(1).strip()
+              if not section or section.lower() in {"none", "- none"}:
+                  return False
+
+              for line in section.splitlines():
+                  line = line.strip()
+                  if line.startswith("-") and "none" not in line.lower():
+                      return True
+              return False
+
+          def clamp_text(text: str, max_chars: int) -> str:
+              if len(text) <= max_chars:
+                  return text
+              return text[:max_chars] + "\n\n[truncated because the diff is too large]"
+
+          def post_review(repo: str, pr_number: int, token: str, body: str, event: str):
+              url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/reviews"
+              payload = {"body": body, "event": event}
+              return request_json(url, method="POST", headers=github_headers(token), body=payload, timeout=30)
+
+          def post_comment(repo: str, pr_number: int, token: str, body: str):
+              url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
+              payload = {"body": body}
+              return request_json(url, method="POST", headers=github_headers(token), body=payload, timeout=30)
+
+          event = read_event()
+          pull_request = event.get("pull_request", {})
+          repo = getenv("GITHUB_REPOSITORY")
+          pr_number = pull_request.get("number")
+          target_branch = pull_request.get("base", {}).get("ref", "")
+          pr_html_url = pull_request.get("html_url", "")
+
+          if not repo or not pr_number:
+              print("missing pull request context, skip review")
+              sys.exit(0)
+
+          if target_branch not in {"main", "v2"}:
+              print(f"target branch {target_branch} is out of scope, skip review")
+              sys.exit(0)
+
+          app_id = getenv("GH_APP_ID")
+          private_key = getenv("GH_APP_PRIVATE_KEY")
+          installation_id = getenv("GH_APP_INSTALLATION_ID")
+          api_key = getenv("JT_OPENAI_API_KEY")
+          api_url = getenv("JT_OPENAI_API_URL")
+
+          if not app_id or not private_key or not installation_id:
+              print("missing GitHub App credentials, skip review")
+              sys.exit(0)
+
+          if not api_key or not api_url:
+              print("missing model credentials, skip review")
+              sys.exit(0)
+
+          app_jwt = sign_jwt(app_id, private_key)
+          installation_token = get_installation_token(app_jwt, installation_id)
+
+          diff_content = fetch_pull_request_diff(repo, pr_number, installation_token)
+          if not diff_content.strip():
+              print("PR diff is empty, skip review")
+              sys.exit(0)
+
+          max_diff_chars_raw = getenv("MAX_DIFF_CHARS", "40000")
+          try:
+              max_diff_chars = int(max_diff_chars_raw)
+          except ValueError:
+              max_diff_chars = 40000
+
+          diff_content = clamp_text(diff_content, max_diff_chars)
+          review_prompt_template = getenv("AI_REVIEW_PROMPT") or DEFAULT_REVIEW_PROMPT_TEMPLATE
+          prompt_text = review_prompt_template.replace("{code_diff}", diff_content)
+          model = getenv("AI_REVIEW_MODEL") or "deepseek-reasoner"
+
+          print("calling model for code review...")
+          review_result = call_llm(api_url, api_key, model, prompt_text)
+
+          must_fix = is_must_fix(review_result)
+          review_event = "REQUEST_CHANGES" if must_fix else "COMMENT"
+          status_text = "Must Fix" if must_fix else "Passed"
+          review_body = f"""### AI Code Review Result: {status_text}
+
+          {review_result}
+
+          ---
+          *Generated by GitHub Actions with GitHub App auth and `{model}`*
+          *PR: {pr_html_url}*
+          """
+
+          try:
+              post_review(repo, pr_number, installation_token, review_body, review_event)
+              print(f"pull request review submitted: {review_event}")
+          except Exception as exc:
+              print(f"review submission failed, fallback to issue comment: {exc}")
+              post_comment(repo, pr_number, installation_token, review_body)
+
+          if must_fix:
+              print("must-fix issues detected, fail the job to block merge")
+              sys.exit(1)
+
+          print("no must-fix issues found, review passed")
+          sys.exit(0)
+          PY

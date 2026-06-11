@@ -202,8 +202,14 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
         }
 
         // fixme 开启一个独立对话任务、明确告诉用户：会话压缩、历史记录归档，当前会话内容剪枝
-        sessionSummarizer.autoAsyncSummarize(conversation, messages);
-
+        sessionSummarizer.autoAsyncSummarize(conversation, messages, (s) -> {
+            var toSave = YamlParser.serialize(new YamlDocument(frontmatter, ChatYamlSerializer.serialize(s)));
+            try {
+                Files.writeString(file, toSave, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to save conversation: " + conversationId, e);
+            }
+        });
         // Async: Update user identity profile
         identityAgent.asyncUpdateUserIdentityAsync(conversation, messages);
         episodicMemory.asyncRecord(conversation, messages);

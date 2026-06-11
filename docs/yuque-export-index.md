@@ -60,3 +60,6 @@
 - [✅问题2：MCP Server上下文信息丢失](06、面试/03-✅问题2：MCP Server上下文信息丢失.md)
 - [✅大模型应用开发-面试题篇](06、面试/04-✅大模型应用开发-面试题篇.md)
 - [✅求职派中的技术栈全景解析](06、面试/05-✅求职派中的技术栈全景解析.md)
+## GitHub Actions
+
+- [GitHub Actions AI Code Review 使用说明](github-actions-ai-review.md)

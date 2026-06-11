@@ -25,7 +25,10 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -84,7 +87,7 @@ public class SessionSummarizer {
      * @param messages conversation messages to summarize
      * @return CompletableFuture with summary text
      */
-    public void autoAsyncSummarize(UserConversationInfo conversation, List<Message> messages) {
+    public void autoAsyncSummarize(UserConversationInfo conversation, List<Message> messages, Consumer<List<Message>> call) {
         if (!shouldSummarize(messages)) {
             return;
         }
@@ -116,6 +119,8 @@ public class SessionSummarizer {
                         saveSummary(conversation, summary, oldNonSystem);
                         // Archive the old messages before discarding them
                         archiveRepository.archive(conversation, oldNonSystem, summary);
+                        // Discard old messages
+                        call.accept(recentMessages);
                     }
                 } catch (Exception e) {
                     log.warn("[Compress] Failed to compress old messages, falling back to normal truncation", e);
