@@ -173,13 +173,28 @@ jobs:
               # AIDEV-NOTE: ensure PEM key has proper newlines and trailing newline
               pem = private_key_pem
               if "\\n" in pem:
+                  log("PEM key contains literal \\n, replacing with actual newlines")
                   pem = pem.replace("\\n", "\n")
               if not pem.endswith("\n"):
                   pem += "\n"
 
+              # diagnostic: log key structure (not the content)
+              has_begin = "-----BEGIN" in pem
+              has_end = "-----END" in pem
+              line_count = len(pem.strip().splitlines())
+              log(f"PEM key check: has_begin={has_begin}, has_end={has_end}, lines={line_count}, total_chars={len(pem)}")
+              if not has_begin or not has_end:
+                  first_line = pem.strip().splitlines()[0][:40] if pem.strip() else "(empty)"
+                  last_line = pem.strip().splitlines()[-1][:40] if pem.strip() else "(empty)"
+                  raise RuntimeError(
+                      f"PEM key is malformed: missing BEGIN/END markers. "
+                      f"first_line='{first_line}...', last_line='{last_line}...'"
+                  )
+
               with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8", suffix=".pem") as key_file:
                   key_file.write(pem)
                   key_path = key_file.name
+                  log(f"PEM key written to {key_path}, file_size={os.path.getsize(key_path)} bytes")
 
               try:
                   result = subprocess.run(
