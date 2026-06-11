@@ -45,12 +45,63 @@ jobs:
           echo "PATH=$PATH"
           echo "=== End Diagnostics ==="
 
+      - name: Normalize GitHub App private key
+        id: app-key
+        shell: bash
+        env:
+          GH_APP_PRIVATE_KEY_RAW: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          key="$(
+            python3 - <<'PY'
+          import base64
+          import os
+          import re
+          import sys
+
+          raw = os.environ.get("GH_APP_PRIVATE_KEY_RAW", "").strip()
+          if (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'")):
+              raw = raw[1:-1]
+
+          if "\\n" in raw:
+              print("[ai-review] private key contains literal \\\\n, normalizing", file=sys.stderr)
+              raw = raw.replace("\\n", "\n")
+          elif "-----BEGIN " not in raw and re.fullmatch(r"[A-Za-z0-9+/=\s]+", raw or ""):
+              print("[ai-review] private key looks base64 encoded, decoding", file=sys.stderr)
+              raw = base64.b64decode(re.sub(r"\s+", "", raw)).decode("utf-8")
+
+          raw = raw.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+          match = re.match(r"^(-----BEGIN [^-]+-----)\s*(.*?)\s*(-----END [^-]+-----)$", raw, re.S)
+          if not match:
+              print("::error::GH_APP_PRIVATE_KEY must be a full GitHub App PEM private key, or base64 of the full PEM file.", file=sys.stderr)
+              sys.exit(1)
+
+          header, body, footer = match.groups()
+          body = re.sub(r"\s+", "", body)
+          if not body:
+              print("::error::GH_APP_PRIVATE_KEY PEM body is empty.", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"{header}\n{body}\n{footer}")
+          PY
+          )"
+
+          line_count="$(printf '%s\n' "$key" | wc -l | tr -d ' ')"
+          echo "[ai-review] private key normalized, lines=$line_count"
+          {
+            echo 'private-key<<EOF'
+            printf '%s\n' "$key"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub App token
         id: app-token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          private-key: ${{ steps.app-key.outputs.private-key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
