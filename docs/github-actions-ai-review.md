@@ -6,7 +6,7 @@
 
 当 Pull Request 目标分支为 `main` 或 `v2`，并且 PR 处于非 Draft 状态时，GitHub Actions 会自动：
 
-1. 使用 GitHub App 生成短期 `installation token`
+1. 使用 `actions/create-github-app-token` 生成短期 `installation token`
 2. 拉取 PR 的 diff
 3. 调用配置的大模型接口做代码评审
 4. 将评审结果回写到 PR
@@ -23,13 +23,12 @@
 
 如果你的组织还有更严格的安全要求，可以再按实际需要缩小权限范围，但至少要保证能够读取 PR 内容并写回 review。
 
-### 需要记录的三个值
+### 需要记录的两个值
 
-创建并安装 GitHub App 后，请准备下面三个值：
+创建并安装 GitHub App 后，请准备下面两个值：
 
 - `GH_APP_ID`：GitHub App 的 App ID
-- `GH_APP_PRIVATE_KEY`：GitHub App 生成的私钥内容
-- `GH_APP_INSTALLATION_ID`：这个 App 安装到当前仓库后的 installation id
+- `GH_APP_PRIVATE_KEY`：GitHub App 生成的私钥内容，建议直接保存原始 PEM
 
 ## 需要配置的 Secrets
 
@@ -37,7 +36,6 @@
 
 - `GH_APP_ID`
 - `GH_APP_PRIVATE_KEY`
-- `GH_APP_INSTALLATION_ID`
 - `JT_OPENAI_API_KEY`
 - `JT_OPENAI_API_URL`
 
@@ -64,8 +62,8 @@
 工作流内部的执行顺序如下：
 
 1. 读取 PR 上下文
-2. 使用 GitHub App 私钥生成 JWT
-3. 向 GitHub API 兑换 `installation token`
+2. 使用 `actions/create-github-app-token` 生成 GitHub App installation token
+3. 将 token 传给评审脚本
 4. 使用 `installation token` 获取 PR diff
 5. 将 diff 送入大模型接口
 6. 解析模型输出，判断是否存在“Must Fix”
@@ -104,11 +102,10 @@
 
 ### 2. 为什么提示缺少 GitHub App 凭据？
 
-请确认下面三个 secrets 是否都已填写：
+请确认下面两个 secrets 是否都已填写：
 
 - `GH_APP_ID`
 - `GH_APP_PRIVATE_KEY`
-- `GH_APP_INSTALLATION_ID`
 
 ### 3. 为什么提示大模型接口不可用？
 
@@ -121,7 +118,7 @@
 ### 4. 为什么 review 提交失败？
 
 如果 GitHub review API 返回错误，工作流会自动退回为普通 PR comment。
-如果连 comment 也失败，通常是 GitHub App 没有 `Pull requests: write` 权限，或者 installation id 不正确。
+如果连 comment 也失败，通常是 GitHub App 没有 `Pull requests: write` 权限，或者 App 没有安装到当前仓库。
 
 ## 推荐的最小配置清单
 
@@ -129,7 +126,6 @@
 
 - `GH_APP_ID`
 - `GH_APP_PRIVATE_KEY`
-- `GH_APP_INSTALLATION_ID`
 - `JT_OPENAI_API_KEY`
 - `JT_OPENAI_API_URL`
 
