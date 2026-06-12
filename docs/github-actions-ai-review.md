@@ -39,6 +39,15 @@
 - `JT_OPENAI_API_KEY`
 - `JT_OPENAI_API_URL`
 
+`GH_APP_PRIVATE_KEY` supports these formats:
+
+- Full PEM content copied from the downloaded `.pem` file
+- Full PEM content where newlines are stored as literal `\n`
+- Full PEM content collapsed into one line with spaces
+- Base64 encoded content of the full `.pem` file
+
+Do not store only the key body. The value must include the `-----BEGIN ...-----` and `-----END ...-----` markers after decoding or normalization.
+
 可选项：
 
 - `AI_REVIEW_PROMPT`：自定义评审提示词，模板中用 `{code_diff}` 占位
