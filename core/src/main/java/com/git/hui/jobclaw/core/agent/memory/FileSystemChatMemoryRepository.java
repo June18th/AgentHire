@@ -198,6 +198,7 @@ public class FileSystemChatMemoryRepository implements AppendableChatMemoryRepos
         try {
             Files.writeString(file, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException e) {
+            log.error("Failed to save conversation: " + conversationId, e);
             throw new RuntimeException("Failed to save conversation: " + conversationId, e);
         }
 
