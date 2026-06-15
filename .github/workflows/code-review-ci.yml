@@ -25,8 +25,8 @@ jobs:
     if: ${{ github.event.pull_request.draft == false }}
 
     env:
-      JT_OPENAI_API_KEY: ${{ secrets.JT_OPENAI_API_KEY }}
-      JT_OPENAI_API_URL: ${{ secrets.JT_OPENAI_API_URL }}
+      MR_OPENAI_API_KEY: ${{ secrets.MR_OPENAI_API_KEY }}
+      MR_OPENAI_API_URL: ${{ secrets.MR_OPENAI_API_URL }}
       AI_REVIEW_PROMPT: ${{ secrets.AI_REVIEW_PROMPT }}
       AI_REVIEW_MODEL: ${{ vars.AI_REVIEW_MODEL }}
       MAX_DIFF_CHARS: ${{ vars.AI_REVIEW_MAX_DIFF_CHARS }}
@@ -420,15 +420,15 @@ jobs:
               log(f"reviewing PR #{pr_number} -> {target_branch} in {repo}")
 
               review_bot_token = getenv("REVIEW_BOT_TOKEN")
-              api_key = getenv("JT_OPENAI_API_KEY")
-              api_url = getenv("JT_OPENAI_API_URL")
+              api_key = getenv("MR_OPENAI_API_KEY")
+              api_url = getenv("MR_OPENAI_API_URL")
 
               if not review_bot_token:
                   log("missing REVIEW_BOT_TOKEN from create-github-app-token action, skip review")
                   sys.exit(0)
 
               if not api_key or not api_url:
-                  missing = [n for n, v in [("JT_OPENAI_API_KEY", api_key), ("JT_OPENAI_API_URL", api_url)] if not v]
+                  missing = [n for n, v in [("MR_OPENAI_API_KEY", api_key), ("MR_OPENAI_API_URL", api_url)] if not v]
                   log(f"missing model credentials: {', '.join(missing)}, skip review")
                   sys.exit(0)
 
