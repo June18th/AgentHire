@@ -451,6 +451,7 @@ API Key: 从 OpenAI 平台获取
 
 ```
 /help           - 查看所有可用命令及说明
+/plan           - 进入计划模式，拆解并执行复杂目标
 /agents         - 查看可用的 Agent 列表及其能力
 /current        - 查看当前会话绑定的 Agent
 /agent <id>     - 切换到指定的 Agent

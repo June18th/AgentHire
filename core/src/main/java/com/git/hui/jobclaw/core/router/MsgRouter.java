@@ -25,6 +25,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -101,6 +102,18 @@ public class MsgRouter {
                 return;
             }
             // 如果命令调度器无法处理，继续后续流程
+        }
+
+        // step 2.5: 如果使用的是 /command + 文案，则表示主动切换使用某个BizAgent
+        if (userMessage.startsWith("/")) {
+            List<BizAgent> bizAgents = agentRegistry.getAllAgents(jobClawUserId);
+            for (BizAgent bizAgent : bizAgents) {
+                if (userMessage.startsWith("/" + bizAgent.getAgentIntro().getAgentId())) {
+                    log.info("User {} switches to agent {}", jobClawUserId, bizAgent.getAgentIntro().getAgentId());
+                    routeToAgent(bizAgent.getAgentIntro().getAgentId(), msg, conversationInfo);
+                    return;
+                }
+            }
         }
 
         // Step 3: 判断是否需要意图识别

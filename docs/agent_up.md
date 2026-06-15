@@ -587,6 +587,8 @@ public class PlanHintReActMiddleware implements ReActMiddleware {
 | `plugins/plan-notebook/model/SubTask.java` | ✅ 已新增 |
 | `plugins/plan-notebook/model/SubTaskState.java` | ✅ 已新增 |
 | `plugins/plan-notebook/PlanHintReActMiddleware.java` | ✅ 已新增 - 计划进度中间件 |
+| `core/agent/impl/PlanBizAgent.java` | ✅ 已新增 - 计划模式业务 Agent |
+| `core/cli/PlanModeCommandHandler.java` | ✅ 已新增 - `/plan` 进入计划模式 |
 
 ---
 

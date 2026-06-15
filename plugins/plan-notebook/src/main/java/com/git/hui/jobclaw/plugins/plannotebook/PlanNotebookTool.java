@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.plugins.plannotebook;
 
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.git.hui.jobclaw.core.tools.PlanNotebookCapability;
 import com.git.hui.jobclaw.plugins.plannotebook.model.Plan;
 import com.git.hui.jobclaw.plugins.plannotebook.model.SubTaskState;
 import org.springframework.ai.chat.model.ToolContext;
@@ -8,7 +9,7 @@ import org.springframework.ai.tool.annotation.Tool;
 
 import java.util.List;
 
-public class PlanNotebookTool {
+public class PlanNotebookTool implements PlanNotebookCapability {
 
     private final PlanNotebook notebook;
 

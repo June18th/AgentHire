@@ -63,7 +63,7 @@ Workspace directory layout at runtime:
 - `workspace/users/{userId}/` — user profiles (soul.md, identity.md, info.md)
 - `workspace/conversations/{userId}/` — chat session history (YAML)
 
-System commands in IM chat: `/help`, `/agents`, `/current`, `/agent <id>`, `/reset`
+System commands in IM chat: `/help`, `/agents`, `/current`, `/agent <id>`, `/plan`, `/reset`
 
 Full startup guide: `docs/getting-started.md`
 
@@ -114,7 +114,7 @@ ChannelEventPublisher.publishMessageReceived()    # core/bus/
   ▼
 MsgRouter.onMessageReceived()        # core/router/MsgRouter.java
   Step 1: IIdentityAgent.triggerToCollectIdentity()  — auto identity collection
-  Step 2: SystemCommandDispatcher                     — /agent, /reset, /help commands
+  Step 2: SystemCommandDispatcher                     — /agent, /plan, /reset, /help commands
   Step 3: SessionAgentBinder.needsIntentRecognition() — skip if session already bound
   Step 4: IntentClassifier.classify()                 — keyword + LLM composite
   Step 5: AgentRouter.route()                         — map intent to agent

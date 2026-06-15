@@ -83,6 +83,11 @@ public enum PresetAgentIntro implements BizAgent.AgentIntro {
 
     TASK("task", "任务提醒助手", "管理周期性任务和定时提醒,助您高效安排求职计划", ""),
 
+    PLAN("plan",
+            "计划模式助手",
+            "将复杂目标拆解为有序子任务，持续跟踪执行进度并使用可用工具完成计划",
+            "/plan"),
+
     /**
      * PREFERENCE_SETTING: 用户偏好设置
      * 触发场景：用户想修改偏好设置

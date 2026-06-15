@@ -88,6 +88,7 @@ pnpm run deploy
 ## IM 系统命令
 
 - `/help`：查看帮助
+- `/plan`：进入计划模式
 - `/agents`：查看可用 Agent
 - `/current`：查看当前会话绑定的 Agent
 - `/agent <agentId>`：切换 Agent
