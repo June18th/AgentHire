@@ -21,5 +21,6 @@
     <modules>
         <module>playwright</module>
         <module>job-library</module>
+        <module>plan-notebook</module>
     </modules>
 </project>

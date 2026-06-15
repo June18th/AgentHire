@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.Getter;
 import org.hibernate.Hibernate;
 
 import java.io.IOException;
@@ -18,6 +19,7 @@ import java.util.List;
  * @date 2025/7/14
  */
 public class JsonUtil {
+    @Getter
     private static ObjectMapper mapper = new ObjectMapper();
 
     static {

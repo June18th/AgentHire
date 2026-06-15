@@ -8,8 +8,8 @@ import org.springframework.context.annotation.Bean;
 public class JobLibraryAutoConfiguration {
 
     @Bean
-    public AutoDiscoveredTool<JobLibraryTool> autoDiscoveredJobLibraryTool(JobLibraryTool playwrightBrowserTool) {
-        return new AutoDiscoveredTool<>(playwrightBrowserTool);
+    public AutoDiscoveredTool<JobLibraryTool> autoDiscoveredJobLibraryTool(JobLibraryTool jobLibraryTool) {
+        return new AutoDiscoveredTool<>(jobLibraryTool);
     }
 
     @Bean
