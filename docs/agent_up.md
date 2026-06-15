@@ -41,7 +41,7 @@ IM Message → AbsChannel → ChannelEventPublisher → MsgRouter
 | **Middleware** | 洋葱模型拦截 Agent/Reasoning/Acting/ModelCall 四个阶段 | ✅ 已实现：ReActMiddleware (观察者模式 hooks，可扩展为洋葱模型) |
 | **AgentState** | 统一的 `AgentState` 对象持有 context、toolContext、permissionContext，通过 Session 持久化 | 状态分散在 ChatMemory + SessionAgentBinder |
 | **Memory 分层** | 短期 Memory (InMemory) + 长期 LongTermMemory (语义检索) + 记忆压缩 | ✅ 已实现：SmartWindow 压缩 + EpisodicMemory + IIdentityAgent 长期记忆 |
-| **PlanNotebook** | 结构化任务分解为 SubTask，状态追踪 todo/in_progress/done | 无任务分解 |
+| **PlanNotebook** | 结构化任务分解为 SubTask，状态追踪 todo/in_progress/done | ✅ 已实现：AutoDiscoveredTool 插件 + 用户隔离持久化 |
 | **SkillBox** | Markdown 技能文件 + 动态加载/卸载 + 工具组联动 | 无能力沉淀 |
 | **Permission & HITL** | PermissionEngine + ConfirmResult 机制实现工具级权限控制和人工确认 | 无确认机制 |
 | **Structured Output** | 自纠正输出解析，失败时自动重试并引导模型 | 无结构化输出 |
@@ -489,7 +489,7 @@ public class MemoryReActMiddleware implements ReActMiddleware {
 
 ---
 
-## 六、Phase 4：PlanNotebook 任务分解
+## 六、Phase 4：PlanNotebook 任务分解 ✅ 已完成
 
 ### 6.1 设计目标
 
@@ -581,11 +581,12 @@ public class PlanHintReActMiddleware implements ReActMiddleware {
 
 | 文件 | 改动 |
 |------|-----|
-| `core/agent/plan/PlanNotebook.java` | **新增** |
-| `core/agent/plan/model/Plan.java` | **新增** |
-| `core/agent/plan/model/SubTask.java` | **新增** |
-| `core/agent/plan/model/SubTaskState.java` | **新增** |
-| `core/agent/react/PlanHintReActMiddleware.java` | **新增** - 计划进度中间件 |
+| `plugins/plan-notebook/PlanNotebook.java` | ✅ 已新增 - 用户隔离、文件持久化 |
+| `plugins/plan-notebook/PlanNotebookTool.java` | ✅ 已新增 - AutoDiscoveredTool 工具入口 |
+| `plugins/plan-notebook/model/Plan.java` | ✅ 已新增 |
+| `plugins/plan-notebook/model/SubTask.java` | ✅ 已新增 |
+| `plugins/plan-notebook/model/SubTaskState.java` | ✅ 已新增 |
+| `plugins/plan-notebook/PlanHintReActMiddleware.java` | ✅ 已新增 - 计划进度中间件 |
 
 ---
 
@@ -982,7 +983,7 @@ public sealed interface AgentEvent {
 | Phase 1: ReAct | 5-7 天 | 无 | `ReActAdvisor` + 工具调用循环 | ✅ 已完成 |
 | Phase 2: ReActMiddleware | 3-4 天 | Phase 1 | `ReActMiddleware` 接口 + `LoggingReActMiddleware` | ✅ 已完成 |
 | Phase 3: 记忆 | 4-5 天 | Phase 2 | 摘要压缩 + EpisodicMemory + `MemoryReActMiddleware` | ✅ 已完成 |
-| Phase 4: Plan | 3-4 天 | Phase 2 | PlanNotebook + `PlanHintReActMiddleware` | 待实施 |
+| Phase 4: Plan | 3-4 天 | Phase 2 | PlanNotebook + `PlanHintReActMiddleware` | ✅ 已完成 |
 | Phase 5: Skill | 3-4 天 | Phase 2 | SkillBox + `SkillSedimentReActMiddleware` | 待实施 |
 | Phase 6: HITL | 3-4 天 | Phase 1 | PermissionEngine + 确认卡片 + `PermissionReActMiddleware` | 待实施 |
 
@@ -998,7 +999,7 @@ public sealed interface AgentEvent {
 | 推理模式 | ReAct 迭代循环 | ReActAdvisor (Advisor 模式) ✅ | ReAct 迭代循环 ✅ |
 | 生命周期 | Middleware 洋葱模型 | ReActMiddleware (观察者模式) ✅ | ReActMiddleware + 按需扩展洋葱模型 |
 | 记忆 | InMemory + LongTermMemory + 语义检索 | SmartWindow 滑动窗口 | 三层记忆 + 摘要压缩 ✅ (Working + Episodic + Long-term) |
-| 任务分解 | PlanNotebook + SubTask | 无 | PlanNotebook + SubTask (待实施) |
+| 任务分解 | PlanNotebook + SubTask | 无 | PlanNotebook + SubTask ✅ |
 | 能力沉淀 | SkillBox + Markdown 技能文件 | 无 | SkillBox + workspace/skills (待实施) |
 | 权限控制 | PermissionEngine + ConfirmResult | 无 | @RequireConfirm + 确认卡片 (待实施) |
 | 输出格式 | StructuredOutput + 自纠正 | 自由文本 | StructuredOutput + 自纠正 (待实施) |

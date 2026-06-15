@@ -121,6 +121,8 @@ agent:
       accounts:
         2: !!seq [ ]
   tools:
+    plan-notebook:
+      enabled: ${AGENT_TOOL_PLAN_NOTEBOOK_ENABLED:true}
     playwright:
       enabled: ${AGENT_TOOL_PLAYWRIGHT_ENABLED:true} # 是否启用playwright
       headless: ${AGENT_PLAYWRIGHT_HEADLESS:true} # 是否启用无头模式
