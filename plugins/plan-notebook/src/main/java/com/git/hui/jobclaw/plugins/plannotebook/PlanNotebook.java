@@ -146,6 +146,11 @@ public class PlanNotebook {
 
     private Path resolveFile(String userId) {
         requireText(userId, "jobClawUserId");
+        // 对 userId 进行严格的验证，确保其不包含非法路径字符，防止攻击者利用该功能执行任意文件操作或访问敏感文件
+        // 验证 userId 只包含允许的字符 (字母、数字、下划线、连字符)
+        if (!userId.matches("^[a-zA-Z0-9_-]+$")) {
+            throw new IllegalArgumentException("Invalid jobClawUserId: contains invalid characters");
+        }
         Path file = usersDir.resolve(userId).resolve(FILE_NAME).toAbsolutePath().normalize();
         if (!file.startsWith(usersDir)) {
             throw new IllegalArgumentException("Invalid jobClawUserId");
