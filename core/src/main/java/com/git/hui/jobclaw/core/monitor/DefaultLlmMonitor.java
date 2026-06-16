@@ -153,7 +153,7 @@ public class DefaultLlmMonitor implements LlmMonitor {
         meterRegistry.counter("jobclaw.llm.requests", "agent", tag(c.agent()), "operation", tag(c.operation()),
                 "provider", tag(provider), "model", tag(model), "mode", tag(c.mode()), "outcome", outcome).increment();
         Timer.builder("jobclaw.llm.request.duration").tags("agent", tag(c.agent()), "operation", tag(c.operation()),
-                "provider", tag(provider), "model", tag(model), "mode", tag(c.mode()), "outcome", outcome)
+                        "provider", tag(provider), "model", tag(model), "mode", tag(c.mode()), "outcome", outcome)
                 .register(meterRegistry).record(java.time.Duration.ofMillis(duration));
         if (totalTokens != null) meterRegistry.counter("jobclaw.llm.tokens", "agent", tag(c.agent()), "operation", tag(c.operation()),
                 "provider", tag(provider), "model", tag(model), "mode", tag(c.mode()), "outcome", outcome).increment(totalTokens);
@@ -184,12 +184,14 @@ public class DefaultLlmMonitor implements LlmMonitor {
     }
 
     private String sample(String text, String outcome) {
-        if (text == null || (!"FAILED".equals(outcome) && Math.random() >= 0.01)) return null;
+        if (text == null) return null;
         String cleaned = text.replaceAll("(?i)Bearer\\s+\\S+", "Bearer ***")
                 .replaceAll("[\\w.+-]+@[\\w.-]+", "***@***")
                 .replaceAll("1[3-9]\\d{9}", "***")
                 .replaceAll("\\b\\d{17}[\\dXx]\\b", "***");
-        return cleaned.substring(0, Math.min(cleaned.length(), 4000));
+        // 1% 的记录完整的提示词；否则记录前100字
+        final int size = (!"FAILED".equals(outcome) && Math.random() >= 0.01) ? 4000 : 100;
+        return cleaned.substring(0, Math.min(cleaned.length(), size));
     }
 
     private static String tag(String value) {
@@ -222,7 +224,11 @@ public class DefaultLlmMonitor implements LlmMonitor {
         final AtomicBoolean usageKnown = new AtomicBoolean();
         BigDecimal cost;
         final AtomicInteger published = new AtomicInteger();
-        InvocationState(LlmCallContext context) { this.context = context; }
+
+        InvocationState(LlmCallContext context) {
+            this.context = context;
+        }
+
         synchronized void addCost(BigDecimal value) {
             if (value != null) cost = cost == null ? value : cost.add(value);
         }

@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.providers;
 
+import com.alibaba.ttl.TransmittableThreadLocal;
 import com.git.hui.jobclaw.core.configuration.event.PropertiesRefreshedEvent;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import io.micrometer.common.util.StringUtils;
@@ -24,7 +25,7 @@ import java.util.stream.Collectors;
 @Component
 public class ModelProviders {
     private final static String DEFAULT_PREFERENCE = "total";
-    private static final ThreadLocal<ModelConfig.ModelInfo> CURRENT_MODEL = new ThreadLocal<>();
+    private static final ThreadLocal<ModelConfig.ModelInfo> CURRENT_MODEL = new TransmittableThreadLocal<>();
 
     public static ModelConfig.ModelInfo currentModelInfo() {
         return CURRENT_MODEL.get();
