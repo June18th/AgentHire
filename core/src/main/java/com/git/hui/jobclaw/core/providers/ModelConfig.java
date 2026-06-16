@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 /**
  *
@@ -68,6 +69,8 @@ public class ModelConfig {
         private Boolean multimodal;
         @Builder.Default
         private Integer maxTokens = 32768;
+        private BigDecimal inputPricePerMillionTokens;
+        private BigDecimal outputPricePerMillionTokens;
     }
 
     /**

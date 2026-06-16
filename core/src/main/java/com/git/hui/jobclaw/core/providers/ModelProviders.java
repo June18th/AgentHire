@@ -24,6 +24,15 @@ import java.util.stream.Collectors;
 @Component
 public class ModelProviders {
     private final static String DEFAULT_PREFERENCE = "total";
+    private static final ThreadLocal<ModelConfig.ModelInfo> CURRENT_MODEL = new ThreadLocal<>();
+
+    public static ModelConfig.ModelInfo currentModelInfo() {
+        return CURRENT_MODEL.get();
+    }
+
+    public static void clearCurrentModelInfo() {
+        CURRENT_MODEL.remove();
+    }
     /**
      * 模型缓存
      */
@@ -118,7 +127,10 @@ public class ModelProviders {
                 .path(providerInfo.getCompletionsPath())
                 .type(modelInfo.getType())
                 .multimodal(modelInfo.getMultimodal())
+                .inputPricePerMillionTokens(modelInfo.getInputPricePerMillionTokens())
+                .outputPricePerMillionTokens(modelInfo.getOutputPricePerMillionTokens())
                 .build();
+        CURRENT_MODEL.set(personModelInfo);
 
 
         // 检查缓存

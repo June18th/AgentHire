@@ -10,6 +10,11 @@ const api = axios.create({
   timeout: 360000,
 });
 
+export interface LlmOverview { calls:number; successRate:number; averageDurationMs:number; totalTokens:number; estimatedCost:number|string }
+export interface LlmCall { id:string; jobClawUserId?:string; agent?:string; operation:string; mode:string; outcome:string; durationMs:number; requestCount:number; totalTokens?:number; estimatedCost?:number|string; createTime:string }
+export async function fetchLlmOverview(admin:boolean):Promise<LlmOverview>{const r=await api.get(admin?"/api/admin/llm-monitor/overview":"/api/user/llm-usage/overview");if(r.data?.code===0)return r.data.data;throw new Error(r.data?.msg||"获取模型用量失败")}
+export async function fetchLlmCalls(admin:boolean):Promise<{list:LlmCall[]}>{const r=await api.get(admin?"/api/admin/llm-monitor/calls":"/api/user/llm-usage/calls");if(r.data?.code===0)return r.data.data;throw new Error(r.data?.msg||"获取模型调用明细失败")}
+
 // 全局请求拦截器，自动带上 X-OC-TOKEN
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {

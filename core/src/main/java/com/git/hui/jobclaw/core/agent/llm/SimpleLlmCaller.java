@@ -4,6 +4,9 @@ import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.agent.react.ReActAdvisor;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
+import com.git.hui.jobclaw.core.monitor.LlmCallContext;
+import com.git.hui.jobclaw.core.monitor.LlmMonitor;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -46,32 +49,43 @@ public class SimpleLlmCaller implements LlmCaller {
 
     @Override
     public <T> T call(UserConversationInfo user, Prompt prompt, Class<T> clz) {
-        ChatClient client = getClient(user, prompt);
-        return client.prompt(prompt).call().entity(clz);
+        return monitor().call(context(user, "structured_call", "SYNC"), prompt, () -> {
+            ChatClient client = getClient(user, prompt);
+            return client.prompt(prompt).call().entity(clz);
+        });
     }
 
     @Override
     public String call(UserConversationInfo user, Prompt prompt) {
-        ChatClient client = getClient(user, prompt);
-        return client.prompt(prompt)
+        return monitor().call(context(user, operation(user), "SYNC"), prompt, () -> getClient(user, prompt).prompt(prompt)
                 .toolContext(Map.of("user", user))
-                .call().content();
+                .call().content());
     }
 
     @Override
     public Flux<String> stream(UserConversationInfo user, Prompt prompt) {
-        ChatClient client = getClient(user, prompt);
-        return client.prompt(prompt)
+        return monitor().stream(context(user, operation(user), "STREAM"), prompt, () -> getClient(user, prompt).prompt(prompt)
                 .toolContext(Map.of("user", user))
-                .stream().chatResponse().map(s -> s.getResult().getOutput().getText());
+                .stream().chatResponse(), s -> s.getResult().getOutput().getText());
     }
 
     @Override
     public <T> Flux<T> stream(UserConversationInfo user, Prompt prompt, Function<ChatResponse, T> func) {
-        ChatClient client = getClient(user, prompt);
-        return client.prompt(prompt)
+        return monitor().stream(context(user, operation(user), "STREAM"), prompt, () -> getClient(user, prompt).prompt(prompt)
                 .toolContext(Map.of("user", user))
-                .stream().chatResponse().map(func::apply);
+                .stream().chatResponse(), func);
+    }
+
+    protected LlmMonitor monitor() {
+        return SpringUtil.getBean(LlmMonitor.class);
+    }
+
+    protected LlmCallContext context(UserConversationInfo user, String operation, String mode) {
+        return LlmCallContext.of(user, operation, mode);
+    }
+
+    protected String operation(UserConversationInfo user) {
+        return user.agent() == null ? "core_call" : "agent_chat";
     }
 
 

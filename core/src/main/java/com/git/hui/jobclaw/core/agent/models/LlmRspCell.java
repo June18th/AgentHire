@@ -55,8 +55,8 @@ public record LlmRspCell(String thinking, String content, String tool, String to
         String toolInfo = extractToolInfo(output);
 
         if (log.isDebugEnabled()) {
-            log.debug("[LlmRspCell] chunk: textLen={}, hasToolResult={}, hasReasoning={}, toolInfo={}",
-                    text != null ? text.length() : 0, toolResultFlag, r != null, toolInfo);
+            log.debug("[LlmRspCell] chunk: textLen={}, hasToolResult={}, hasReasoning={}, toolInfo={}, usage={}",
+                    text != null ? text.length() : 0, toolResultFlag, r != null, toolInfo, chunk.getMetadata().getUsage());
         }
 
         if (log.isDebugEnabled()) {

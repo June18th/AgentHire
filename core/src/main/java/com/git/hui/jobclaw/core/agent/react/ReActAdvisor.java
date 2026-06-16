@@ -17,6 +17,8 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import com.git.hui.jobclaw.core.monitor.LlmMonitor;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.util.CollectionUtils;
@@ -460,7 +462,8 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
                     .build();
 
             Prompt prompt = new Prompt(messages, directOptions);
-            return chatModel.call(prompt);
+            LlmMonitor monitor = SpringUtil.getBeanOrNull(LlmMonitor.class);
+            return monitor == null ? chatModel.call(prompt) : monitor.directCall(prompt, () -> chatModel.call(prompt));
         } catch (Exception e) {
             log.error("[ReAct] Direct model call failed", e);
             notifyError(e, -1);
