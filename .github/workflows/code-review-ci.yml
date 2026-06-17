@@ -378,6 +378,10 @@ jobs:
                   line = line.strip()
                   if not line or line == "无":
                       continue
+                  if (line.startswith("*") or line.startswith("-")):
+                      lc = line[1:].strip()
+                      if lc.lower() in {"none", '无'}:
+                        continue
                   if line.startswith("-") and "none" not in line.lower():
                       log(f"⚠️ 检测到必须修改的问题：{line[:100]}...")
                       return True
