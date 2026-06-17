@@ -7,8 +7,8 @@
     <artifactId>JobClaw</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>ai-oc</name>
-    <description>Spring AI , 秋招信息, using Open AI</description>
+    <name>JobClaw</name>
+    <description>OpenClaw-style multi-agent practice project for job-search scenarios</description>
 
     <properties>
         <java.version>21</java.version>

@@ -1,3 +1,5 @@
+# 02-✅求职派实现Function Call
+
 上一篇我们实现了大模型的接入，已经可以提取文本信息了；接下来，我们希望传一个 http 链接，让大模型帮我们抓取对应网站的数据。
 
 
@@ -6,10 +8,10 @@
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/12564477/1758336940659-f49c842e-fda4-4ef6-8bc4-a1727ed0083a.png)
 
-# 一、Function Call
+## 一、Function Call
 不是所有的大模型都支持 function call，幸运的是智谱的免费大模型是支持的。
 
-## 1.网页抓取实现
+### 1.网页抓取实现
 既然大模型没有网页抓取的能力，那我们就自己实现一个；对于静态网页，我们可以通过 jsoup 来实现，动态网页抓取则使用 hutool。
 
 
@@ -52,7 +54,7 @@ public String crawlerHttpTable(String url) {
 ```
 
 
-## 2.注册Function Tool
+### 2.注册Function Tool
 工具实现后，我们需要将它注册为大模型可以调用的工具，这里主要借助 `@Tool`注解来实现。
 
 ```java
@@ -84,7 +86,7 @@ public class CrawlerTools {
 }
 ```
 
-## 3.Function Call 调用
+### 3.Function Call 调用
 ```java
 // 传入数据太长，导致解析的结果被截断的场景时，转用下面的 gatherByAutoSplit 调用方法
 public List<GatherOcDraftBo> gatherByText(String text) {
@@ -105,7 +107,7 @@ public List<GatherOcDraftBo> gatherByText(String text) {
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1753783368554-f7ff5a88-4727-4084-9856-bc31da8462d4.png)
 
-## 4.开启日志，验证结果
+### 4.开启日志，验证结果
 在配置文件 `application-ai.yml` 中，打开ai交互日志，方便观察过程（大模型交互通过SimpleLoggerAdvisor 实现的日志输出）
 
 ```yaml
@@ -125,7 +127,7 @@ logging:
 
 大模型提取的结果
 
-# 二、小结
+## 二、小结
 这一篇主要介绍了求职派如何通过 Function Call 来给大模型进行赋能。
 
 

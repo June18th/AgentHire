@@ -37,7 +37,7 @@ spring:
         stdio:
           servers-configuration: ${MCP_SERVERS_CONFIG:classpath:mcp-servers.json}
         # 如果想要体验 MCP Server，请将下面的 false 改成 true
-        enabled: true
+        enabled: ${AGENT_MCP_CLIENT_ENABLED:false}
         name: 求职派MCP
         version: 1.0.0
         request-timeout: 30s

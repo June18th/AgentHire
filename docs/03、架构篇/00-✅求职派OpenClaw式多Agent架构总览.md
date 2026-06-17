@@ -1,10 +1,12 @@
-# 求职派 OpenClaw 式多 Agent 架构总览
+# 00-✅求职派OpenClaw式多Agent架构总览
+
+## 求职派 OpenClaw 式多 Agent 架构总览
 
 > 当前版本说明：求职派已经从早期“岗位信息采集展示应用”，演进为一个类似 OpenClaw 的多 Agent 实战项目。下面这张图可以作为当前架构的代表性视图：它不从某一个单点功能出发，而是按 IM 入口、消息网关、对话管理、业务 Agent、工具、模型、任务调度和消息推送来理解整个系统。
 
-![求职派当前多 Agent 架构](../../imgs/jobclaw-current-agent-architecture.png)
+![求职派当前多 Agent 架构](../imgs/jobclaw-current-agent-architecture.png)
 
-## 一、整体分层
+### 一、整体分层
 
 这张图可以拆成八层：
 
@@ -21,7 +23,7 @@
 
 图中的 Redis/Quartz 表示典型架构位点：对话状态可以替换成 Redis，任务调度可以替换成 Quartz。当前仓库里，会话绑定主要由 `FileSystemSessionAgentBinder` 实现，任务调度主要由 JobRunr 和 Spring `@Scheduled` 承担；这些实现不影响整体分层。
 
-## 二、核心链路
+### 二、核心链路
 
 ```text
 IM 渠道层
@@ -54,7 +56,7 @@ AbsChannel.processMessage()
 
 `MsgRouter` 是这条链路里最核心的“对话管理 Agent”实现：它并不直接处理所有业务，而是负责把用户消息送到最合适的业务 Agent。
 
-## 三、业务 Agent
+### 三、业务 Agent
 
 当前架构里的业务 Agent 可以按职责理解：
 
@@ -79,7 +81,7 @@ AbsChannel.processMessage()
   -> 在 PresetAgentIntro / AgentRegistry 中补充路由关系
 ```
 
-## 四、工具与模型
+### 四、工具与模型
 
 工具调用层解决的是“模型自己做不了，但系统可以做”的事：
 
@@ -94,7 +96,7 @@ AbsChannel.processMessage()
 - 用户偏好格式为 `provider#ModelName`，例如 `zhipufree#GLM-4-Flash`。
 - Provider 接入放在 `providers/`，业务 Agent 不直接绑定具体模型厂商。
 
-## 五、模块边界
+### 五、模块边界
 
 ```text
 JobClaw/

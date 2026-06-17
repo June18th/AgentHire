@@ -1,8 +1,10 @@
-# Agent/Soul/Info 文档维护与使用方案
+# agent-soul-info-design
 
-## 一、文档定位与作用范围
+## Agent/Soul/Info 文档维护与使用方案
 
-### 1.1 文档定义
+### 一、文档定位与作用范围
+
+#### 1.1 文档定义
 
 | 文档 | 作用范围 | 用途 | 维护方式 |
 |------|---------|------|---------|
@@ -10,7 +12,7 @@
 | **soul.md** | 用户级 (workspace/users/{userId}/soul.md) | AI 的灵魂人格设定,确保人格一致性和工作流程统一 | AI 生成草稿 + 人工审核 + AI 增量更新 |
 | **info.md** | 用户级 (workspace/users/{userId}/info.md) | AI 的身份名片,包含名称、角色、专长领域,决定如何向用户介绍自己 | AI 生成草稿 + 人工审核 + 定期更新 |
 
-### 1.2 与现有 user.md 的关系
+#### 1.2 与现有 user.md 的关系
 
 ```
 workspace/
@@ -31,9 +33,9 @@ workspace/
 
 ---
 
-## 二、文档模板设计
+### 二、文档模板设计
 
-### 2.1 agent.md (全局操作规范)
+#### 2.1 agent.md (全局操作规范)
 
 ```markdown
 # Agent Operation Manual
@@ -82,7 +84,7 @@ workspace/
 - 尊重用户隐私偏好
 ```
 
-### 2.2 soul.md (用户级灵魂人格)
+#### 2.2 soul.md (用户级灵魂人格)
 
 ```markdown
 # Agent Soul Profile
@@ -136,7 +138,7 @@ workspace/
 - {其他需要注意的信息}
 ```
 
-### 2.3 info.md (用户级身份名片)
+#### 2.3 info.md (用户级身份名片)
 
 ```markdown
 # Agent Identity Card
@@ -195,9 +197,9 @@ workspace/
 
 ---
 
-## 三、架构设计
+### 三、架构设计
 
-### 3.1 核心组件
+#### 3.1 核心组件
 
 ```
 com.git.hui.jobclaw.core.agent.identity/
@@ -212,9 +214,9 @@ com.git.hui.jobclaw.core.agent.identity/
     └── InfoCollector.java              # info.md 主动收集器(新增)
 ```
 
-### 3.2 组件职责
+#### 3.2 组件职责
 
-#### AgentIdentityManager (全局 agent.md)
+##### AgentIdentityManager (全局 agent.md)
 ```java
 @Component
 public class AgentIdentityManager {
@@ -230,7 +232,7 @@ public class AgentIdentityManager {
 }
 ```
 
-#### AgentSoulManager (用户级 soul.md)
+##### AgentSoulManager (用户级 soul.md)
 ```java
 @Component
 public class AgentSoulManager {
@@ -248,7 +250,7 @@ public class AgentSoulManager {
 }
 ```
 
-#### AgentInfoManager (用户级 info.md)
+##### AgentInfoManager (用户级 info.md)
 ```java
 @Component
 public class AgentInfoManager {
@@ -266,7 +268,7 @@ public class AgentInfoManager {
 }
 ```
 
-#### SoulExtractor & InfoExtractor (AI 提取器)
+##### SoulExtractor & InfoExtractor (AI 提取器)
 ```java
 @Component
 public class SoulExtractor {
@@ -292,9 +294,9 @@ public class InfoExtractor {
 
 ---
 
-## 四、注入机制设计
+### 四、注入机制设计
 
-### 4.1 System Prompt 注入 (静态部分)
+#### 4.1 System Prompt 注入 (静态部分)
 
 在 [DefaultAgent](file:///d:/Workspace/hui/project/JobClaw/core/src/main/java/com/git/hui/jobclaw/core/agent/DefaultAgent.java) 构建 Prompt 时,注入静态文档:
 
@@ -347,7 +349,7 @@ private String buildSystemPrompt(String agentMd, String soulMd, String infoMd, S
 }
 ```
 
-### 4.2 Advisor 注入 (动态部分)
+#### 4.2 Advisor 注入 (动态部分)
 
 创建 `AgentIdentityAdvisor` 实现动态更新:
 
@@ -391,9 +393,9 @@ public class AgentIdentityAdvisor implements Advisor {
 
 ---
 
-## 五、工作流程设计
+### 五、工作流程设计
 
-### 5.1 首次对话流程 (新用户)
+#### 5.1 首次对话流程 (新用户)
 
 ```
 用户首次消息
@@ -420,7 +422,7 @@ public class AgentIdentityAdvisor implements Advisor {
     └─ 保存 info.md
 ```
 
-### 5.2 增量更新流程 (已有用户)
+#### 5.2 增量更新流程 (已有用户)
 
 ```
 用户发送消息
@@ -443,7 +445,7 @@ DefaultAgent 处理请求
         └─ user.md 变更? → AI 提取 → 异步保存
 ```
 
-### 5.3 人工审核流程
+#### 5.3 人工审核流程
 
 ```
 管理员操作
@@ -462,9 +464,9 @@ DefaultAgent 处理请求
 
 ---
 
-## 六、Prompt 模板设计
+### 六、Prompt 模板设计
 
-### 6.1 soul.md 提取 Prompt
+#### 6.1 soul.md 提取 Prompt
 
 文件: `classpath:/prompts/agent-soul-extraction-prompt.md`
 
@@ -495,7 +497,7 @@ DefaultAgent 处理请求
 4. 标记不确定的信息(使用 ? 后缀)
 ```
 
-### 6.2 info.md 提取 Prompt
+#### 6.2 info.md 提取 Prompt
 
 文件: `classpath:/prompts/agent-info-extraction-prompt.md`
 
@@ -526,7 +528,7 @@ DefaultAgent 处理请求
 4. 个性化设置要引用 user.md 中的关键信息
 ```
 
-### 6.3 soul.md 主动收集 Prompt
+#### 6.3 soul.md 主动收集 Prompt
 
 文件: `classpath:/prompts/agent-soul-collect-prompt.md`
 
@@ -561,9 +563,9 @@ DefaultAgent 处理请求
 
 ---
 
-## 七、配置设计
+### 七、配置设计
 
-### 7.1 application.yml 配置
+#### 7.1 application.yml 配置
 
 ```yaml
 agent:
@@ -589,7 +591,7 @@ agent:
     template-path: classpath:/templates/info-template.md
 ```
 
-### 7.2 ContextWindowProperties 扩展
+#### 7.2 ContextWindowProperties 扩展
 
 在现有的 [ContextWindowProperties](file:///d:/Workspace/hui/project/JobClaw/core/src/main/java/com/git/hui/jobclaw/core/agent/memory/ContextWindowProperties.java) 中添加:
 
@@ -615,9 +617,9 @@ public class ContextWindowProperties {
 
 ---
 
-## 八、文件变更清单
+### 八、文件变更清单
 
-### 8.1 新增文件
+#### 8.1 新增文件
 
 ```
 core/src/main/java/com/git/hui/jobclaw/core/agent/identity/
@@ -644,7 +646,7 @@ workspace/
 └── agent.md                            # 全局 agent.md 示例文件
 ```
 
-### 8.2 修改文件
+#### 8.2 修改文件
 
 ```
 core/src/main/java/com/git/hui/jobclaw/core/agent/
@@ -659,33 +661,33 @@ core/src/main/java/com/git/hui/jobclaw/core/agent/identity/
 
 ---
 
-## 九、实施计划
+### 九、实施计划
 
-### Phase 1: 基础框架 (1-2天)
+#### Phase 1: 基础框架 (1-2天)
 1. 创建 AgentIdentityManager、AgentSoulManager、AgentInfoManager
 2. 实现文件读写功能
 3. 创建模板文件和 Prompt 模板
 4. 编写 workspace/agent.md 示例
 
-### Phase 2: AI 提取器 (2-3天)
+#### Phase 2: AI 提取器 (2-3天)
 1. 实现 SoulExtractor 和 InfoExtractor
 2. 编写提取 Prompt 模板
 3. 集成到 UserIdentityExtractor 类似架构
 4. 编写单元测试
 
-### Phase 3: 主动收集器 (2-3天)
+#### Phase 3: 主动收集器 (2-3天)
 1. 实现 SoulCollector 和 InfoCollector
 2. 编写收集 Prompt 模板
 3. 实现首次对话流程
 4. 编写集成测试
 
-### Phase 4: 注入机制 (1-2天)
+#### Phase 4: 注入机制 (1-2天)
 1. 修改 DefaultAgent 注入 System Prompt
 2. 创建 AgentIdentityAdvisor
 3. 实现自动更新逻辑
 4. 编写集成测试
 
-### Phase 5: 配置与优化 (1天)
+#### Phase 5: 配置与优化 (1天)
 1. 添加配置文件支持
 2. 扩展 ContextWindowProperties
 3. 性能优化 (缓存、异步处理)
@@ -693,9 +695,9 @@ core/src/main/java/com/git/hui/jobclaw/core/agent/identity/
 
 ---
 
-## 十、首次对话初始化流程
+### 十、首次对话初始化流程
 
-### 10.1 初始化协调器
+#### 10.1 初始化协调器
 
 创建了 [AgentIdentityInitializer](file:///d:/Workspace/hui/project/JobClaw/core/src/main/java/com/git/hui/jobclaw/core/agent/identity/AgentIdentityInitializer.java) 来协调首次对话的初始化流程。
 
@@ -729,7 +731,7 @@ AgentIdentityInitializer.checkAndTriggerInitialization()
     └─ 存在? → 标记完成
 ```
 
-### 10.2 MessageEventListener 集成
+#### 10.2 MessageEventListener 集成
 
 修改了 [MessageEventListener](file:///d:/Workspace/hui/project/JobClaw/core/src/main/java/com/git/hui/jobclaw/core/bus/listener/MessageEventListener.java) 的消息处理流程:
 
@@ -758,7 +760,7 @@ public void onMessageReceived(MessageReceivedEvent event) {
 }
 ```
 
-### 10.3 状态跟踪
+#### 10.3 状态跟踪
 
 使用 `ConcurrentHashMap<String, InitializationState>` 跟踪每个用户的初始化状态,避免重复触发:
 
@@ -777,7 +779,7 @@ class InitializationState {
 }
 ```
 
-### 10.4 异步生成 info.md
+#### 10.4 异步生成 info.md
 
 info.md 的生成是异步的,不会阻塞用户对话:
 
@@ -795,29 +797,29 @@ private void generateInfoAsync(String jobClawUserId) {
 
 ---
 
-## 十一、注意事项
+### 十一、注意事项
 
-### 10.1 优先级控制
+#### 10.1 优先级控制
 - agent.md (操作规范) > soul.md (人格) > info.md (名片) > user.md (用户画像)
 - System Prompt 中按优先级顺序注入
 
-### 10.2 Token 控制
+#### 10.2 Token 控制
 - agent.md 建议控制在 1000 tokens 以内
 - soul.md 建议控制在 500 tokens 以内
 - info.md 建议控制在 300 tokens 以内
 - 总计不超过 2000 tokens,避免占用过多上下文
 
-### 10.3 更新策略
+#### 10.3 更新策略
 - soul.md: 每 10 条消息检查一次更新
 - info.md: user.md 变更时触发更新
 - agent.md: 仅手动更新,不自动修改
 
-### 10.4 兼容性
+#### 10.4 兼容性
 - 保持与现有 user.md 机制兼容
 - 不影响现有 IdentityCollector 功能
 - 渐进式启用,支持配置开关
 
-### 10.5 调试支持
+#### 10.5 调试支持
 - 添加详细日志记录文档加载和更新
 - 提供文档内容查看接口 (管理功能)
 - 支持临时禁用某个文档注入

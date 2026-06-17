@@ -54,7 +54,7 @@ export function LoginUserProvider({ children }: { children: React.ReactNode }) {
                     const updatedInfo = {
                         userId: data.userId,
                         role: data.role,
-                        nickname: data.nickname,
+                        nickname: data.displayName,
                         avatar: data.avatar,
                         timestamp: Date.now()
                     };

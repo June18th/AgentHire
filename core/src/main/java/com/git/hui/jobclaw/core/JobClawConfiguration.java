@@ -37,13 +37,13 @@ public class JobClawConfiguration {
     @ConditionalOnProperty(name = SpringAIModelProperties.CHAT_MODEL, havingValue = "unknown", matchIfMissing = true)
     public ChatModel chatModel() {
         return prompt -> new ChatResponse(List.of(new Generation(new AssistantMessage(
-                "No AI model has been configured. If you did configure a model recently, restart JavaClaw manually for the changes to take effect."))));
+                "No AI model has been configured. If you did configure a model recently, restart JobClaw manually for the changes to take effect."))));
     }
 
     @Bean
     public ChatClient.Builder chatClientBuilder(ObjectProvider<ChatModel> chatModelProvider) {
         ChatModel chatModel = chatModelProvider.getIfUnique(() -> prompt -> new ChatResponse(List.of(new Generation(new AssistantMessage(
-                "No AI model has been configured. If you did configure a model recently, restart JavaClaw manually for the changes to take effect.")))));
+                "No AI model has been configured. If you did configure a model recently, restart JobClaw manually for the changes to take effect.")))));
         return ChatClient.builder(chatModel);
     }
 

@@ -24,7 +24,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useLoginUser } from "@/hooks/useLoginUser";
 import { useToast } from "@/hooks/use-toast";
 import { getConfigValue } from "@/lib/config";
-import { getWxSseUrl, postWxCallback, GlobalConfigItemValue, getUserDetail } from "@/lib/api";
+import { getWxSseUrl, postWxCallback, GlobalConfigItemValue, getUserDetail, devWxLogin } from "@/lib/api";
 import { useSSE } from "@/hooks/useSSE";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [code, setCode] = useState("");
   const [session, setSession] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [localHost, setLocalHost] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
   const { userInfo, setUserInfo, logout } = useLoginUser();
@@ -44,16 +45,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    setLocalHost(
+      ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+    );
     getConfigValue("site", "env").then(setEnv);
   }, []);
 
+  const isDevEnv = env.some(
+    (item) => String(item.value).toLowerCase() === "dev"
+  );
+  const localLoginEnabled = mounted && (localHost || isDevEnv);
+
   useEffect(() => {
-    if (loginOpen) {
+    if (loginOpen && !localLoginEnabled) {
       setSseUrl(getWxSseUrl());
     } else {
       setSseUrl("");
     }
-  }, [loginOpen]);
+  }, [loginOpen, localLoginEnabled]);
 
   const handleSSE = useCallback(
     (type: string, payload: string) => {
@@ -134,6 +143,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const handleDevLogin = async (type: "user" | "admin") => {
+    try {
+      if (type === "user") setLoginLoading(true);
+      else setAdminLoading(true);
+
+      const data = await devWxLogin(type);
+      const info = {
+        userId: data.user.userId,
+        role: data.user.role,
+        nickname: data.user.displayName,
+        avatar: data.user.avatar,
+        timestamp: Date.now(),
+      };
+      setUserInfo(info);
+      localStorage.setItem("oc-user", JSON.stringify(info));
+      localStorage.setItem("oc-token", data.token);
+      setLoginOpen(false);
+      window.location.reload();
+    } catch (err) {
+      toast({
+        title: "登录提醒",
+        description: "本地登录失败，请检查后端是否为 dev 环境",
+        variant: "destructive",
+      });
+    } finally {
+      setLoginLoading(false);
+      setAdminLoading(false);
+    }
+  };
+
   // Periodically check user info validity (5 minutes)
   useEffect(() => {
     const checkUserInfoValidity = async () => {
@@ -147,7 +186,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               const info = {
                 userId: updatedUser.userId,
                 role: updatedUser.role,
-                nickname: updatedUser.nickname,
+                nickname: updatedUser.displayName,
                 avatar: updatedUser.avatar,
                 timestamp: now,
               };
@@ -296,9 +335,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>扫码登录</DialogTitle>
+                        <DialogTitle>{localLoginEnabled ? "本地登录" : "扫码登录"}</DialogTitle>
                       </DialogHeader>
-                      {qr ? (
+                      {localLoginEnabled ? (
+                        <div className="flex flex-col gap-4">
+                          <div className="text-gray-600 text-sm">
+                            当前为本地开发环境，可直接选择登录身份。
+                          </div>
+                          <div className="flex gap-4">
+                            <Button
+                              onClick={() => handleDevLogin("user")}
+                              disabled={loginLoading || adminLoading}
+                            >
+                              {loginLoading ? "登录中..." : "普通用户登录"}
+                            </Button>
+                            <Button
+                              onClick={() => handleDevLogin("admin")}
+                              disabled={loginLoading || adminLoading}
+                              variant="secondary"
+                            >
+                              {adminLoading ? "登录中..." : "管理员登录"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : qr ? (
                         <div className="flex flex-col items-center">
                           <div className="text-gray text-sm py-1">
                             关注下方二维码，在对话框中输入验证码，既可以实现自动登录哦~
@@ -313,7 +373,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                           <div className="mt-2 text-lg font-bold">
                             验证码：{code}
                           </div>
-                          {env && env.length > 0 && env[0].value == "dev" && (
+                          {isDevEnv && !localHost && (
                             <div className="flex gap-4 mt-6">
                               <Button
                                 onClick={() => handleWxLogin("user", code)}

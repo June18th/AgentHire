@@ -1,19 +1,21 @@
+# 04-✅以OpenAPI方式接入讯飞大模型实战
+
 在 [✅求职派自定义实现讯飞大模型接入实战](https://www.yuque.com/itwanger/yyt72l/xkgxgln083t73gw4) 这一篇，我们演示了如何通过实现 SpringAI 的 `ChatModel`接口来实现大模型的交互流程；其核心就在于实现 `public ChatResponse call(Prompt prompt) {}`方法，在这个方法内部实现大模型的参数封装、接口调用、返回适配逻辑等。
 
 
 接下来我们再来看一下，对于符合OpenAI接口交互的大模型，如何进行快速接入。
 
-# 一、基础配置
-## 0.查阅官方文档，判断是否支持OpenAI接口
+## 一、基础配置
+### 0.查阅官方文档，判断是否支持OpenAI接口
 在讯飞的官方接口文档中，可以明确看到说兼容 OpenAI 的，这是基础前提。
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1756192057922-dc69fc00-5e99-4056-aca7-06cab6d63856.png)
 
-## 1.申请APIKey
+### 1.申请APIKey
 关于讯飞大模型的申请，请参照 [✅求职派大模型-星火SparkLite接入](https://www.yuque.com/itwanger/yyt72l/mk1l8vauyvtw13kw)
 
-## 2.引入依赖
+### 2.引入依赖
 要利用OpenAi的starter来实现讯飞的LLM调用，需要先保障求职派的服务依赖中，有正确引入openai-starter。
 
 ```xml
@@ -25,7 +27,7 @@
 ```
 
 
-## 3.添加AI配置
+### 3.添加AI配置
 在`application-ai.yml`配置文件中，添加上讯飞和OpenAi的apiKey
 
 :::success
@@ -50,10 +52,10 @@
 
 :::
 
-# 二、讯飞模型集成
+## 二、讯飞模型集成
 上面配置完毕之后，接下来需要通过OpenAi接口手动初始化讯飞的ChatModel。
 
-## 1.讯飞模型初始化
+### 1.讯飞模型初始化
 将之前实现的 SparkLiteModel 调整为手动声明
 
 
@@ -66,7 +68,7 @@
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1756193119771-12455ab7-ccb5-4d6c-8fb7-d2a8c45981c4.png)
 
-## 2.求职派LLM使用适配
+### 2.求职派LLM使用适配
 在 [✅求职派多模型集成实战](https://www.yuque.com/itwanger/yyt72l/rpk9m0bp2l9i94n6) 中我们提取了一层求职派的LLM调用抽象类，以方便更好的为求职派提供上层业务调用；因此这里还需要针对讯飞的求职派模型 `SparkOcChatModel`做一些针对性的改造。
 
 
@@ -75,7 +77,7 @@
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1756193361316-186c8019-472a-4b4b-92e2-e1674e6ede28.png)
 
-# 三、实测 &小结
+## 三、实测 &小结
 改造完成之后，我们可以实际测试下效果，看看讯飞大模型是否可以正常工作；如下，直接上传csv文件让讯飞模型提取校招信息。
 
 

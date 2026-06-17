@@ -1,8 +1,8 @@
 spring:
   application:
-    name: ai-oc
+    name: jobclaw
   config:
-    import: application-ai.yaml,application-dal.yaml,optional:classpath:application-private.yaml
+    import: classpath:application-ai.yaml,classpath:application-dal.yaml,optional:classpath:application-private.yml
   web:
     resources:
       # 支持本地图片上传之后的链接，其中 file:///d的用于win系统，后面的file: 适用于mac/linux系统
@@ -44,7 +44,7 @@ jobclaw:
     website-name: ${JOBCLAW_SITE_WEBSITE_NAME:求职派}
     web-site-logo: ${JOBCLAW_SITE_WEBSITE_LOGO:https://oc.paicoding.com/favicon.icon}
     web-site-host: ${JOBCLAW_SITE_WEBSITE_HOST:http://localhost}
-    web-site-url: ${oc.site.web-site-host}:${server.port}
+    web-site-url: ${jobclaw.site.web-site-host}:${server.port}
     auto-open: ${JOBCLAW_SITE_AUTO_OPEN:true} # 是否自动打开浏览器, 访问项目主页
   img:
     abs-tmp-path: ${JOBCLAW_IMG_ABS_TMP_PATH:/tmp/storage/}
@@ -265,4 +265,3 @@ server:
   compression:
     enabled: ${JOBCLAW_SERVER_COMPRESSION_ENABLED:true} # 开启返回结果压缩，减少传输耗时
     min-response-size: ${JOBCLAW_SERVER_COMPRESSION_MIN_RESPONSE_SIZE:2KB}
-

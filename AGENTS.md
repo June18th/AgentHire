@@ -55,7 +55,7 @@ Maven profiles: `dev` (default, H2), `test` (MySQL + Liquibase), `prod` (MySQL +
    cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db
    # then set JOBCLAW_DATABASE_NAME=jobclaw-my in .env
    ```
-3. For local config overrides, copy `application.yml` to `application-private.yml` in the same directory (git-ignored, auto-imported via `optional:classpath:application-private.yaml`)
+3. For local config overrides, copy `application.yml` to `application-private.yml` in the same directory (git-ignored, auto-imported via `optional:classpath:application-private.yml`)
 4. Run `./mvnw spring-boot:run` — browser opens at `http://localhost:8087`
 
 Workspace directory layout at runtime:

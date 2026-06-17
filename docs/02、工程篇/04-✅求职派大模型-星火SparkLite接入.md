@@ -1,6 +1,8 @@
+# 04-✅求职派大模型-星火SparkLite接入
+
 星火大模型提供了一个免费的 Lite，可以提供基本的文本处理，我们也将这个模型集成在求职派了；接下来介绍一下如何申请集成
 
-# 一、 星火ApiKey申请
+## 一、 星火ApiKey申请
 注册、登录账号相关流程省略，请直接在官网自助完成
 
 进入开放平台: [https://console.xfyun.cn/services/cbm](https://console.xfyun.cn/services/cbm)
@@ -13,7 +15,7 @@
 领取之后，在右边的鉴权信息中，将 ApiPassword 复制出来待用
 
 
-# 二、配置
+## 二、配置
 星火的配置和智谱差不多，同样放在 application-ai.yml 配置文件中
 
 ```yaml
@@ -35,7 +37,7 @@ spring:
 
 将你申请的 ${spark-api-key} 替换为你申请的apiKey；或者通过命令行参数进行输入
 
-# 三、使用
+## 三、使用
 在后台使用时，大模型的选择改为 - 讯飞星火
 
 

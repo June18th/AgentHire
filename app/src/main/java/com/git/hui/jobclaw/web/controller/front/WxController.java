@@ -1,13 +1,20 @@
 package com.git.hui.jobclaw.web.controller.front;
 
 import cn.hutool.core.util.NumberUtil;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
-import com.git.hui.jobclaw.core.apis.permission.Permission;
+import com.git.hui.jobclaw.configs.service.CommonDictService;
+import com.git.hui.jobclaw.constants.user.LoginConstants;
+import com.git.hui.jobclaw.core.apis.context.UserBo;
 import com.git.hui.jobclaw.core.apis.context.UserRoleEnum;
+import com.git.hui.jobclaw.core.apis.permission.Permission;
+import com.git.hui.jobclaw.core.utils.SpringUtil;
+import com.git.hui.jobclaw.openapi.model.OpenApiUserDTO;
+import com.git.hui.jobclaw.user.helper.SessionHelper;
 import com.git.hui.jobclaw.user.helper.WxLoginProperties;
 import com.git.hui.jobclaw.user.service.LoginService;
 import com.git.hui.jobclaw.user.service.RechargeService;
 import com.git.hui.jobclaw.user.service.UserService;
+import com.git.hui.jobclaw.util.SessionUtil;
+import com.git.hui.jobclaw.web.model.res.DevLoginVo;
 import com.git.hui.jobclaw.web.model.wx.BaseWxMsgResVo;
 import com.git.hui.jobclaw.web.model.wx.WxTxtMsgReqVo;
 import com.git.hui.jobclaw.web.model.wx.WxTxtMsgResVo;
@@ -41,14 +48,55 @@ import java.io.IOException;
 public class WxController {
     private final LoginService loginService;
     private final UserService userService;
+    private final SessionHelper sessionHelper;
+    private final CommonDictService commonDictService;
 
     private final RechargeService rechargeService;
 
     @Autowired
-    public WxController(LoginService loginService, UserService userService, RechargeService rechargeService) {
+    public WxController(LoginService loginService, UserService userService, SessionHelper sessionHelper,
+                        CommonDictService commonDictService, RechargeService rechargeService) {
         this.loginService = loginService;
         this.userService = userService;
+        this.sessionHelper = sessionHelper;
+        this.commonDictService = commonDictService;
         this.rechargeService = rechargeService;
+    }
+
+    /**
+     * 本地开发直登，避免依赖微信公众号二维码。
+     */
+    @GetMapping(path = "/dev/login")
+    public DevLoginVo devLogin(String type, HttpServletResponse response) {
+        if (commonDictService.prodEnv()) {
+            throw new IllegalStateException("生产环境不允许使用本地登录");
+        }
+
+        boolean admin = "admin".equalsIgnoreCase(type);
+        String wxId = admin ? "demoUser-admin" : "demoUser-login";
+        UserBo user = userService.getUserByWxId(wxId);
+        if (user == null) {
+            // AIDEV-NOTE: dev login only
+            user = userService.autoRegisterPaiCodingUserInfo(buildDevUser(wxId, admin));
+        }
+
+        String session = sessionHelper.genSession(user);
+        response.addCookie(SessionUtil.newCookie(LoginConstants.SESSION_KEY, session));
+        return new DevLoginVo(session, userService.detail(user.userId()));
+    }
+
+    private OpenApiUserDTO buildDevUser(String wxId, boolean admin) {
+        OpenApiUserDTO user = new OpenApiUserDTO();
+        user.setWxId(wxId);
+        user.setLoginName(wxId);
+        user.setUserName(admin ? "管理员" : "普通用户");
+        user.setRole(admin ? "admin" : "normal");
+        user.setPhoto(admin
+                ? "https://cdn.tobebetterjavaer.com/paicoding/avatar/0061.png"
+                : "https://cdn.tobebetterjavaer.com/paicoding/avatar/0067.png");
+        user.setEmail("");
+        user.setProfile("");
+        return user;
     }
 
     /**

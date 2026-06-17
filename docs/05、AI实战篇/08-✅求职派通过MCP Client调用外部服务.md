@@ -1,12 +1,14 @@
+# 08-✅求职派通过MCP Client调用外部服务
+
 这篇文章将介绍求职派通过MCP调用`selenium`来实现网页数据采集，从而增强求职派的采集目标范围。
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/12564477/1760105470193-f12510cf-b62b-406c-a9a4-114b3a4348e1.png)
 
-# 一、MCP Client
+## 一、MCP Client
 首先，我们需要找一些可用的MCP Client，到哪里找呢？
 
-## 1.MCP服务市场
+### 1.MCP服务市场
 下面推荐部分可用的市场（无广告成分，大家按需获取即可），可以自助搜索自己需要的mcp server
 
 + [GitHub - modelcontextprotocol/servers: Model Context Protocol Servers](https://github.com/modelcontextprotocol/servers?tab=readme-ov-file#%EF%B8%8F-official-integrations)
@@ -16,7 +18,7 @@
 + [腾讯云开发者社区-腾讯云	开发者 MCP广场_开发者MCP服务_MCP 服务器- 腾讯云](https://cloud.tencent.com/developer/mcp)
 
 
-## 2.MCP Server验证
+### 2.MCP Server验证
 这里选择的MCP Server为 mcp-selenium，对应的源码在：[https://github.com/angiejones/mcp-selenium](https://github.com/angiejones/mcp-selenium)
 
 接下来我们利用 Trae 来验证一下这个mcp server的表现情况。
@@ -51,8 +53,8 @@
 ![](https://cdn.nlark.com/yuque/0/2025/gif/12564477/1760106287198-fe4dd62c-9ce0-4c69-8217-e20fb1a2038a.gif)
 
 
-# 二、求职派使用MCP Server
-## 1.依赖配置
+## 二、求职派使用MCP Server
+### 1.依赖配置
 首先在pom.xml中添加 MCP Client 的依赖。
 
 ```xml
@@ -63,7 +65,7 @@
 ```
 
 
-## 2.MCP Server配置
+### 2.MCP Server配置
 然后在配置文件中，指定MCP Server的配置信息；创建一个`mcp-servers.json`文件，放在 `resources/ `目录下
 
 ```json
@@ -142,7 +144,7 @@ spring:
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1754446711848-1bc1b264-2013-4009-a787-7d7e6135e7bd.png)
 
 
-## 3.MCP Client注入为大模型默认工具
+### 3.MCP Client注入为大模型默认工具
 求职派现在提供了两个免费的大模型，智谱 + 讯飞Lite，不过只有智谱支持Function Calling，也就是说，如果想要体验MCP Server，就只能选择智谱模型（如果选择氪金的话，所有的大模型厂商的主流模型都是支持Function Calling的）
 
 
@@ -169,7 +171,7 @@ public ZhiPuOcChatModel(ZhiPuAiChatModel zhiPuAiChatModel, List<McpAsyncClient> 
 1. 直接注入 `List<McpAsyncClient> mcpClients`，因为我们配置的是异步使用mcp server的方式，因此这里拿的也是异步的Client；对于同步的场景，可以注入 `List<McpSyncClient>`
 2. 将MCP Client封装为 `McpToolCallbackProvider`传入MCP Model，作为大模型的默认工具回调
 
-## 4.使用层适配
+### 4.使用层适配
 上面改完之后，照理我们传入网页链接后，大模型应该能正常通过 MCP Server 抓取网页内容并返回。但实际测试的表现和预期不一致，主要原因有两点。
 
 
@@ -198,7 +200,7 @@ public ZhiPuOcChatModel(ZhiPuAiChatModel zhiPuAiChatModel, List<McpAsyncClient> 
 
 基于此，我们对大模型的应用层，做一个针对性的适配
 
-### step1: 传入文本校验逻辑放开
+#### step1: 传入文本校验逻辑放开
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1754449041023-8456e0ff-67b7-4fe5-bab4-e6621ed4bdbb.png)
 
@@ -207,7 +209,7 @@ public ZhiPuOcChatModel(ZhiPuAiChatModel zhiPuAiChatModel, List<McpAsyncClient> 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1754448973402-e87188e0-7a15-48dd-87d7-66dadf18896b.png)
 
-### step2: 工具注册
+#### step2: 工具注册
 ```java
 /**
  * 给大模型使用的工具提供类
@@ -246,7 +248,7 @@ public void initLocalToolCallback() {
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1754449553740-21a3ab84-ce1c-4f7d-8ea8-95a0423b4320.png)
 
 
-## 5.使用测试
+### 5.使用测试
 然后启动应用，注意将 `application-ai.yaml`配置文件中` spring.ai.mcp.client.enabled = true`； 然后再提交一个http链接获取的任务看看执行效果
 
 
@@ -288,7 +290,7 @@ public void initLocalToolCallback() {
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/12564477/1760109523445-121f02b8-7db4-410b-a9ca-ef3d3fccf2b2.png)
 
-# 三、小结
+## 三、小结
 本文主要介绍了如何通过 **Spring AI** 集成使用 **MCP Server**。整体体验其实出奇地简单：引入依赖、自动注入几个 Client、传给大模型，流程基本就跑通了。从应用层开发者的角度来看，使用 MCP 的门槛非常低，几乎感受不到额外负担。
 
 

@@ -63,3 +63,5 @@ workspace/sessions
 workspace/archives
 app/src/main/resources/application-private.yml
 app/workspace/datas/jobclaw-my.mv.db
+app/workspace/datas/jobclaw-my.trace.db
+app/workspace/datas/jobclaw-my.trace.db

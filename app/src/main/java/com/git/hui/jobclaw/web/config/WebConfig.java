@@ -2,10 +2,12 @@ package com.git.hui.jobclaw.web.config;
 
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.web.hook.interceptor.PermissionCheckInterceptor;
-import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.Servlet;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,10 +54,6 @@ public class WebConfig implements WebMvcConfigurer {
             configs = staticConfigs();
         }
 
-        // 排除 H2 Console 路径，让 Spring Boot 自动处理
-        registry.addResourceHandler("/h2-console/**")
-                .addResourceLocations("classpath:/META-INF/resources/");
-        
         registry.addResourceHandler("/**")
                 .addResourceLocations(configs)
                 .setCachePeriod(0).resourceChain(true)
@@ -64,15 +62,17 @@ public class WebConfig implements WebMvcConfigurer {
                     protected Resource resolveResourceInternal(HttpServletRequest request,
                                                                String requestPath,
                                                                List<? extends Resource> locations, ResourceResolverChain chain) {
+                        if (requestPath.startsWith("h2-console")) {
+                            return null;
+                        }
+
                         for (Resource location : locations) {
-                            // 解决前端访问路径上没有携带.html，导致查询后台静态资源找不到的问题
                             try {
                                 Resource resource = location.createRelative(requestPath);
                                 if (resource.exists() && resource.isReadable()) {
                                     return resource;
                                 }
 
-                                // 尝试添加 .html 后缀
                                 resource = location.createRelative(requestPath + ".html");
                                 if (resource.exists() && resource.isReadable()) {
                                     return resource;
@@ -81,7 +81,6 @@ public class WebConfig implements WebMvcConfigurer {
                             }
                         }
 
-                        // 最后 fallback 到 index.html（适用于 SPA）
                         return new ClassPathResource("static/index.html");
                     }
 
@@ -98,8 +97,21 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(permissionCheckInterceptor)
-                .addPathPatterns("/api/**") // 根据实际需要调整路径
-                .excludePathPatterns("/api/wx"); // 排除不需要拦截的路径
+                .addPathPatterns("/api/**")
+                .excludePathPatterns("/api/wx");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Bean
+    @ConditionalOnClass(name = "org.h2.server.web.JakartaWebServlet")
+    public ServletRegistrationBean<Servlet> h2Console(
+            @Value("${spring.h2.console.path:/h2-console}") String path) throws Exception {
+        Class<? extends Servlet> servletClass =
+                (Class<? extends Servlet>) Class.forName("org.h2.server.web.JakartaWebServlet");
+        ServletRegistrationBean<Servlet> registration =
+                new ServletRegistrationBean<>(servletClass.getDeclaredConstructor().newInstance(), path + "/*");
+        registration.setLoadOnStartup(1);
+        return registration;
     }
 
 }

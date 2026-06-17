@@ -1,15 +1,17 @@
+# 01-✅求职派Spring AI集成实战
+
 这一篇将以智谱清言大模型为例，介绍求职派是如何借助SpringAI来进行 AI 应用开发的。
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/12564477/1758335723638-8d096c89-5c91-4d79-9dcc-98b2ed28ac06.png)
 
-# 一、前置准备
-## 1.申请ApiKey
+## 一、前置准备
+### 1.申请ApiKey
 到大模型后台进行申请，智谱的申请请看 [✅求职派大模型-智普清言接入](https://www.yuque.com/itwanger/yyt72l/bkb31aukyil47osx)
 
 星火大模型接入的请看 [求职派大模型-星火SparkLite接入](https://www.yuque.com/itwanger/yyt72l/mk1l8vauyvtw13kw)
 
-## 2.项目配置
+### 2.项目配置
 对于智谱，官方提供了starter，可以很方便集成（星火麻烦一点）
 
 + 官方接入教程：[ZhiPu AI Chat :: Spring AI Reference](https://docs.spring.io/spring-ai/reference/api/chat/zhipuai-chat.html)
@@ -43,8 +45,8 @@ spring:
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1753781086299-3c1dc972-9536-48fe-b089-7f7df834984a.png)
 
 
-# 二、SpringAI集成
-## 1.ChatModel注入
+## 二、SpringAI集成
+### 1.ChatModel注入
 对于智谱而言，引入依赖之后，会自动注入 `ZhiPuAiChatModel` 。因为我们与大模型的交互除了文本之外，还有图片，因此会使用两个模型：
 
 + 文本模型：GLM-4-Flash
@@ -57,7 +59,7 @@ spring:
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1753781455473-610badf9-5f4d-4fea-a917-cf8f51b30403.png)
 
 
-## 2.系统提示词
+### 2.系统提示词
 因为我们与模型的交互目的很纯粹，就是让大模型从我们从输入的信息中提取需要的信息，所以可以预设这样的系统提示词。
 
 ```java
@@ -71,7 +73,7 @@ public static final String SYSTEM_PROMPT = """
 然后在创建ChatClient 的时候，通过 `ChatClient.builder().defaultSystem()`设置系统提示词，这样每次与大模型交互时，都会携带上这段提示词。
 
 
-## 3.大模型交互
+### 3.大模型交互
 我们这里以最基础的文本交互为例，让大模型按照我们希望的方式进行数据提取，一个非常重要的点，大模型怎么知道提取什么数据呢？
 
 
@@ -115,7 +117,7 @@ public List<GatherOcDraftBo> gatherByText(String text) {
 
 到这里，SpringAI与大模型的交互就算是完成了（如此简单，是不是有点不敢相信了~）
 
-## 4.业务层调用
+### 4.业务层调用
 有了前面 GatherAiAgent 与大模型交互的基础，现在我们来新建一个统一的任务处理服务类 `OfferGatherService`。
 
 
@@ -123,7 +125,7 @@ public List<GatherOcDraftBo> gatherByText(String text) {
 
 （说明：在这个实现里，我们加了一个兜底，如果传入的字符串为空，则使用默认的输入文本-- 实际生产时应该直接忽略这个任务）
 
-## 5.测试验证
+### 5.测试验证
 接下来我们实际体验一下，看看效果。
 
 
@@ -137,7 +139,7 @@ public List<GatherOcDraftBo> gatherByText(String text) {
 大模型的结构化返回
 
 
-# 三、小结
+## 三、小结
 本文主要介绍了求职派集成 SpringAI，整体实现比较简单，需要特殊说一下的是，并不是所有的大模型，都有直接可用的 `starter`，对于没有的，需要我们按照SpringAI的规范进行扩展。
 
 

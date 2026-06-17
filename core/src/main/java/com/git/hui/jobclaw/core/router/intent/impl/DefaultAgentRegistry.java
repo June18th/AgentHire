@@ -35,12 +35,12 @@ public class DefaultAgentRegistry implements AgentRegistry {
     // 意图类型 -> Agent ID列表（按优先级）
     // AIDEV-NOTE: 可配置化
     private static final Map<PresetAgentIntro, List<String>> INTENT_AGENT_MAPPING = Map.of(
-            PresetAgentIntro.COLLECT, List.of(PresetAgentIntro.COLLECT.getAgentId(), PresetAgentIntro.DEFAULT.getDescription()),
-            PresetAgentIntro.RECOMMEND, List.of(PresetAgentIntro.RECOMMEND.getAgentId(), PresetAgentIntro.DEFAULT.getDescription()),
-            PresetAgentIntro.SUBSCRIBE, List.of(PresetAgentIntro.SUBSCRIBE.getAgentId(), PresetAgentIntro.DEFAULT.getDescription()),
-            PresetAgentIntro.QUERY, List.of(PresetAgentIntro.QUERY.getAgentId(), PresetAgentIntro.DEFAULT.getDescription()),
-            PresetAgentIntro.PROFILE, List.of(PresetAgentIntro.PROFILE.getAgentId(), PresetAgentIntro.DEFAULT.getDescription()),
-            PresetAgentIntro.HELP, List.of(PresetAgentIntro.HELP.getAgentId(), PresetAgentIntro.DEFAULT.getDescription()),
+            PresetAgentIntro.COLLECT, List.of(PresetAgentIntro.COLLECT.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
+            PresetAgentIntro.RECOMMEND, List.of(PresetAgentIntro.RECOMMEND.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
+            PresetAgentIntro.SUBSCRIBE, List.of(PresetAgentIntro.SUBSCRIBE.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
+            PresetAgentIntro.QUERY, List.of(PresetAgentIntro.QUERY.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
+            PresetAgentIntro.PROFILE, List.of(PresetAgentIntro.PROFILE.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
+            PresetAgentIntro.HELP, List.of(PresetAgentIntro.HELP.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
             PresetAgentIntro.DEFAULT, List.of(PresetAgentIntro.DEFAULT.getAgentId()),
             PresetAgentIntro.SWITCH_AGENT, List.of(),
             PresetAgentIntro.LIST_AGENTS, List.of(),

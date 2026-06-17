@@ -1,4 +1,6 @@
-# 一、版本速览
+# 09-✅LangGraph4J构建求职派Agent
+
+## 一、版本速览
 截止到 Release 0.0.2 版本的时候，求职派主要还是借助SpringAI实现的单智能体应用，借助SpringAI 实现目标数据的解析，提取出校招信息并保存到数据库中。
 
 
@@ -19,8 +21,8 @@
 
 接下来，我们朝这个方向努力一下，来实现一个完全体的求职派智能体。
 
-# 二、求职派智能体构建
-## 1.流程拆解
+## 二、求职派智能体构建
+### 1.流程拆解
 前面的章节已经把业务流程跑通了一遍，接下来就该把这条链路落地成一套可执行的智能体工作流。
 
 
@@ -41,7 +43,7 @@
 由LangGraph4J生成的流程图
 
 
-## 2.定义AgentState
+### 2.定义AgentState
 在 LangGraph 中，AgentState 用于图的状态共享，本质是一个`Map<String, Object>`，在求职派中，我们定义了一个 `OcAgentStat，`在内部持有各Agent的输入输出。
 
 ```java
@@ -145,7 +147,7 @@ public class JsonSerializer<T> implements Serializer<T> {
 }
 ```
 
-## 3.定义通用Agent
+### 3.定义通用Agent
 在正式的Agent开发之前，我们先定义一个通用的 BaseAgent， 来实现一些统一的行为封装（如获取AgentName, 关键日志输出）
 
 ```java
@@ -179,7 +181,7 @@ public abstract class BaseAgent {
 }
 ```
 
-## 4.任务自动分类：TaskClassifyAgent
+### 4.任务自动分类：TaskClassifyAgent
 在单智能体场景中，用户在提交任务的时候，需要指定对应的任务类型，如下。
 
 
@@ -260,7 +262,7 @@ public class TaskClassifyAgent extends BaseAgent {
 }
 ```
 
-## 5.任务采集：TaskGatherAgent
+### 5.任务采集：TaskGatherAgent
 接下来就是核心的任务采集 Agent，也就是我们之前基于SpringAI实现的单智能体，根据用户的输入，与大模型进行交互，从而提取校招信息。
 
 
@@ -303,7 +305,7 @@ public class TaskGatherAgent extends BaseAgent {
 }
 ```
 
-## 6.数据清洗：DraftWasherAgent
+### 6.数据清洗：DraftWasherAgent
 大模型抽取的结果，底子多半取决于我们喂进去的信息源质量。
 
 
@@ -347,7 +349,7 @@ public class DraftWasherAgent extends BaseAgent {
 ```
 
 
-## 7.数据发布：DraftPublishAgent
+### 7.数据发布：DraftPublishAgent
 发布任务相对简单一点，直接将清洗后的数据，通过现有的发布服务发布上架；后续可以联动订阅，新增一个职位信息时，扫描感兴趣的人群，推送一条消息过去，实现“增值服务”。
 
 ```java
@@ -377,7 +379,7 @@ public class DraftPublishAgent extends BaseAgent {
 
 ```
 
-## 8.定义AgentGraph
+### 8.定义AgentGraph
 当上面的Agent实现完毕之后，接下来的就是基于这些Agent来定义LangGraph中的`Node` `Edge`，
 
 + 将上面的Agent映射为Node
@@ -549,7 +551,7 @@ public class AgentExecutor {
 }
 ```
 
-## 9.定义访问端点
+### 9.定义访问端点
 最后就是暴露智能体的驱动入口，直接在AdminOfferGatherController 中新建一个接口。
 
 ```java
@@ -561,7 +563,7 @@ public OcAgentState agentRun(Long taskId) {
 }
 ```
 
-## 10.测试验证
+### 10.测试验证
 最后就该验货了。
 
 
@@ -588,7 +590,7 @@ public OcAgentState agentRun(Long taskId) {
 
 [此处为语雀卡片，点击链接查看](about:blank#pUCiS)
 
-# 三、小结
+## 三、小结
 这篇就当抛砖引玉，给大家把用 LangGraph4J + Spring AI 搭出复杂多智能体的路径踩了一遍。
 
 

@@ -77,6 +77,26 @@ export async function postWxCallback(xml: string): Promise<void> {
   });
 }
 
+export interface DevLoginUser {
+  userId: number;
+  displayName?: string;
+  avatar?: string;
+  role: number;
+}
+
+export interface DevLoginResponse {
+  token: string;
+  user: DevLoginUser;
+}
+
+export async function devWxLogin(type: "user" | "admin"): Promise<DevLoginResponse> {
+  const res = await api.get("/api/wx/dev/login", { params: { type } });
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "本地登录失败");
+}
+
 export interface JobListQuery {
   companyName?: string;
   companyType?: string;

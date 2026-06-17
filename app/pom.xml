@@ -12,8 +12,8 @@
     <artifactId>app</artifactId>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <langgraph4j.version>1.6.0-rc4</langgraph4j.version>
         <qrcode-plugin.version>3.0.0</qrcode-plugin.version>
@@ -46,6 +46,11 @@
         <dependency>
             <groupId>com.git.hui.jobclaw.provider</groupId>
             <artifactId>zhipu</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.git.hui.jobclaw.provider</groupId>
+            <artifactId>anthropic</artifactId>
             <version>${project.version}</version>
         </dependency>
 
