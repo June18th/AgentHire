@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import ChannelSection from "@/app/user/sub/ChannelSection";
 import PreferenceSection from "@/app/user/sub/PreferenceSection";
+import LlmUsageSection from "@/app/user/sub/LlmUsageSection";
 import { Input } from "@/components/ui/input";
 
 import {
@@ -41,6 +42,7 @@ const MENU = [
   { key: "fav", label: "订阅收藏", icon: "⭐" },
   { key: "channel", label: "渠道配置", icon: "📱" },
   { key: "preference", label: "偏好设置", icon: "⚙️" },
+  { key: "llm-usage", label: "模型用量", icon: "💸" },
   // { key: "post", label: "内推录入", icon: "🏬" },
   { key: "profile", label: "基本资料", icon: "📄" },
 ];
@@ -435,6 +437,8 @@ export default function UserPage() {
                 <ChannelSection />
               ) : activeMenu === "preference" ? (
                 <PreferenceSection />
+              ) : activeMenu === "llm-usage" ? (
+                <LlmUsageSection />
               ) : (
                 <SubscriptionSection
                     intro={intro}

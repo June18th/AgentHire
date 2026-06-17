@@ -68,6 +68,7 @@ public class BizAgentLlmCaller extends SimpleLlmCaller {
         }
         String key = user.jobClawUserId() + model.name();
         if (chatClientMap.containsKey(key)) {
+            modelProviders.getModel(user.jobClawUserId(), model);
             return chatClientMap.get(key);
         }
 
@@ -113,33 +114,25 @@ public class BizAgentLlmCaller extends SimpleLlmCaller {
 
     public String call(UserConversationInfo user, ChannelReceiveMessage msg) {
         Prompt prompt = new Prompt(buildUserMessage(msg));
-        ChatClient client = getClient(user, prompt);
-
-        return client.prompt(prompt)
+        return monitor().call(context(user, operation(user), "SYNC"), prompt, () -> getClient(user, prompt).prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, user.genId()))
                 .toolContext(Map.of("jobClawUserId", user.jobClawUserId(),
                         "user", user,
                         "msg", msg))
-                .call()
-                .content();
+                .call().content());
     }
 
     @Override
     public String call(UserConversationInfo user, Prompt prompt) {
-        ChatClient client = getClient(user, prompt);
-
-        return client.prompt(prompt)
+        return monitor().call(context(user, operation(user), "SYNC"), prompt, () -> getClient(user, prompt).prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, user.genId()))
                 .toolContext(Map.of("jobClawUserId", user.jobClawUserId(), "user", user))
-                .call()
-                .content();
+                .call().content());
     }
 
     public <T> Flux<T> stream(UserConversationInfo user, ChannelReceiveMessage msg, Function<ChatResponse, T> func) {
         Prompt prompt = new Prompt(buildUserMessage(msg));
-        ChatClient client = getClient(user, prompt);
-
-        return client.prompt(prompt)
+        return monitor().stream(context(user, operation(user), "STREAM"), prompt, () -> getClient(user, prompt).prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, user.genId()))
                 .toolContext(Map.of(
                         "jobClawUserId", user.jobClawUserId(),
@@ -147,19 +140,16 @@ public class BizAgentLlmCaller extends SimpleLlmCaller {
                         "msg", msg
                 ))
                 .stream()
-                .chatResponse().map(func);
+                .chatResponse(), func);
 
     }
 
     @Override
     public <T> Flux<T> stream(UserConversationInfo user, Prompt prompt, Function<ChatResponse, T> func) {
-        ChatClient client = getClient(user, prompt);
-
-        return client.prompt(prompt)
+        return monitor().stream(context(user, operation(user), "STREAM"), prompt, () -> getClient(user, prompt).prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, user.genId()))
                 .toolContext(Map.of("jobClawUserId", user.jobClawUserId(), "user", user))
-                .stream()
-                .chatResponse().map(func);
+                .stream().chatResponse(), func);
 
     }
 

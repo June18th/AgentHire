@@ -254,6 +254,12 @@ logging:
     com.git.hui.jobclaw.core.agent.react.ReActAdvisor: debug
     com.git.hui.jobclaw.core.agent.models.LlmRspCell: debug
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
 server:
   port: ${JOBCLAW_SERVER_PORT:8087}
   compression:

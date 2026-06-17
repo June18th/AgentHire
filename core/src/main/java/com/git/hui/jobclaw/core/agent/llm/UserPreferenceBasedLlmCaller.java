@@ -3,7 +3,6 @@ package com.git.hui.jobclaw.core.agent.llm;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.agent.react.ReActAdvisor;
-import com.git.hui.jobclaw.core.agent.react.ReActMiddleware;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
@@ -33,6 +32,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.core.io.Resource;
+import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
@@ -71,25 +71,25 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
     public <T> Flux<T> stream(UserConversationInfo conversationInfo, ChannelReceiveMessage message, Function<ChatResponse, T> func) {
         String jobClawUserId = conversationInfo.jobClawUserId();
         Prompt prompt = buildSoulPrompt(jobClawUserId, message);
-        ChatClient client = getClient(conversationInfo, prompt);
-        return client.prompt(prompt)
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
-                .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
-                .stream()
-                .chatResponse()
-                .map(func);
+        return monitor().stream(
+                context(conversationInfo, operation(conversationInfo), "STREAM"),
+                prompt,
+                () -> getClient(conversationInfo, prompt).prompt(prompt)
+                        .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
+                        .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
+                        .stream()
+                        .chatResponse(),
+                func);
     }
 
     public String call(UserConversationInfo conversationInfo, ChannelReceiveMessage message) {
         // Execute with conversation memory
         String jobClawUserId = conversationInfo.jobClawUserId();
         Prompt prompt = buildSoulPrompt(jobClawUserId, message);
-        ChatClient client = getClient(conversationInfo, prompt);
-        return client.prompt(buildSoulPrompt(jobClawUserId, message))
+        return monitor().call(context(conversationInfo, operation(conversationInfo), "SYNC"), prompt, () -> getClient(conversationInfo, prompt).prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
                 .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
-                .call()
-                .content();
+                .call().content());
     }
 
 
@@ -101,7 +101,7 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
     protected ChatClient getClient(UserConversationInfo user, Prompt prompt) {
         // 判断message中是否包含media
         ModelConfig.ModelType model = ModelConfig.ModelType.TEXT;
-        if (prompt.getUserMessages().stream().anyMatch(m -> m.getMedia() != null)) {
+        if (prompt.getUserMessages().stream().anyMatch(m -> !CollectionUtils.isEmpty(m.getMedia()))) {
             model = ModelConfig.ModelType.VISION;
         }
 
@@ -120,6 +120,8 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
             client = initClient(userId, multiModal);
             log.info("[{}] init UserPreferenceBasedLlmCaller for user: {}, channel: {}", user.agent(), user.jobClawUserId(), user.channel());
             super.chatClientMap.put(key, client);
+        } else {
+            modelProviders.getModel(userId, multiModal ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT);
         }
         return client;
     }

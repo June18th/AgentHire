@@ -47,4 +47,7 @@
     </changeSet>
 
     <!-- 修复checksum错误 -->
+    <changeSet id="260615_00000001" author="Codex">
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/llm_monitor_260615.sql"/>
+    </changeSet>
 </databaseChangeLog>

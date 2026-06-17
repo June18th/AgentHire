@@ -228,5 +228,7 @@ public class AiUserPreferenceProperties {
          * 最大 token 数
          */
         private Integer maxTokens;
+        private java.math.BigDecimal inputPricePerMillionTokens;
+        private java.math.BigDecimal outputPricePerMillionTokens;
     }
 }
