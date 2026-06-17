@@ -220,7 +220,7 @@ public class LlmMonitorMiddleware implements ReActMiddleware {
                 .replaceAll("[\\w.+-]+@[\\w.-]+", "***@***")
                 .replaceAll("1[3-9]\\d{9}", "***")
                 .replaceAll("\\b\\d{17}[\\dXx]\\b", "***");
-        final int size = ("FAILED".equals(outcome) || Math.random() >= 0.01) ? 4000 : 100;
+        final int size = ("FAILED".equals(outcome) || Math.random() <= 0.01) ? 4000 : 100;
         return cleaned.substring(0, Math.min(cleaned.length(), size));
     }
 

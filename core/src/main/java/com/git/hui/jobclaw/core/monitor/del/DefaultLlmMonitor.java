@@ -1,5 +1,6 @@
 package com.git.hui.jobclaw.core.monitor.del;
 
+import com.alibaba.ttl.TransmittableThreadLocal;
 import com.git.hui.jobclaw.core.monitor.LlmCallContext;
 import com.git.hui.jobclaw.core.monitor.LlmInvocationRecord;
 import com.git.hui.jobclaw.core.monitor.LlmRequestRecord;
@@ -35,7 +36,7 @@ import java.util.function.Supplier;
 @Component
 public class DefaultLlmMonitor implements LlmMonitor {
     // 使用ThreadLocal存储当前调用的状态信息
-    private static final ThreadLocal<InvocationState> CURRENT = new ThreadLocal<>();
+    private static final ThreadLocal<InvocationState> CURRENT = new TransmittableThreadLocal<>();
     // 用于发布应用程序事件
     private final ApplicationEventPublisher publisher;
     // 用于记录指标
@@ -320,7 +321,7 @@ public class DefaultLlmMonitor implements LlmMonitor {
                 .replaceAll("1[3-9]\\d{9}", "***")
                 .replaceAll("\\b\\d{17}[\\dXx]\\b", "***");
         // 1% 的记录完整的提示词；否则记录前100字
-        final int size = (!"FAILED".equals(outcome) && Math.random() >= 0.01) ? 4000 : 100;
+        final int size = ("FAILED".equals(outcome) || Math.random() <= 0.01) ? 4000 : 100;
         return cleaned.substring(0, Math.min(cleaned.length(), size));
     }
 
