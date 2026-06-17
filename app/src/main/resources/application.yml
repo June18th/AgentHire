@@ -252,7 +252,7 @@ logging:
     com.git.hui: info
     com.git.hui.jobclaw.core.agent.identity: debug
     com.git.hui.jobclaw.core.agent.react.ReActAdvisor: debug
-    com.git.hui.jobclaw.core.agent.models.LlmRspCell: debug
+    com.git.hui.jobclaw.core.agent.models.LlmRspCell: info
 
 management:
   endpoints:

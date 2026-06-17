@@ -151,6 +151,16 @@ public class UserIdentityExtractor {
         // Trim whitespace
         identity = identity.trim();
 
+        // 如果 identity 是markdown格式，需要进行格式化
+        if (identity.startsWith("```")) {
+            // 移除首行
+            identity = identity.substring(identity.indexOf("\n") + 1);
+        }
+        if (identity.endsWith("```")) {
+            // 移除尾行
+            identity = identity.substring(0, identity.length() - 3);
+        }
+
         // Ensure it starts with # User identity Profile
         if (!identity.startsWith("# User identity Profile")) {
             identity = "# User identity Profile\n\n" + identity;

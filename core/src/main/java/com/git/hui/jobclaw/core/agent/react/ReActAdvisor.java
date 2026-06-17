@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.core.agent.react;
 
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
@@ -11,7 +12,6 @@ import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
-import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -22,12 +22,14 @@ import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 自定义 ReAct (Reasoning-Acting) Advisor
@@ -118,103 +120,6 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
         return firstResponse;
     }
 
-    // ==================== StreamAdvisor ====================
-
-    @Override
-    public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
-        log.debug("[ReAct] adviseStream start, maxIterations={}", maxIterations);
-        String chatId = "A-" + UUID.randomUUID();
-
-        // AIDEV-NOTE: 先收集所有 chunks，再统一处理。
-        // 不能用 aggregateChatClientResponse（Consumer 副作用无法向下游追加新 chunks）。
-        // 工具调用场景的响应较短，缓冲延迟可接受。
-
-        // 在流式收集前通知中间件
-        List<Message> initialMessages = new ArrayList<>(request.prompt().getInstructions());
-        notifySetContext(request, chatId);
-        notifyBeforeReasoning(initialMessages, 0, chatId);
-
-        return chain.nextStream(request)
-                .collectList()
-                .flatMapMany(chunks -> {
-                    if (chunks.isEmpty()) {
-                        notifyAfterReasoning(null, 0, chatId);
-                        notifyComplete(1, null, chatId);
-                        return Flux.<ChatClientResponse>empty();
-                    }
-
-                    // 检查聚合后的响应是否包含工具调用
-                    ChatClientResponse firstResponse = aggregateChunks(chunks);
-                    ChatResponse chatResponse = firstResponse.chatResponse();
-                    if (chatResponse == null || chatResponse.getResult() == null) {
-                        log.warn("[ReAct] aggregateChunks returned null response, emitting {} raw chunks", chunks.size());
-                        notifyAfterReasoning(chatResponse, 0, chatId);
-                        notifyComplete(1, null, chatId);
-                        return Flux.fromIterable(chunks);
-                    }
-
-                    AssistantMessage output = chatResponse.getResult().getOutput();
-                    List<AssistantMessage.ToolCall> toolCalls = output.getToolCalls();
-                    log.info("[ReAct] Aggregated {} chunks, toolCalls={}, textLen={}",
-                            chunks.size(),
-                            toolCalls != null ? toolCalls.size() : 0,
-                            output.getText() != null ? output.getText().length() : 0);
-
-                    // 无工具调用 → 直接发射原始 chunks
-                    if (toolCalls == null || toolCalls.isEmpty()) {
-                        notifyAfterReasoning(chatResponse, 0, chatId);
-                        notifyComplete(1, output.getText(), chatId);
-                        return Flux.fromIterable(chunks);
-                    }
-
-                    // 有工具调用：先记录首次推理结果，再进入 ReAct 循环
-                    notifyAfterReasoning(chatResponse, 0, chatId);
-
-                    // 进入 ReAct 循环
-                    List<Message> messages = new ArrayList<>(request.prompt().getInstructions());
-                    messages.add(output);
-                    try {
-                        ReactLoopResult loopResult = runReactLoop(messages, toolCalls, request, 1, chatId);
-                        if (loopResult != null && loopResult.finalResponse != null) {
-                            List<ChatClientResponse> result = new ArrayList<>(chunks);
-                            // 发射工具执行结果，使其流经 LlmRspCell
-                            ChatClientResponse toolResultResp = buildToolResultResponse(loopResult.toolResponses, request);
-                            result.add(toolResultResp);
-                            // 发射模型最终响应
-                            result.add(loopResult.finalResponse);
-                            log.info("[ReAct] Stream emitting {} items ({} original + toolResult + final), toolResult metadata={}",
-                                    result.size(), chunks.size(),
-                                    toolResultResp.chatResponse().getResult().getOutput().getMetadata());
-                            notifyComplete(loopResult.iterations(),
-                                    loopResult.finalResponse.chatResponse().getResult().getOutput().getText(),
-                                    chatId);
-                            return Flux.fromIterable(result);
-                        } else {
-                            log.warn("[ReAct] runReactLoop returned null (loopResult={}), falling back to raw chunks", loopResult);
-                        }
-                    } catch (Exception e) {
-                        log.error("[ReAct] Stream ReAct loop failed", e);
-                        notifyError(e, -1, chatId);
-                    }
-
-                    return Flux.fromIterable(chunks);
-                });
-    }
-
-    // ==================== ReAct 循环核心 ====================
-
-    /**
-     * ReAct 循环的结果容器，包含最终响应和工具执行结果
-     *
-     * @param finalResponse 模型最终响应（无工具调用时的 ChatClientResponse）
-     * @param toolResponses 所有迭代的工具执行结果
-     * @param iterations    实际迭代次数
-     */
-    private record ReactLoopResult(ChatClientResponse finalResponse,
-                                   List<ToolResponseMessage> toolResponses,
-                                   int iterations) {
-    }
-
     /**
      * 同步执行 ReAct 循环（工具调用本质上是阻塞的）
      *
@@ -256,94 +161,147 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
         return null;
     }
 
-    // ==================== 工具执行 ====================
+    // ==================== StreamAdvisor ====================
+
+    @Override
+    public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
+        log.debug("[ReAct] adviseStream start, maxIterations={}", maxIterations);
+        String chatId = "A-" + UUID.randomUUID();
+
+        List<Message> initialMessages = new ArrayList<>(request.prompt().getInstructions());
+        notifySetContext(request, chatId);
+        notifyBeforeReasoning(initialMessages, 0, chatId);
+
+        return streamWithReAct(request, chain, initialMessages, 0, chatId);
+    }
+
+    // ==================== 非阻塞流式 ReAct 核心 ====================
 
     /**
-     * 手动将流式 chunks 聚合为一个完整的 ChatClientResponse
-     * <p>
-     * AIDEV-NOTE: 不能使用 ChatClientMessageAggregator.aggregateChatClientResponse()，
-     * 因为它是 pass-through 操作（doOnNext 发射原始项，doOnComplete 才调用 Consumer 副作用），
-     * blockFirst() 只会拿到第一个原始 chunk，而非聚合结果。
-     * 这里手动合并所有 chunk 的文本、元数据和工具调用信息。
+     * 流式 ReAct 循环：发射首个推理的 chunks（实时 pass-through），
+     * 在流结束后聚合检查工具调用，若有则执行工具并递归流式下一次推理。
      */
-    private ChatClientResponse aggregateChunks(List<ChatClientResponse> chunks) {
-        StringBuilder textBuilder = new StringBuilder();
-        List<AssistantMessage.ToolCall> toolCalls = null;
-        Map<String, Object> metadata = new HashMap<>();
-        int chunkWithToolCalls = 0;
-        ChatResponseMetadata responseMetadata = null;
+    private Flux<ChatClientResponse> streamWithReAct(
+            ChatClientRequest request,
+            StreamAdvisorChain chain,
+            List<Message> messages,
+            int iteration,
+            String chatId) {
 
-        for (int i = 0; i < chunks.size(); i++) {
-            ChatClientResponse chunk = chunks.get(i);
-            ChatResponse cr = chunk.chatResponse();
-            if (cr == null || cr.getResult() == null) continue;
-            AssistantMessage output = cr.getResult().getOutput();
-
-            // 拼接文本片段
-            String text = output.getText();
-            if (text != null) textBuilder.append(text);
-
-            // 工具调用通常在最后一个 chunk 中出现，取最后一个非空值
-            var chunkToolCalls = output.getToolCalls();
-            if (chunkToolCalls != null && !chunkToolCalls.isEmpty()) {
-                chunkWithToolCalls++;
-                toolCalls = chunkToolCalls;
-                log.debug("[ReAct] Chunk[{}/{}] has {} toolCall(s): {}",
-                        i, chunks.size(), chunkToolCalls.size(),
-                        chunkToolCalls.stream().map(tc -> tc.name() + "(" + tc.id() + ")").toList());
-            }
-
-            // 合并元数据（reasoningContent 等）
-            if (output.getMetadata() != null) {
-                metadata.putAll(output.getMetadata());
-            }
-
-            // 保留最后一个包含 usage 的 ChatResponseMetadata，供 MonitorMiddleware 提取 token 用量
-            if (cr.getMetadata() != null && cr.getMetadata().getUsage() != null) {
-                responseMetadata = cr.getMetadata();
-            }
-        }
-
-        if (chunkWithToolCalls > 0) {
-            log.info("[ReAct] Found toolCalls in {}/{} chunks, tools={}",
-                    chunkWithToolCalls, chunks.size(),
-                    toolCalls.stream().map(tc -> tc.name()).toList());
+        Flux<ChatClientResponse> responseFlux;
+        if (iteration == 0) {
+            responseFlux = chain.nextStream(request);
         } else {
-            // 没有检测到工具调用，输出首尾 chunk 信息用于排查
-            log.info("[ReAct] No toolCalls in {} chunks. First chunk text='{}', Last chunk text='{}'",
-                    chunks.size(),
-                    getChunkDebugText(chunks, 0),
-                    getChunkDebugText(chunks, chunks.size() - 1));
+            responseFlux = callModelDirectStream(messages, request, chatId);
         }
 
-        AssistantMessage aggregatedMsg = AssistantMessage.builder()
-                .content(textBuilder.toString())
-                .properties(metadata)
-                .toolCalls(toolCalls != null ? toolCalls : List.of())
-                .build();
+        AtomicReference<ChatClientResponse> aggregatedRef = new AtomicReference<>();
 
-        ChatResponse aggregatedResponse = responseMetadata != null
-                ? new ChatResponse(List.of(new Generation(aggregatedMsg)), responseMetadata)
-                : new ChatResponse(List.of(new Generation(aggregatedMsg)));
-        return ChatClientResponse.builder()
-                .chatResponse(aggregatedResponse)
-                .context(chunks.get(0).context())
-                .build();
+        return responseFlux
+                .publish(shared -> {
+                    ChatClientMessageAggregator aggregator = new ChatClientMessageAggregator();
+                    Flux<ChatClientResponse> streamingBranch = aggregator.aggregateChatClientResponse(
+                            shared, aggregatedRef::set);
+                    Flux<ChatClientResponse> recursionBranch = Flux.defer(() ->
+                            handleAggregatedResponse(aggregatedRef.get(), request, chain, messages, iteration, chatId)
+                    ).subscribeOn(Schedulers.boundedElastic());
+                    return streamingBranch.concatWith(recursionBranch);
+                });
     }
 
     /**
-     * 获取 chunk 的调试文本摘要
+     * 处理流聚合完成后的响应：检查工具调用，执行工具，递归下一次流式推理
      */
-    private String getChunkDebugText(List<ChatClientResponse> chunks, int index) {
-        if (index < 0 || index >= chunks.size()) return "N/A";
-        var cr = chunks.get(index).chatResponse();
-        if (cr == null || cr.getResult() == null) return "null";
-        var output = cr.getResult().getOutput();
-        String text = output.getText();
-        var tc = output.getToolCalls();
-        String toolInfo = (tc != null && !tc.isEmpty()) ? "toolCalls=" + tc.size() : "noTools";
-        String preview = text != null ? (text.length() > 80 ? text.substring(0, 80) + "..." : text) : "null";
-        return "[" + toolInfo + "] " + preview;
+    private Flux<ChatClientResponse> handleAggregatedResponse(
+            ChatClientResponse aggregated,
+            ChatClientRequest request,
+            StreamAdvisorChain chain,
+            List<Message> messages,
+            int iteration,
+            String chatId) {
+
+        if (aggregated == null || aggregated.chatResponse() == null || aggregated.chatResponse().getResult() == null) {
+            notifyAfterReasoning(null, iteration, chatId);
+            notifyComplete(iteration + 1, null, chatId);
+            return Flux.empty();
+        }
+
+        ChatResponse chatResponse = aggregated.chatResponse();
+        AssistantMessage output = chatResponse.getResult().getOutput();
+        List<AssistantMessage.ToolCall> toolCalls = output.getToolCalls();
+
+        notifyAfterReasoning(chatResponse, iteration, chatId);
+
+        // 无工具调用 → 完成
+        if (toolCalls == null || toolCalls.isEmpty()) {
+            notifyComplete(iteration + 1, output.getText(), chatId);
+            return Flux.empty();
+        }
+
+        // 检查最大迭代次数
+        int nextIter = iteration + 1;
+        if (nextIter >= maxIterations) {
+            log.warn("[ReAct] Max iterations ({}) reached at iteration {}", maxIterations, iteration);
+            notifyComplete(nextIter, output.getText(), chatId);
+            return Flux.empty();
+        }
+
+        // 执行工具
+        ToolResponseMessage toolResponses = executeTools(toolCalls, request, iteration, chatId);
+        if (toolResponses == null) {
+            return Flux.empty();
+        }
+
+        // 构建工具执行结果合成响应（供 LlmRspCell 识别）
+        ChatClientResponse toolResultResp = buildToolResultResponse(List.of(toolResponses), request);
+
+        // 构建下一次推理的消息列表
+        List<Message> nextMessages = new ArrayList<>(messages);
+        nextMessages.add(output);
+        nextMessages.add(toolResponses);
+
+        notifyBeforeReasoning(nextMessages, nextIter, chatId);
+
+        // 递归进入下一次流式推理
+        Flux<ChatClientResponse> nextFlux = streamWithReAct(request, chain, nextMessages, nextIter, chatId);
+        return Flux.just(toolResultResp).concatWith(nextFlux);
+    }
+
+    /**
+     * 直接调用 ChatModel.stream()（不经过 Advisor Chain），
+     * 用于 ReAct 循环中后续迭代的流式推理
+     */
+    private Flux<ChatClientResponse> callModelDirectStream(
+            List<Message> messages,
+            ChatClientRequest request,
+            String chatId) {
+
+        ChatOptions options = request.prompt().getOptions();
+        ToolCallback[] toolArray = resolveToolCallbacks(request);
+        ChatOptions directOptions = ToolCallingChatOptions.builder()
+                .internalToolExecutionEnabled(false)
+                .toolCallbacks(toolArray)
+                .build();
+        Prompt prompt = new Prompt(messages, directOptions);
+        return chatModel.stream(prompt)
+                .map(chatResponse -> ChatClientResponse.builder()
+                        .chatResponse(chatResponse)
+                        .context(request.context())
+                        .build());
+    }
+
+    // ==================== ReAct 循环核心 ====================
+
+    /**
+     * ReAct 循环的结果容器，包含最终响应和工具执行结果
+     *
+     * @param finalResponse 模型最终响应（无工具调用时的 ChatClientResponse）
+     * @param toolResponses 所有迭代的工具执行结果
+     * @param iterations    实际迭代次数
+     */
+    private record ReactLoopResult(ChatClientResponse finalResponse,
+                                   List<ToolResponseMessage> toolResponses,
+                                   int iterations) {
     }
 
     /**
