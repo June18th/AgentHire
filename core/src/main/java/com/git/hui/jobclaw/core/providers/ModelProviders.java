@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.core.providers;
 
-import com.alibaba.ttl.TransmittableThreadLocal;
+import com.git.hui.jobclaw.core.cache.LocalCacheManager;
 import com.git.hui.jobclaw.core.configuration.event.PropertiesRefreshedEvent;
 import com.git.hui.jobclaw.core.preference.AiUserPreferenceProperties;
 import io.micrometer.common.util.StringUtils;
@@ -11,6 +11,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,14 +26,15 @@ import java.util.stream.Collectors;
 @Component
 public class ModelProviders {
     private final static String DEFAULT_PREFERENCE = "total";
-    private static final ThreadLocal<ModelConfig.ModelInfo> CURRENT_MODEL = new TransmittableThreadLocal<>();
+    private static final String CURRENT_MODEL_CACHE = "currentModel";
+    private final LocalCacheManager cacheManager;
 
-    public static ModelConfig.ModelInfo currentModelInfo() {
-        return CURRENT_MODEL.get();
+    public ModelConfig.ModelInfo currentModelInfo(String userId) {
+        return cacheManager.get(CURRENT_MODEL_CACHE, userId);
     }
 
-    public static void clearCurrentModelInfo() {
-        CURRENT_MODEL.remove();
+    public void clearCurrentModelInfo(String userId) {
+        cacheManager.remove(CURRENT_MODEL_CACHE, userId);
     }
     /**
      * 模型缓存
@@ -60,10 +62,13 @@ public class ModelProviders {
 
 
     @Autowired
-    public ModelProviders(List<ModelProvider> list, AiUserPreferenceProperties aiUserPreferenceProperties) {
+    public ModelProviders(List<ModelProvider> list, AiUserPreferenceProperties aiUserPreferenceProperties,
+                          LocalCacheManager cacheManager) {
         this.providerMap = list.stream().collect(Collectors.toMap(ModelProvider::apiStyle, it -> it));
         this.aiUserPreferenceProperties = aiUserPreferenceProperties;
         this.modelCache = new ConcurrentHashMap<>();
+        this.cacheManager = cacheManager;
+        cacheManager.getCache(CURRENT_MODEL_CACHE, Duration.ofMinutes(5), 5000);
     }
 
     /**
@@ -131,7 +136,7 @@ public class ModelProviders {
                 .inputPricePerMillionTokens(modelInfo.getInputPricePerMillionTokens())
                 .outputPricePerMillionTokens(modelInfo.getOutputPricePerMillionTokens())
                 .build();
-        CURRENT_MODEL.set(personModelInfo);
+        cacheManager.put(CURRENT_MODEL_CACHE, userId, personModelInfo);
 
 
         // 检查缓存

@@ -9,7 +9,13 @@ import com.git.hui.jobclaw.core.utils.MD5Utils;
 public class UserConversationInfo {
     private String jobClawUserId;
     private String channel;
+    /**
+     * 会话id
+     */
     private String conversationId;
+    /**
+     * 是否群聊
+     */
     private boolean group;
 
     private String agent;

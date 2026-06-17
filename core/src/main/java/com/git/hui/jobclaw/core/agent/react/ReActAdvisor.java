@@ -11,14 +11,13 @@ import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
-import com.git.hui.jobclaw.core.monitor.LlmMonitor;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.util.CollectionUtils;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 自定义 ReAct (Reasoning-Acting) Advisor
@@ -68,34 +68,47 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
     @Override
     public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
         log.debug("[ReAct] adviseCall start, maxIterations={}", maxIterations);
+        String chatId = "S-" + UUID.randomUUID();
+
+        // 在第一次推理前通知中间件（确保 setContext 和 beforeReasoning 覆盖首次调用）
+        List<Message> initialMessages = new ArrayList<>(request.prompt().getInstructions());
+        notifySetContext(request, chatId);
+        notifyBeforeReasoning(initialMessages, 0, chatId);
 
         // 第一次推理走 Advisor Chain（保留 Memory 等前置效果）
-        ChatClientResponse firstResponse = chain.nextCall(request);
+        ChatClientResponse firstResponse;
+        try {
+            firstResponse = chain.nextCall(request);
+        } catch (RuntimeException e) {
+            notifyError(e, 0, chatId);
+            throw e;
+        }
         ChatResponse chatResponse = firstResponse.chatResponse();
 
         if (chatResponse == null || chatResponse.getResult() == null) {
+            notifyAfterReasoning(chatResponse, 0, chatId);
+            notifyComplete(1, null, chatId);
             return firstResponse;
         }
 
         AssistantMessage output = chatResponse.getResult().getOutput();
         List<AssistantMessage.ToolCall> toolCalls = output.getToolCalls();
+        notifyAfterReasoning(chatResponse, 0, chatId);
 
         // 无工具调用 → 直接返回
         if (toolCalls == null || toolCalls.isEmpty()) {
-            notifyComplete(1, output.getText());
+            notifyComplete(1, output.getText(), chatId);
             return firstResponse;
         }
 
         // 进入 ReAct 循环
         List<Message> messages = new ArrayList<>(request.prompt().getInstructions());
         messages.add(output);
-
-        // Phase 3: 传递请求上下文给中间件
-        notifySetContext(request);
-        ReactLoopResult loopResult = runReactLoop(messages, toolCalls, request, 1);
+        ReactLoopResult loopResult = runReactLoop(messages, toolCalls, request, 1, chatId);
         if (loopResult != null && loopResult.finalResponse != null) {
             notifyComplete(loopResult.iterations(),
-                    loopResult.finalResponse.chatResponse().getResult().getOutput().getText());
+                    loopResult.finalResponse.chatResponse().getResult().getOutput().getText(),
+                    chatId);
             return firstResponse.mutate()
                     .chatResponse(loopResult.finalResponse.chatResponse())
                     .build();
@@ -110,14 +123,23 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
     @Override
     public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
         log.debug("[ReAct] adviseStream start, maxIterations={}", maxIterations);
+        String chatId = "A-" + UUID.randomUUID();
 
         // AIDEV-NOTE: 先收集所有 chunks，再统一处理。
         // 不能用 aggregateChatClientResponse（Consumer 副作用无法向下游追加新 chunks）。
         // 工具调用场景的响应较短，缓冲延迟可接受。
+
+        // 在流式收集前通知中间件
+        List<Message> initialMessages = new ArrayList<>(request.prompt().getInstructions());
+        notifySetContext(request, chatId);
+        notifyBeforeReasoning(initialMessages, 0, chatId);
+
         return chain.nextStream(request)
                 .collectList()
                 .flatMapMany(chunks -> {
                     if (chunks.isEmpty()) {
+                        notifyAfterReasoning(null, 0, chatId);
+                        notifyComplete(1, null, chatId);
                         return Flux.<ChatClientResponse>empty();
                     }
 
@@ -126,6 +148,8 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
                     ChatResponse chatResponse = firstResponse.chatResponse();
                     if (chatResponse == null || chatResponse.getResult() == null) {
                         log.warn("[ReAct] aggregateChunks returned null response, emitting {} raw chunks", chunks.size());
+                        notifyAfterReasoning(chatResponse, 0, chatId);
+                        notifyComplete(1, null, chatId);
                         return Flux.fromIterable(chunks);
                     }
 
@@ -138,18 +162,19 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
 
                     // 无工具调用 → 直接发射原始 chunks
                     if (toolCalls == null || toolCalls.isEmpty()) {
-                        notifyComplete(1, output.getText());
+                        notifyAfterReasoning(chatResponse, 0, chatId);
+                        notifyComplete(1, output.getText(), chatId);
                         return Flux.fromIterable(chunks);
                     }
+
+                    // 有工具调用：先记录首次推理结果，再进入 ReAct 循环
+                    notifyAfterReasoning(chatResponse, 0, chatId);
 
                     // 进入 ReAct 循环
                     List<Message> messages = new ArrayList<>(request.prompt().getInstructions());
                     messages.add(output);
-
-                    // Phase 3: 传递请求上下文给中间件
-                    notifySetContext(request);
                     try {
-                        ReactLoopResult loopResult = runReactLoop(messages, toolCalls, request, 1);
+                        ReactLoopResult loopResult = runReactLoop(messages, toolCalls, request, 1, chatId);
                         if (loopResult != null && loopResult.finalResponse != null) {
                             List<ChatClientResponse> result = new ArrayList<>(chunks);
                             // 发射工具执行结果，使其流经 LlmRspCell
@@ -161,14 +186,15 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
                                     result.size(), chunks.size(),
                                     toolResultResp.chatResponse().getResult().getOutput().getMetadata());
                             notifyComplete(loopResult.iterations(),
-                                    loopResult.finalResponse.chatResponse().getResult().getOutput().getText());
+                                    loopResult.finalResponse.chatResponse().getResult().getOutput().getText(),
+                                    chatId);
                             return Flux.fromIterable(result);
                         } else {
                             log.warn("[ReAct] runReactLoop returned null (loopResult={}), falling back to raw chunks", loopResult);
                         }
                     } catch (Exception e) {
                         log.error("[ReAct] Stream ReAct loop failed", e);
-                        notifyError(e, -1);
+                        notifyError(e, -1, chatId);
                     }
 
                     return Flux.fromIterable(chunks);
@@ -185,8 +211,9 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
      * @param iterations    实际迭代次数
      */
     private record ReactLoopResult(ChatClientResponse finalResponse,
-                                    List<ToolResponseMessage> toolResponses,
-                                    int iterations) {}
+                                   List<ToolResponseMessage> toolResponses,
+                                   int iterations) {
+    }
 
     /**
      * 同步执行 ReAct 循环（工具调用本质上是阻塞的）
@@ -194,25 +221,25 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
      * @return ReactLoopResult 包含最终响应、工具执行结果和迭代次数；达到最大迭代次数时返回 null
      */
     private ReactLoopResult runReactLoop(List<Message> messages,
-                                          List<AssistantMessage.ToolCall> toolCalls,
-                                          ChatClientRequest request,
-                                          int startIter) {
+                                         List<AssistantMessage.ToolCall> toolCalls,
+                                         ChatClientRequest request,
+                                         int startIter, String chatId) {
         List<ToolResponseMessage> allToolResponses = new ArrayList<>();
 
         for (int iter = startIter; iter < maxIterations; iter++) {
             // ---- Acting: 执行工具 ----
-            ToolResponseMessage toolResponses = executeTools(toolCalls, request, iter);
+            ToolResponseMessage toolResponses = executeTools(toolCalls, request, iter, chatId);
             if (toolResponses == null) return null;
             allToolResponses.add(toolResponses);
             messages.add(toolResponses);
 
             // ---- Reasoning: 再次推理 ----
-            notifyBeforeReasoning(messages, iter);
-            ChatResponse nextResponse = callModelDirect(messages, request);
+            notifyBeforeReasoning(messages, iter, chatId);
+            ChatResponse nextResponse = callModelDirect(messages, request, chatId);
             if (nextResponse == null || nextResponse.getResult() == null) return null;
 
             AssistantMessage output = nextResponse.getResult().getOutput();
-            notifyAfterReasoning(output, iter);
+            notifyAfterReasoning(nextResponse, iter, chatId);
             messages.add(output);
 
             toolCalls = output.getToolCalls();
@@ -244,6 +271,7 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
         List<AssistantMessage.ToolCall> toolCalls = null;
         Map<String, Object> metadata = new HashMap<>();
         int chunkWithToolCalls = 0;
+        ChatResponseMetadata responseMetadata = null;
 
         for (int i = 0; i < chunks.size(); i++) {
             ChatClientResponse chunk = chunks.get(i);
@@ -269,6 +297,11 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
             if (output.getMetadata() != null) {
                 metadata.putAll(output.getMetadata());
             }
+
+            // 保留最后一个包含 usage 的 ChatResponseMetadata，供 MonitorMiddleware 提取 token 用量
+            if (cr.getMetadata() != null && cr.getMetadata().getUsage() != null) {
+                responseMetadata = cr.getMetadata();
+            }
         }
 
         if (chunkWithToolCalls > 0) {
@@ -289,7 +322,9 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
                 .toolCalls(toolCalls != null ? toolCalls : List.of())
                 .build();
 
-        ChatResponse aggregatedResponse = new ChatResponse(List.of(new Generation(aggregatedMsg)));
+        ChatResponse aggregatedResponse = responseMetadata != null
+                ? new ChatResponse(List.of(new Generation(aggregatedMsg)), responseMetadata)
+                : new ChatResponse(List.of(new Generation(aggregatedMsg)));
         return ChatClientResponse.builder()
                 .chatResponse(aggregatedResponse)
                 .context(chunks.get(0).context())
@@ -318,7 +353,7 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
      * 使其能够流经 LlmRspCell::of 并被正确识别为工具执行结果。
      */
     private ChatClientResponse buildToolResultResponse(List<ToolResponseMessage> toolResponses,
-                                                        ChatClientRequest request) {
+                                                       ChatClientRequest request) {
         var sb = new StringBuilder();
         for (var tr : toolResponses) {
             for (var resp : tr.getResponses()) {
@@ -348,9 +383,9 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
      * 确保工具可以访问请求上下文、用户信息等关键数据。
      */
     private ToolResponseMessage executeTools(List<AssistantMessage.ToolCall> toolCalls,
-                                              ChatClientRequest request,
-                                              int iter) {
-        notifyBeforeActing(toolCalls, iter);
+                                             ChatClientRequest request,
+                                             int iter, String chatId) {
+        notifyBeforeActing(toolCalls, iter, chatId);
         log.info("[ReAct] Iteration {}: executing {} tool(s)", iter, toolCalls.size());
 
         try {
@@ -391,12 +426,12 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
                     .responses(responses)
                     .build();
 
-            notifyAfterActing(toolResponse, iter);
+            notifyAfterActing(toolResponse, iter, chatId);
             return toolResponse;
 
         } catch (Exception e) {
             log.error("[ReAct] Tool execution failed at iteration {}", iter, e);
-            notifyError(e, iter);
+            notifyError(e, iter, chatId);
             return null;
         }
     }
@@ -451,7 +486,7 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
      * 直接调用 ChatModel（不经过 Advisor Chain）
      * 用于 ReAct 循环中的后续推理，避免重复触发 Memory 等 Advisor
      */
-    private ChatResponse callModelDirect(List<Message> messages, ChatClientRequest request) {
+    private ChatResponse callModelDirect(List<Message> messages, ChatClientRequest request, String chatId) {
         try {
             ChatOptions options = request.prompt().getOptions();
             // 确保禁用自动工具执行
@@ -462,56 +497,83 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
                     .build();
 
             Prompt prompt = new Prompt(messages, directOptions);
-            LlmMonitor monitor = SpringUtil.getBeanOrNull(LlmMonitor.class);
-            return monitor == null ? chatModel.call(prompt) : monitor.directCall(prompt, () -> chatModel.call(prompt));
+            return chatModel.call(prompt);
         } catch (Exception e) {
             log.error("[ReAct] Direct model call failed", e);
-            notifyError(e, -1);
+            notifyError(e, -1, chatId);
             return null;
         }
     }
 
     // ==================== Middleware 通知 ====================
 
-    private void notifySetContext(ChatClientRequest request) {
+    private void notifySetContext(ChatClientRequest request, String chatId) {
         for (var mw : middlewares) {
-            try { mw.setContext(request); } catch (Exception e) { log.warn("Middleware setContext error", e); }
+            try {
+                mw.setContext(request, chatId);
+            } catch (Exception e) {
+                log.warn("Middleware setContext error", e);
+            }
         }
     }
 
-    private void notifyBeforeReasoning(List<Message> messages, int iter) {
+    private void notifyBeforeReasoning(List<Message> messages, int iter, String chatId) {
         for (var mw : middlewares) {
-            try { mw.beforeReasoning(messages, iter); } catch (Exception e) { log.warn("Middleware error", e); }
+            try {
+                mw.beforeReasoning(messages, iter, chatId);
+            } catch (Exception e) {
+                log.warn("Middleware error", e);
+            }
         }
     }
 
-    private void notifyAfterReasoning(AssistantMessage msg, int iter) {
+    private void notifyAfterReasoning(ChatResponse response, int iter, String chatId) {
         for (var mw : middlewares) {
-            try { mw.afterReasoning(msg, iter); } catch (Exception e) { log.warn("Middleware error", e); }
+            try {
+                mw.afterReasoning(response, iter, chatId);
+            } catch (Exception e) {
+                log.warn("Middleware error", e);
+            }
         }
     }
 
-    private void notifyBeforeActing(List<AssistantMessage.ToolCall> toolCalls, int iter) {
+    private void notifyBeforeActing(List<AssistantMessage.ToolCall> toolCalls, int iter, String chatId) {
         for (var mw : middlewares) {
-            try { mw.beforeActing(toolCalls, iter); } catch (Exception e) { log.warn("Middleware error", e); }
+            try {
+                mw.beforeActing(toolCalls, iter, chatId);
+            } catch (Exception e) {
+                log.warn("Middleware error", e);
+            }
         }
     }
 
-    private void notifyAfterActing(ToolResponseMessage msg, int iter) {
+    private void notifyAfterActing(ToolResponseMessage msg, int iter, String chatId) {
         for (var mw : middlewares) {
-            try { mw.afterActing(msg, iter); } catch (Exception e) { log.warn("Middleware error", e); }
+            try {
+                mw.afterActing(msg, iter, chatId);
+            } catch (Exception e) {
+                log.warn("Middleware error", e);
+            }
         }
     }
 
-    private void notifyComplete(int totalIters, String finalResponse) {
+    private void notifyComplete(int totalIters, String finalResponse, String chatId) {
         for (var mw : middlewares) {
-            try { mw.onComplete(totalIters, finalResponse); } catch (Exception e) { log.warn("Middleware error", e); }
+            try {
+                mw.onComplete(totalIters, finalResponse, chatId);
+            } catch (Exception e) {
+                log.warn("Middleware error", e);
+            }
         }
     }
 
-    private void notifyError(Exception error, int iter) {
+    private void notifyError(Exception error, int iter, String chatId) {
         for (var mw : middlewares) {
-            try { mw.onError(error, iter); } catch (Exception e) { log.warn("Middleware error", e); }
+            try {
+                mw.onError(error, iter, chatId);
+            } catch (Exception e) {
+                log.warn("Middleware error", e);
+            }
         }
     }
 

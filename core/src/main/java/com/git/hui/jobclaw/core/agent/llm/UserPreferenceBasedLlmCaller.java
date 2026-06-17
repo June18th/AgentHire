@@ -71,25 +71,22 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
     public <T> Flux<T> stream(UserConversationInfo conversationInfo, ChannelReceiveMessage message, Function<ChatResponse, T> func) {
         String jobClawUserId = conversationInfo.jobClawUserId();
         Prompt prompt = buildSoulPrompt(jobClawUserId, message);
-        return monitor().stream(
-                context(conversationInfo, operation(conversationInfo), "STREAM"),
-                prompt,
-                () -> getClient(conversationInfo, prompt).prompt(prompt)
-                        .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
-                        .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
-                        .stream()
-                        .chatResponse(),
-                func);
+        return getClient(conversationInfo, prompt).prompt(prompt)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
+                .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
+                .stream()
+                .chatResponse()
+                .map(func);
     }
 
     public String call(UserConversationInfo conversationInfo, ChannelReceiveMessage message) {
         // Execute with conversation memory
         String jobClawUserId = conversationInfo.jobClawUserId();
         Prompt prompt = buildSoulPrompt(jobClawUserId, message);
-        return monitor().call(context(conversationInfo, operation(conversationInfo), "SYNC"), prompt, () -> getClient(conversationInfo, prompt).prompt(prompt)
+        return getClient(conversationInfo, prompt).prompt(prompt)
                 .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationInfo.genId()))
                 .toolContext(Map.of("jobClawUserId", jobClawUserId, "user", conversationInfo))
-                .call().content());
+                .call().content();
     }
 
 
@@ -157,7 +154,11 @@ public class UserPreferenceBasedLlmCaller extends BizAgentLlmCaller {
         // Add system message with identity documents
         String systemPrompt = identityAgent.buildSystemPrompt(jobClawUserId);
         if (systemPrompt != null && !systemPrompt.isBlank()) {
-            messages.add(new SystemMessage(systemPrompt + "\n\n" + defaultSystemPrompt));
+            if (defaultSystemPrompt != null) {
+                messages.add(new SystemMessage(systemPrompt + "\n\n" + defaultSystemPrompt));
+            } else {
+                messages.add(new SystemMessage(systemPrompt));
+            }
         } else if (StringUtils.isNotBlank(defaultSystemPrompt)) {
             messages.add(new SystemMessage(defaultSystemPrompt));
         }

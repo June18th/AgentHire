@@ -94,7 +94,6 @@ public class IdentityAgent implements IIdentityAgent {
         // 1. Load global agent.md (operation manual)
         String agentMd = agentIdentityManager.loadAgentIdentity();
         if (agentMd != null && !agentMd.isBlank()) {
-            sb.append("## Agent Operation Manual\n");
             sb.append(agentMd);
             sb.append("\n\n");
             log.debug("Injected agent.md for user: {} ({} chars)", jobClawUserId, agentMd.length());
@@ -103,7 +102,6 @@ public class IdentityAgent implements IIdentityAgent {
         // 2. Load user-level soul.md (personality)
         String soulMd = agentSoulManager.loadSoul(jobClawUserId);
         if (soulMd != null && !soulMd.isBlank()) {
-            sb.append("## Your Soul & Personality\n");
             sb.append(soulMd);
             sb.append("\n\n");
             log.debug("Injected soul.md for user: {} ({} chars)", jobClawUserId, soulMd.length());
@@ -112,7 +110,6 @@ public class IdentityAgent implements IIdentityAgent {
         // 3. Load user-level info.md (identity card)
         String infoMd = agentInfoManager.loadInfo(jobClawUserId);
         if (infoMd != null && !infoMd.isBlank()) {
-            sb.append("## Your Identity Card\n");
             sb.append(infoMd);
             sb.append("\n\n");
             log.debug("Injected info.md for user: {} ({} chars)", jobClawUserId, infoMd.length());
@@ -121,7 +118,6 @@ public class IdentityAgent implements IIdentityAgent {
         // 4. Load user profile user.md
         String userMd = userIdentityManager.loadIdentity(jobClawUserId);
         if (userMd != null && !userMd.isBlank()) {
-            sb.append("## User Profile\n");
             sb.append(userMd);
             sb.append("\n\n");
             log.debug("Injected user.md for user: {} ({} chars)", jobClawUserId, userMd.length());

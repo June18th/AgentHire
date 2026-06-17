@@ -4,6 +4,7 @@ import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.model.ChatResponse;
 
 import java.util.List;
 
@@ -33,9 +34,10 @@ public interface ReActMiddleware {
      * <p>
      * AIDEV-NOTE: Phase 3 新增 — 为 MemoryReActMiddleware 提供请求上下文
      *
-     * @param request 当前请求（包含 prompt、options、context 等）
+     * @param request          当前请求（包含 prompt、options、context 等）
+     * @param chatId           当前调用的唯一标识（由 ReActAdvisor 生成，用于跨钩子传递会话上下文）
      */
-    default void setContext(ChatClientRequest request) {
+    default void setContext(ChatClientRequest request, String chatId) {
     }
 
     /**
@@ -43,8 +45,9 @@ public interface ReActMiddleware {
      *
      * @param messages 当前对话消息列表
      * @param iter     当前迭代次数（从0开始）
+     * @param chatId   当前调用的唯一标识
      */
-    default void beforeReasoning(List<Message> messages, int iter) {
+    default void beforeReasoning(List<Message> messages, int iter, String chatId) {
     }
 
     /**
@@ -52,8 +55,27 @@ public interface ReActMiddleware {
      *
      * @param assistantMessage LLM 的推理结果（可能包含文本和/或工具调用）
      * @param iter             当前迭代次数
+     * @param chatId           当前调用的唯一标识
      */
-    default void afterReasoning(AssistantMessage assistantMessage, int iter) {
+    default void afterReasoning(AssistantMessage assistantMessage, int iter, String chatId) {
+    }
+
+    /**
+     * Reasoning 阶段后：LLM 完成一次推理（带完整 ChatResponse）
+     * <p>
+     * 比 {@link #afterReasoning(AssistantMessage, int, String)} 多携带 ChatResponse 元数据（token 用量等），
+     * 供 MonitorMiddleware 等需要计费/指标记录的中间件使用。
+     * <p>
+     * 默认实现委托给 {@link #afterReasoning(AssistantMessage, int, String)}，保持向前兼容。
+     *
+     * @param response LLM 的完整响应（包含 token 用量等元数据）
+     * @param iter     当前迭代次数
+     * @param chatId   当前调用的唯一标识
+     */
+    default void afterReasoning(ChatResponse response, int iter, String chatId) {
+        if (response != null && response.getResult() != null) {
+            afterReasoning(response.getResult().getOutput(), iter, chatId);
+        }
     }
 
     /**
@@ -61,8 +83,9 @@ public interface ReActMiddleware {
      *
      * @param toolCalls LLM 请求的工具调用列表
      * @param iter      当前迭代次数
+     * @param chatId    当前调用的唯一标识
      */
-    default void beforeActing(List<AssistantMessage.ToolCall> toolCalls, int iter) {
+    default void beforeActing(List<AssistantMessage.ToolCall> toolCalls, int iter, String chatId) {
     }
 
     /**
@@ -70,8 +93,9 @@ public interface ReActMiddleware {
      *
      * @param toolResponses 工具执行结果消息
      * @param iter          当前迭代次数
+     * @param chatId        当前调用的唯一标识
      */
-    default void afterActing(ToolResponseMessage toolResponses, int iter) {
+    default void afterActing(ToolResponseMessage toolResponses, int iter, String chatId) {
     }
 
     /**
@@ -79,8 +103,9 @@ public interface ReActMiddleware {
      *
      * @param totalIters    总迭代次数
      * @param finalResponse 最终回答内容
+     * @param chatId        当前调用的唯一标识
      */
-    default void onComplete(int totalIters, String finalResponse) {
+    default void onComplete(int totalIters, String finalResponse, String chatId) {
     }
 
     /**
@@ -88,7 +113,8 @@ public interface ReActMiddleware {
      *
      * @param error     异常
      * @param iter      发生错误时的迭代次数
+     * @param chatId    当前调用的唯一标识
      */
-    default void onError(Exception error, int iter) {
+    default void onError(Exception error, int iter, String chatId) {
     }
 }

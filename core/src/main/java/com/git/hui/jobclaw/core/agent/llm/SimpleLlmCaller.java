@@ -4,9 +4,6 @@ import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.agent.react.ReActAdvisor;
 import com.git.hui.jobclaw.core.providers.ModelConfig;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
-import com.git.hui.jobclaw.core.monitor.LlmCallContext;
-import com.git.hui.jobclaw.core.monitor.LlmMonitor;
-import com.git.hui.jobclaw.core.utils.SpringUtil;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -49,39 +46,31 @@ public class SimpleLlmCaller implements LlmCaller {
 
     @Override
     public <T> T call(UserConversationInfo user, Prompt prompt, Class<T> clz) {
-        return monitor().call(context(user, "structured_call", "SYNC"), prompt, () -> {
-            ChatClient client = getClient(user, prompt);
-            return client.prompt(prompt).call().entity(clz);
-        });
+        ChatClient client = getClient(user, prompt);
+        return client.prompt(prompt).call().entity(clz);
     }
 
     @Override
     public String call(UserConversationInfo user, Prompt prompt) {
-        return monitor().call(context(user, operation(user), "SYNC"), prompt, () -> getClient(user, prompt).prompt(prompt)
+        return getClient(user, prompt).prompt(prompt)
                 .toolContext(Map.of("user", user))
-                .call().content());
+                .call().content();
     }
 
     @Override
     public Flux<String> stream(UserConversationInfo user, Prompt prompt) {
-        return monitor().stream(context(user, operation(user), "STREAM"), prompt, () -> getClient(user, prompt).prompt(prompt)
+        return getClient(user, prompt).prompt(prompt)
                 .toolContext(Map.of("user", user))
-                .stream().chatResponse(), s -> s.getResult().getOutput().getText());
+                .stream().chatResponse()
+                .map(s -> s.getResult().getOutput().getText());
     }
 
     @Override
     public <T> Flux<T> stream(UserConversationInfo user, Prompt prompt, Function<ChatResponse, T> func) {
-        return monitor().stream(context(user, operation(user), "STREAM"), prompt, () -> getClient(user, prompt).prompt(prompt)
+        return getClient(user, prompt).prompt(prompt)
                 .toolContext(Map.of("user", user))
-                .stream().chatResponse(), func);
-    }
-
-    protected LlmMonitor monitor() {
-        return SpringUtil.getBean(LlmMonitor.class);
-    }
-
-    protected LlmCallContext context(UserConversationInfo user, String operation, String mode) {
-        return LlmCallContext.of(user, operation, mode);
+                .stream().chatResponse()
+                .map(func);
     }
 
     protected String operation(UserConversationInfo user) {
@@ -105,9 +94,7 @@ public class SimpleLlmCaller implements LlmCaller {
                 )
                 .defaultAdvisors(
                         ReActAdvisor.builder().chatModel(chatModel).autoInjectMiddleware().build()
-                )
-                // todo 需要在这里添加统一的 token 记录 advisor
-                ;
+                );
         if (sys != null) {
             builder.defaultSystem(sys);
         }

@@ -24,7 +24,7 @@ public class PlanHintReActMiddleware implements ReActMiddleware {
     }
 
     @Override
-    public void setContext(ChatClientRequest request) {
+    public void setContext(ChatClientRequest request, String chatId) {
         if (request.prompt().getOptions() instanceof ToolCallingChatOptions options) {
             if (options.getToolContext() == null) {
                 currentUserId.remove();
@@ -40,7 +40,7 @@ public class PlanHintReActMiddleware implements ReActMiddleware {
     }
 
     @Override
-    public void beforeReasoning(List<Message> messages, int iter) {
+    public void beforeReasoning(List<Message> messages, int iter, String chatId) {
         String userId = currentUserId.get();
         if (userId == null) {
             return;
@@ -53,12 +53,12 @@ public class PlanHintReActMiddleware implements ReActMiddleware {
     }
 
     @Override
-    public void onComplete(int totalIters, String finalResponse) {
+    public void onComplete(int totalIters, String finalResponse, String chatId) {
         currentUserId.remove();
     }
 
     @Override
-    public void onError(Exception error, int iter) {
+    public void onError(Exception error, int iter, String chatId) {
         currentUserId.remove();
     }
 }

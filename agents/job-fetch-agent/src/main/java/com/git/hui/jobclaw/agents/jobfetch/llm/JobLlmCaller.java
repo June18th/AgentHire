@@ -23,8 +23,7 @@ public class JobLlmCaller extends SimpleLlmCaller {
     }
 
     public ChatResponse response(UserConversationInfo user, Prompt prompt) {
-        return monitor().call(context(user, "job_fetch_extraction", "SYNC"), prompt,
-                () -> getClient(user, prompt).prompt(prompt).call().chatResponse());
+        return getClient(user, prompt).prompt(prompt).call().chatResponse();
     }
 
     public ChatClient simpleClient(UserConversationInfo user) {
