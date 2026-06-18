@@ -1,18 +1,16 @@
 # 01-✅求职派Spring AI集成实战
 
-这一篇将以智谱清言大模型为例，介绍求职派是如何借助SpringAI来进行 AI 应用开发的。
+这一篇将以智谱大模型为例，介绍求职派是如何借助SpringAI来进行 AI 应用开发的。
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/12564477/1758335723638-8d096c89-5c91-4d79-9dcc-98b2ed28ac06.png)
 
 ## 一、前置准备
 ### 1.申请ApiKey
-到大模型后台进行申请，智谱的申请请看 [✅求职派大模型-智普清言接入](https://www.yuque.com/itwanger/yyt72l/bkb31aukyil47osx)
-
-星火大模型接入的请看 [求职派大模型-星火SparkLite接入](https://www.yuque.com/itwanger/yyt72l/mk1l8vauyvtw13kw)
+到大模型后台进行申请，智谱的申请请看 [✅求职派大模型-智谱接入](https://www.yuque.com/itwanger/yyt72l/bkb31aukyil47osx)
 
 ### 2.项目配置
-对于智谱，官方提供了starter，可以很方便集成（星火麻烦一点）
+智谱官方提供了 starter，可以很方便集成
 
 + 官方接入教程：[ZhiPu AI Chat :: Spring AI Reference](https://docs.spring.io/spring-ai/reference/api/chat/zhipuai-chat.html)
 

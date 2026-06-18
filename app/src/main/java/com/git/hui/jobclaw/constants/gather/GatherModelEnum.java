@@ -11,7 +11,7 @@ import lombok.Getter;
  */
 @Getter
 public enum GatherModelEnum implements StringBaseEnum {
-    ZHIPU("ZhiPu", "智谱清言"),
+    ZHIPU("ZhiPu", "智谱"),
     SPARK_LITE("SparkLite", "讯飞星火"),
     CHAT_GPT("ChatGPT", "ChatGPT"),
     DEEPSEEK("DeepSeek", "DeepSeek"),

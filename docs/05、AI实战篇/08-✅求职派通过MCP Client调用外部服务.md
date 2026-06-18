@@ -145,7 +145,7 @@ spring:
 
 
 ### 3.MCP Client注入为大模型默认工具
-求职派现在提供了两个免费的大模型，智谱 + 讯飞Lite，不过只有智谱支持Function Calling，也就是说，如果想要体验MCP Server，就只能选择智谱模型（如果选择氪金的话，所有的大模型厂商的主流模型都是支持Function Calling的）
+求职派默认使用智谱的免费大模型，智谱支持 Function Calling，因此可以直接体验 MCP Server 的能力
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1754447411947-f3c36f46-6d7e-44eb-bc6a-7872b47c0c53.png)

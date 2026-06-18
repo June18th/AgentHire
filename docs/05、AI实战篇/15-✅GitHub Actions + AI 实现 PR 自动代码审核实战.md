@@ -101,7 +101,7 @@ graph TD
 | 模型服务商 | 推荐模型 | 特点 |
 |-----------|---------|------|
 | DeepSeek | `deepseek-reasoner` | 性价比高，自带推理链，**本项目默认使用** |
-| 智谱清言 | `glm-4-flash` | 免费额度大，响应快 |
+| 智谱 | `glm-4-flash` | 免费额度大，响应快 |
 | 阿里百炼 | `qwen-plus` | 中文理解强 |
 | OpenAI | `gpt-4o-mini` | 综合能力最强，但贵 |
 
@@ -509,7 +509,7 @@ AI_REVIEW_MODEL   = deepseek-reasoner
 
 优势：自带推理链，审核质量高，性价比极高。
 
-### 10.2 智谱清言 GLM
+### 10.2 智谱 GLM
 
 ```
 MR_OPENAI_API_URL = https://open.bigmodel.cn/api/paas/v4/chat/completions

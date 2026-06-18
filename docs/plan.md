@@ -206,8 +206,7 @@ JobClaw/
 │   └── dingding/        # 钉钉
 ├── providers/        # 模型提供者
 │   ├── openai/       # OpenAI 接口风格
-│   ├── zhipu/        # 智谱清言
-│   ├── ali/          # 阿里云
+│   ├── zhipu/        # 智谱
 │   └── anthropic/    # Anthropic
 ├── plugins/          # 插件模块
 │   └── playwright/   # 网页抓取
@@ -282,7 +281,7 @@ JobClaw/
 ##### 模型提供者
 - [x] Providers 底层设计，支持自动扩展
 - [x] OpenAI 接口风格集成
-- [x] 智谱清言集成
+- [x] 智谱集成
 - [x] 阿里云集成
 - [x] Anthropic 集成
 - [x] 支持模型动态切换
@@ -850,10 +849,9 @@ JobClaw/
 - [JobRunr 文档](https://www.jobrunr.io/)
 
 #### 9.3 第三方服务
-- [智谱清言 API](https://open.bigmodel.cn/)
+- [智谱 API](https://open.bigmodel.cn/)
 - [OpenAI API](https://platform.openai.com/)
 - [Anthropic API](https://www.anthropic.com/)
-- [阿里云百炼](https://bailian.console.aliyun.com/)
 
 ---
 

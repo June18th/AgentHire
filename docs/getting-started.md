@@ -348,7 +348,7 @@ pnpm run deploy
 
 #### 5.3 常用模型提供商配置参考
 
-##### 智谱清言（Zhipu AI）
+##### 智谱（Zhipu AI）
 
 ```yaml
 提供商名称: zhipufree
@@ -375,19 +375,6 @@ API Key: 从硅基流动控制台获取
 - 文本：`Qwen/Qwen3-8B`（性能好，成本低）
 - 视觉：`deepseek-ai/DeepSeek-OCR`（OCR 能力强）
 - 向量：`BAAI/bge-m3`（中文效果好）
-
-##### 阿里云百炼
-
-```yaml
-提供商名称: ali
-API Style: openai
-Base URL: https://dashscope.aliyuncs.com/compatible-mode/v1
-API Key: 从阿里云控制台获取
-```
-
-**推荐模型**:
-- 文本：`qwen-plus`（平衡性能和成本）
-- 视觉：`qwen-vl-max`（强大的视觉理解能力）
 
 ##### OpenAI
 
