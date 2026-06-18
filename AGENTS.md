@@ -184,6 +184,12 @@ Static-export Next.js app deployed to Spring Boot's `static/` directory. Uses sh
 - `lib/config.ts` — global dictionary cache from backend
 - `components/ui/` — shadcn/ui components
 
+Local frontend workflow:
+- The user usually has `pnpm dev` already running before asking for UI/code changes.
+- Do not start or restart the frontend dev server unless the user explicitly asks or the server is confirmed unavailable.
+- Validate frontend changes at `http://localhost:3000`; Next.js hot reload should show the latest `ui-react` source directly.
+- Do not proactively run `pnpm run deploy` or copy static export output to `app/src/main/resources/static/`. The user will deploy after confirming the localhost dev view.
+
 ## Coding Conventions
 
 ### Backend (Java)

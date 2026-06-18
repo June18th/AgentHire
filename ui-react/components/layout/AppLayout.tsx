@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react";
 import { useLoginModal } from "@/hooks/useLoginModal";
 import { Bell, User, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Home } from "lucide-react"
 import { PiLogo } from "@/components/brand/PiLogo";
 import {
   Dialog,
@@ -164,7 +163,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     } catch (err) {
       toast({
         title: "登录提醒",
-        description: "本地登录失败，请检查后端是否为 dev 环境",
+        description: err instanceof Error ? err.message : "本地登录失败，请检查后端服务和数据库初始化情况",
         variant: "destructive",
       });
     } finally {
@@ -220,15 +219,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center space-x-8">
               <div className="flex items-center">
                 {pathname?.startsWith("/admin") ? (
-                  <div className="h-16 flex items-center justify-center font-bold text-xl tracking-wide mb-0 select-none flex-row gap-2 w-full">
-                    <button
-                      className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-                      title="返回主页"
-                      onClick={() => (window.location.href = "/")}
+                  <div className="h-16 flex items-center justify-center font-bold text-xl tracking-wide mb-0 select-none">
+                    <a
+                      href="/"
+                      className="inline-flex items-center rounded-md transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                      title="返回用户端"
                     >
-                      <Home className="w-7 h-7 text-blue-600" />
-                    </button>
-                    <PiLogo />
+                      <PiLogo />
+                    </a>
                   </div>
                 ) : (
                   <a href="/" className="transition-opacity hover:opacity-80">
@@ -406,20 +404,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* 正文内容 */}
       <main className="flex-grow pt-16">{children}</main>
 
-      {/* 页脚 */}
-      <footer className="bg-white border-t py-6 mt-auto">
-        <div className="px-10">
-          <div className="flex flex-col items-center justify-center text-center">
-            <p className="text-gray-500 mb-2">© {new Date().getFullYear()} 求职派 - 专注于校园招聘信息</p>
-            <div className="flex space-x-4 text-sm text-gray-500">
-              <a href="#" className="hover:text-blue-600 transition-colors">关于我们</a>
-              <a href="#" className="hover:text-blue-600 transition-colors">隐私政策</a>
-              <a href="#" className="hover:text-blue-600 transition-colors">使用条款</a>
-              <a href="#" className="hover:text-blue-600 transition-colors">联系我们</a>
+      {!pathname?.startsWith("/admin") && (
+        <footer className="bg-white border-t py-6 mt-auto">
+          <div className="px-10">
+            <div className="flex items-center justify-center text-center">
+              <p className="text-sm text-gray-500">© {new Date().getFullYear()} 求职派 - 专注于校园招聘信息</p>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

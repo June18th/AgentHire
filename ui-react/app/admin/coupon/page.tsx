@@ -66,6 +66,14 @@ import {
 } from "@/lib/api";
 import { formatDateTime as formatDateTimeStr } from "@/lib/utils";
 
+function configValue(option: GlobalConfigItemValue) {
+  return String(option.value);
+}
+
+function configIntro(option: GlobalConfigItemValue) {
+  return String(option.intro);
+}
+
 export default function CouponPage() {
   // 路由对象
   const router = useRouter();
@@ -178,8 +186,7 @@ export default function CouponPage() {
   useEffect(() => {
     if (isEditDialogOpen && currentEditCoupon) {
       setForm({
-        couponId: currentEditCoupon.couponId,
-        couponCode: currentEditCoupon.couponCode,
+        couponCode: currentEditCoupon.couponCode ?? "",
         couponValue: Number(currentEditCoupon.couponValue),
         couponCount: currentEditCoupon.couponCount,
         couponType: currentEditCoupon.couponType.toString(),
@@ -281,22 +288,27 @@ export default function CouponPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-gray-900">优惠券管理</h1>
-          </div>
-        </div>
-      </header>
-      <div className="full-w mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-surface-muted">
+      <div className="mx-auto max-w-[1440px] px-6 py-6">
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">优惠券列表</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                className="h-10 w-72"
+                placeholder="请输入券码搜索"
+                onChange={(e) =>
+                  setSearchParams({
+                    ...searchParams,
+                    couponCode: e.target.value.trim() ? e.target.value : "",
+                  })
+                }
+              />
+              <Button onClick={handleSearch}>搜索</Button>
+            </div>
             {/* 新增优惠券对话框 */}
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="promotion">新增优惠券</Button>
+                <Button>新增优惠券</Button>
               </DialogTrigger>
               <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
@@ -324,8 +336,8 @@ export default function CouponPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {couponTypeOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label || option.intro}
+                            <SelectItem key={configValue(option)} value={configValue(option)}>
+                              {configIntro(option)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -394,13 +406,13 @@ export default function CouponPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {scopeOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label || option.intro}
+                            <SelectItem key={configValue(option)} value={configValue(option)}>
+                              {configIntro(option)}
                             </SelectItem>
                           ))}
                           {vipOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label || option.intro}
+                            <SelectItem key={configValue(option)} value={configValue(option)}>
+                              {configIntro(option)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -540,8 +552,8 @@ export default function CouponPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {couponTypeOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label || option.intro}
+                            <SelectItem key={configValue(option)} value={configValue(option)}>
+                              {configIntro(option)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -610,13 +622,13 @@ export default function CouponPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {scopeOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label || option.intro}
+                            <SelectItem key={configValue(option)} value={configValue(option)}>
+                              {configIntro(option)}
                             </SelectItem>
                           ))}
                           {vipOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label || option.intro}
+                            <SelectItem key={configValue(option)} value={configValue(option)}>
+                              {configIntro(option)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -720,38 +732,20 @@ export default function CouponPage() {
               </DialogContent>
             </Dialog>
           </div>
-          <div className="mb-6">
-            <div className="flex space-x-4">
-              <div className="flex-1">
-                <Input
-                  placeholder="请输入券码搜索"
-                  onChange={(e) =>
-                    setSearchParams({
-                      ...searchParams,
-                      couponCode: e.target.value.trim()
-                        ? e.target.value
-                        : undefined,
-                    })
-                  }
-                />
-              </div>
-              <Button onClick={handleSearch}>搜索</Button>
-            </div>
-          </div>
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-blue-50">
                 <TableRow>
-                  <TableHead className="w-1/24">ID</TableHead>
-                  <TableHead className="w-1/12">券码</TableHead>
-                  <TableHead className="w-1/12">优惠值</TableHead>
-                  <TableHead className="w-1/12">类型</TableHead>
-                  <TableHead className="w-1/12">数量</TableHead>
-                  <TableHead className="w-1/12">已使用</TableHead>
-                  <TableHead className="w-1/12">作用范围</TableHead>
-                  <TableHead className="w-1/8">开始时间</TableHead>
-                  <TableHead className="w-1/8">结束时间</TableHead>
-                  <TableHead className="w-1/12">编辑</TableHead>
+                  <TableHead className="w-1/24 text-blue-600">ID</TableHead>
+                  <TableHead className="w-1/12 text-blue-600">券码</TableHead>
+                  <TableHead className="w-1/12 text-blue-600">优惠值</TableHead>
+                  <TableHead className="w-1/12 text-blue-600">类型</TableHead>
+                  <TableHead className="w-1/12 text-blue-600">数量</TableHead>
+                  <TableHead className="w-1/12 text-blue-600">已使用</TableHead>
+                  <TableHead className="w-1/12 text-blue-600">作用范围</TableHead>
+                  <TableHead className="w-1/8 text-blue-600">开始时间</TableHead>
+                  <TableHead className="w-1/8 text-blue-600">结束时间</TableHead>
+                  <TableHead className="w-1/12 text-blue-600">编辑</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -765,7 +759,7 @@ export default function CouponPage() {
                         size="icon"
                         onClick={() => {
                           navigator.clipboard
-                            .writeText(coupon.couponCode)
+                            .writeText(coupon.couponCode ?? "")
                             .then(() => {
                               toast({
                                 title: "成功",
@@ -809,7 +803,7 @@ export default function CouponPage() {
                     <TableCell>{formatDateTimeStr(coupon.endTime)}</TableCell>
                     <TableCell className="flex space-x-2">
                       <Button
-                        variant="share"
+                        variant="outline"
                         size="xs"
                         onClick={() => {
                           toast({
@@ -834,7 +828,7 @@ export default function CouponPage() {
                       <Button
                         variant="destructive"
                         size="xs"
-                        onClick={() => setDictToDelete(coupon.couponId)}
+                        onClick={() => coupon.couponId && setDictToDelete(coupon.couponId)}
                       >
                         删除
                       </Button>
@@ -868,7 +862,10 @@ export default function CouponPage() {
               暂无优惠券数据
             </div>
           )}
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-content-tertiary">
+              共 <span className="font-semibold text-content-primary">{pagination.total}</span> 张优惠券
+            </div>
             <Pagination>
               <PaginationContent>
                 <PaginationItem>

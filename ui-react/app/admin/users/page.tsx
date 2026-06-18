@@ -77,18 +77,10 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-gray-900">用户管理</h1>
-          </div>
-        </div>
-      </header>
-
-      <div className="full-w mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-surface-muted">
+      <div className="mx-auto max-w-[1440px] px-6 py-6">
         {/* 搜索条件 */}
-        <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-surface-border bg-white p-4 shadow-sm">
           <Input placeholder="用户ID" className="w-36" value={query.userId || ""} onChange={e => setQuery(q => ({ ...q, userId: e.target.value ? Number(e.target.value) : undefined, page: 1 }))} />
           <Input placeholder="昵称" className="w-36" value={query.displayName || ""} onChange={e => setQuery(q => ({ ...q, displayName: e.target.value, page: 1 }))} />
           <Select value={query.role ? String(query.role) : ""} onValueChange={v => setQuery(q => ({ ...q, role: v ? Number(v) : undefined, page: 1 }))}>
@@ -109,15 +101,15 @@ export default function UsersPage() {
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <Table className="min-w-full text-sm">
             <TableHeader>
-              <TableRow className="bg-gray-100">
-                <TableHead className="w-[130px]">用户编号</TableHead>
-                <TableHead className="w-16">头像</TableHead>
-                <TableHead>昵称</TableHead>
-                <TableHead>角色</TableHead>
-                <TableHead>邮箱</TableHead>
-                <TableHead>会员到期日</TableHead>
-                <TableHead>加入时间</TableHead>
-                <TableHead className="w-24">操作</TableHead>
+              <TableRow className="bg-blue-50">
+                <TableHead className="w-[130px] text-blue-600">用户编号</TableHead>
+                <TableHead className="w-16 text-blue-600">头像</TableHead>
+                <TableHead className="text-blue-600">昵称</TableHead>
+                <TableHead className="text-blue-600">角色</TableHead>
+                <TableHead className="text-blue-600">邮箱</TableHead>
+                <TableHead className="text-blue-600">会员到期日</TableHead>
+                <TableHead className="text-blue-600">加入时间</TableHead>
+                <TableHead className="w-24 text-blue-600">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -165,7 +157,10 @@ export default function UsersPage() {
         </div>
 
         {/* 分页 - 右下角 */}
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm text-content-tertiary">
+            共 <span className="font-semibold text-content-primary">{total}</span> 个用户
+          </div>
           <Pagination>
             <PaginationContent>
               <PaginationItem>

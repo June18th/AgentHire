@@ -339,26 +339,16 @@ export default function ProgressPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 max-w-[100%] mx-auto">
-      <header className="bg-white border-b">
-        <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-gray-900">求职派Agent</h1>
-            <h3 className="text-sm text-gray-500">
-              任务录入，全自动实现数据提取、清洗、上线流程
-            </h3>
-          </div>
-        </div>
-      </header>
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-[96%]">
+    <div className="min-h-screen bg-surface-muted">
+      <div className="mx-auto max-w-[1440px] px-6 py-6">
         {/* 进度图 */}
-        <div className="mb-8 bg-white rounded-lg shadow p-6 overflow-x-auto max-w-[96%]">
+        <div className="mb-6 bg-white rounded-lg shadow p-6 overflow-x-auto">
           <h2 className="text-xl font-semibold mb-6">任务进度流程</h2>
-          <div className="flex flex-row items-center justify-between relative min-w-[600px] max-w-[94%]">
+          <div className="flex flex-row items-center justify-between relative min-w-[600px]">
             {/* 连接线 */}
             <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 transform -translate-y-1/2 z-0"></div>
             <div
-              className={`absolute top-1/2 left-0 h-1 bg-blue-500 transform -translate-y-1/2 z-10`}
+              className={`absolute top-1/2 left-0 h-1 bg-blue-600 transform -translate-y-1/2 z-10`}
               style={{
                 width: `${(currentStep / (progressNodes.length - 1)) * 100}%`,
               }}
@@ -380,7 +370,7 @@ export default function ProgressPage() {
                   className={`w-12 h-12 rounded-full flex items-center justify-center mb-2
                     ${
                       index === currentStep
-                        ? "bg-blue-500 text-white" // 当前节点
+                        ? "bg-blue-600 text-white" // 当前节点
                         : index < currentStep
                         ? "bg-green-500 text-white" // 已完成节点
                         : "bg-gray-200 text-gray-500"
@@ -420,7 +410,7 @@ export default function ProgressPage() {
         </div>
 
         {/* 业务区域 */}
-        <div className="bg-white rounded-lg shadow p-6 overflow-x-auto max-w-[96%]">
+        <div className="bg-white rounded-lg shadow p-6 overflow-x-auto">
           {currentStep === 0 ? (
             // 录入任务节点的业务内容
             <div>

@@ -50,4 +50,32 @@
     <changeSet id="260615_00000001" author="Codex">
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/llm_monitor_260615.sql"/>
     </changeSet>
+
+    <!-- 用户钉钉渠道绑定字段 -->
+    <changeSet id="260618_00000001" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="user_info" columnName="ding_ding_user_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="user_info">
+            <column name="ding_ding_user_id" type="varchar(128)" defaultValue="" remarks="钉钉用户ID">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- 用户飞书渠道绑定字段 -->
+    <changeSet id="260618_00000002" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="user_info" columnName="fei_shu_user_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="user_info">
+            <column name="fei_shu_user_id" type="varchar(128)" defaultValue="" remarks="飞书用户ID">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
 </databaseChangeLog>

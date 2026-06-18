@@ -3,7 +3,6 @@ import React from "react"
 import { usePathname } from "next/navigation"
 import { SidebarProvider, Sidebar, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarContent } from "@/components/ui/sidebar"
 import Link from "next/link"
-import { Home } from "lucide-react"
 
 const menu = [
     { label: "求职派Agent", path: "/admin/progress" },
@@ -19,20 +18,20 @@ const menu = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     return (
-        <SidebarProvider>
+        <SidebarProvider style={{ "--sidebar-width": "12rem" } as React.CSSProperties}>
             <div className="flex min-h-screen w-full">
-                <Sidebar className="my-16 w-64 min-h-screen bg-sidebar text-sidebar-foreground border-r flex flex-col">
-                    <div className="w-full border-b border-sidebar-border mb-2" />
-                    <SidebarContent>
-                        <SidebarMenu>
+                <Sidebar className="my-16 border-r border-surface-border bg-white text-content-primary">
+                    <div className="w-full border-b border-surface-border" />
+                    <SidebarContent className="px-3 py-4">
+                        <SidebarMenu className="gap-1.5">
                             {menu.map((item) => (
                                 <SidebarMenuItem key={item.path}>
                                     <SidebarMenuButton
                                         asChild
                                         isActive={pathname === item.path}
-                                        className={`h-12 px-6 text-base rounded-none justify-start transition-all ${pathname === item.path
-                                            ? "font-bold bg-sidebar-accent text-sidebar-accent-foreground border-l-4 border-blue-600"
-                                            : "font-normal hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                        className={`h-10 justify-start rounded-md px-3 text-sm transition-all ${pathname === item.path
+                                            ? "!bg-blue-50 font-semibold !text-blue-600 shadow-sm"
+                                            : "font-medium text-content-secondary hover:bg-surface-hover hover:text-content-primary"
                                             }`}
                                     >
                                         <Link href={item.path}>{item.label}</Link>
@@ -42,7 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </SidebarMenu>
                     </SidebarContent>
                 </Sidebar>
-                <main className="flex-grow bg-gray-50">{children}</main>
+                <main className="min-w-0 flex-grow bg-surface-muted">{children}</main>
             </div>
         </SidebarProvider>
     )

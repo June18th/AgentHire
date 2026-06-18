@@ -1,6 +1,7 @@
 package com.git.hui.jobclaw.core.monitor;
 
 import com.git.hui.jobclaw.core.monitor.del.DefaultLlmMonitor;
+import com.git.hui.jobclaw.core.providers.ModelProviders;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -17,13 +18,14 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class DefaultLlmMonitorTest {
 
     @Test
     void recordsUsageBeforeMappingStreamResponse() {
         List<Object> events = new ArrayList<>();
-        DefaultLlmMonitor monitor = new DefaultLlmMonitor(events::add, new SimpleMeterRegistry());
+        DefaultLlmMonitor monitor = monitor(events);
         Prompt prompt = new Prompt(new UserMessage("hello"));
         LlmCallContext context = new LlmCallContext("inv-1", "user-1", "conversation-1",
                 "test", "agent-1", "agent_chat", "STREAM");
@@ -50,7 +52,7 @@ class DefaultLlmMonitorTest {
     @Test
     void recordsRequestWhenStreamFailsAsynchronously() {
         List<Object> events = new ArrayList<>();
-        DefaultLlmMonitor monitor = new DefaultLlmMonitor(events::add, new SimpleMeterRegistry());
+        DefaultLlmMonitor monitor = monitor(events);
         Prompt prompt = new Prompt(new UserMessage("hello"));
         LlmCallContext context = new LlmCallContext("inv-2", "user-1", "conversation-1",
                 "test", "agent-1", "agent_chat", "STREAM");
@@ -72,6 +74,10 @@ class DefaultLlmMonitorTest {
                 ? ChatResponseMetadata.builder().build()
                 : ChatResponseMetadata.builder().usage(usage).build();
         return new ChatResponse(List.of(new Generation(new AssistantMessage(text))), metadata);
+    }
+
+    private static DefaultLlmMonitor monitor(List<Object> events) {
+        return new DefaultLlmMonitor(events::add, new SimpleMeterRegistry(), mock(ModelProviders.class));
     }
 
     private static <T> T event(List<Object> events, Class<T> type) {

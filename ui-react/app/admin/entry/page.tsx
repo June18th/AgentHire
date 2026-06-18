@@ -201,15 +201,8 @@ export default function EntryPage() {
   }, [tab, taskQuery]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-gray-900">职位录入</h1>
-          </div>
-        </div>
-      </header>
-      <div className="full-w mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-surface-muted">
+      <div className="mx-auto max-w-[1440px] px-6 py-6">
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList className="mb-6">
             {/* <TabsTrigger value="form">表单录入</TabsTrigger> */}
@@ -474,7 +467,7 @@ export default function EntryPage() {
               {/* 任务表格 */}
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm border">
-                  <thead className="bg-gray-100">
+                  <thead className="bg-blue-50 text-blue-600">
                     <tr>
                       <th className="px-2 py-1 border whitespace-nowrap text-center">ID</th>
                       <th className="px-2 py-1 border whitespace-nowrap text-center">类型</th>

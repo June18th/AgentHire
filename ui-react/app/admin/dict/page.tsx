@@ -2,12 +2,6 @@
 
 import { useEffect, useState } from "react"
 import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card"
-import {
     Table,
     TableBody,
     TableCell,
@@ -60,6 +54,7 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from "@/components/ui/pagination"
+import { Pencil, Plus, Search, Trash2 } from "lucide-react"
 
 import { getConfigValue } from "@/lib/config"
 import { GlobalConfigItemValue } from "@/lib/api"
@@ -74,6 +69,33 @@ const newDictInitValue: DictSaveReq = {
     state: 1,
 }
 
+const pageSizeOptions = [10, 20, 50]
+
+type PageItem = number | "ellipsis"
+
+function getPageItems(currentPage: number, totalPages: number): PageItem[] {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, index) => index + 1)
+    }
+
+    const fixedPages = [1, 2, 3, totalPages - 1, totalPages]
+    const currentPages = [currentPage - 1, currentPage, currentPage + 1]
+    const pages = Array.from(new Set([...fixedPages, ...currentPages]))
+        .filter(page => page >= 1 && page <= totalPages)
+        .sort((a, b) => a - b)
+
+    const items: PageItem[] = []
+    for (const page of pages) {
+        const previous = items[items.length - 1]
+        if (typeof previous === "number" && page - previous > 1) {
+            items.push("ellipsis")
+        }
+        items.push(page)
+    }
+
+    return items
+}
+
 export default function DictPage() {
     const [dicts, setDicts] = useState<DictListItem[]>([])
     const [loading, setLoading] = useState(true)
@@ -81,6 +103,7 @@ export default function DictPage() {
     const [app, setApp] = useState("")
     const [key, setKey] = useState("")
     const [pagination, setPagination] = useState({ page: 1, size: 10, total: 0 })
+    const [jumpPage, setJumpPage] = useState("")
     const [isSaving, setIsSaving] = useState(false)
     const { toast } = useToast()
 
@@ -90,6 +113,8 @@ export default function DictPage() {
     const [dictToDelete, setDictToDelete] = useState<DictListItem | null>(null)
     const [scopeOptions, setScopeOptions] = useState<GlobalConfigItemValue[]>([]);
     const [appOptions, setAppOptions] = useState<GlobalConfigItemValue[]>([]);
+    const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.size))
+    const pageItems = getPageItems(pagination.page, totalPages)
 
     useEffect(() => {
         getConfigValue('dicts', 'DictScopeEnum').then(options => {
@@ -119,10 +144,34 @@ export default function DictPage() {
 
     const handleSearch = () => {
         if (pagination.page === 1) {
-            loadDicts({ app, key, page: 1, size: pagination.size })
+            loadDicts({ app: app == '-1' ? '' : app, key, page: 1, size: pagination.size })
         } else {
             setPagination({ ...pagination, page: 1 })
         }
+    }
+
+    const handlePageChange = (page: number) => {
+        const nextPage = Math.min(Math.max(page, 1), totalPages)
+        if (nextPage !== pagination.page) {
+            setPagination({ ...pagination, page: nextPage })
+        }
+    }
+
+    const handlePageSizeChange = (size: string) => {
+        setPagination({ ...pagination, page: 1, size: Number(size) })
+    }
+
+    const handleJumpPage = () => {
+        const nextPage = Number(jumpPage)
+        if (!Number.isFinite(nextPage)) return
+        handlePageChange(nextPage)
+        setJumpPage("")
+    }
+
+    const formatDate = (time: string | number | Date) => {
+        const date = new Date(time)
+        if (Number.isNaN(date.getTime())) return "-"
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
     }
 
     const handleSave = async () => {
@@ -215,128 +264,203 @@ export default function DictPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white border-b">
-                <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <h1 className="text-2xl font-bold text-gray-900">字典管理</h1>
-                        <Button onClick={handleAddNew}>添加配置</Button>
-                    </div>
-                </div>
-            </header>
-            <div className="full-w mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className="flex flex-wrap gap-2 mb-4 items-center">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-4">
-                            <div className="flex items-center">
-                                <span className="mr-2 font-medium">App：</span>
-                                <Select value={app} onValueChange={setApp}>
-                                    <SelectTrigger className="w-40">
-                                        <SelectValue placeholder="请选择App" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="-1" key='-1'>全部查询</SelectItem>
-                                        {appOptions.map(option => (
-                                            <SelectItem value={option.value as string} key={option.value as string}>
-                                                {option.intro}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+        <div className="min-h-screen bg-surface-muted">
+            <div className="mx-auto max-w-[1440px] px-6 py-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div>
+                            <Select value={app} onValueChange={setApp}>
+                                <SelectTrigger className="h-10 w-44">
+                                    <SelectValue placeholder="全部 App" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="-1" key='-1'>全部 App</SelectItem>
+                                    {appOptions.map(option => (
+                                        <SelectItem value={option.value as string} key={option.value as string}>
+                                            {option.intro}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
                             <Input
-                                placeholder="Code/Value/说明模糊查询"
+                                placeholder="Code / Value / 说明"
                                 value={key}
                                 onChange={(e) => setKey(e.target.value)}
-                                className="max-w-xs"
+                                className="h-10 w-72"
                             />
-                            <Button onClick={handleSearch}>查询</Button>
                         </div>
+                        <Button onClick={handleSearch} className="h-10 gap-2">
+                            <Search className="h-4 w-4" />
+                            查询
+                        </Button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Button onClick={handleAddNew} className="h-10 gap-2">
+                            <Plus className="h-4 w-4" />
+                            添加配置
+                        </Button>
                     </div>
                 </div>
-                <Card >
-                    {/* <CardContent className="pt-6"> */}
-                        {loading && <p>加载中...</p>}
-                        {error && <p className="text-red-500">错误: {error}</p>}
-                        {!loading && !error && (
-                            <Table>
+
+                <div className="overflow-hidden rounded-lg border border-surface-border bg-white shadow-sm">
+                    {loading && (
+                        <div className="flex h-56 items-center justify-center text-sm text-content-tertiary">加载中...</div>
+                    )}
+                    {error && (
+                        <div className="flex h-56 items-center justify-center text-sm text-destructive">错误: {error}</div>
+                    )}
+                    {!loading && !error && (
+                        <>
+                            <Table className="min-w-[1038px] table-fixed">
+                                <colgroup>
+                                    <col className="w-[54px]" />
+                                    <col className="w-[110px]" />
+                                    <col className="w-[86px]" />
+                                    <col className="w-[150px]" />
+                                    <col className="w-[100px]" />
+                                    <col className="w-[120px]" />
+                                    <col className="w-[72px]" />
+                                    <col className="w-[124px]" />
+                                    <col className="w-[122px]" />
+                                    <col className="w-[78px]" />
+                                </colgroup>
                                 <TableHeader>
-                                    <TableRow className="bg-gray-100">
-                                        <TableHead>ID</TableHead>
-                                        <TableHead>App</TableHead>
-                                        <TableHead>作用域</TableHead>
-                                        <TableHead>Code</TableHead>
-                                        <TableHead>Value</TableHead>
-                                        <TableHead>说明</TableHead>
-                                        <TableHead>状态</TableHead>
-                                        <TableHead>备注</TableHead>
-                                        <TableHead>更新时间</TableHead>
-                                        <TableHead>操作</TableHead>
+                                    <TableRow className="border-blue-100 bg-blue-50 hover:bg-blue-50">
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">ID</TableHead>
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">App</TableHead>
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">作用域</TableHead>
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">Code</TableHead>
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">Value</TableHead>
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">说明</TableHead>
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">状态</TableHead>
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">备注</TableHead>
+                                        <TableHead className="h-11 text-xs font-semibold text-blue-600">更新日期</TableHead>
+                                        <TableHead className="h-11 text-right text-xs font-semibold text-blue-600">操作</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {dicts.map((dict) => (
-                                        <TableRow key={dict.id}>
-                                            <TableCell>{dict.id}</TableCell>
-                                            <TableCell>{dict.app}</TableCell>
-                                            <TableCell>{renderScope(dict.scope)}</TableCell>
-                                            <TableCell>{dict.key}</TableCell>
-                                            <TableCell className="max-w-xs truncate">{dict.value}</TableCell>
-                                            <TableCell className="max-w-xs truncate">{dict.intro}</TableCell>
-                                            <TableCell>
-                                                <Switch
-                                                    checked={dict.state === 1}
-                                                    onCheckedChange={(newState) => handleStateChange(dict.id, newState)}
-                                                />
-                                            </TableCell>
-                                            <TableCell>{dict.remark}</TableCell>
-                                            <TableCell>{new Date(dict.updateTime).toLocaleString()}</TableCell>
-                                            <TableCell className="space-x-2">
-                                                <Button variant="link" size="sm" onClick={() => handleEdit(dict)}>编辑</Button>
-                                                <Button variant="link" size="sm" className="text-red-600" onClick={() => setDictToDelete(dict)}>删除</Button>
+                                    {dicts.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={10} className="h-48 text-center text-content-tertiary">
+                                                暂无配置项
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    ) : (
+                                        dicts.map((dict) => (
+                                            <TableRow key={dict.id} className="hover:bg-blue-50/60">
+                                                <TableCell className="font-medium text-content-tertiary">{dict.id}</TableCell>
+                                                <TableCell className="font-medium text-content-primary">{dict.app}</TableCell>
+                                                <TableCell className="whitespace-nowrap">{renderScope(dict.scope)}</TableCell>
+                                                <TableCell className="truncate font-medium text-content-primary" title={dict.key}>{dict.key}</TableCell>
+                                                <TableCell className="truncate text-content-primary" title={dict.value}>{dict.value}</TableCell>
+                                                <TableCell className="truncate text-content-primary" title={dict.intro}>{dict.intro}</TableCell>
+                                                <TableCell>
+                                                    <Switch
+                                                        checked={dict.state === 1}
+                                                        onCheckedChange={(newState) => handleStateChange(dict.id, newState)}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="whitespace-normal break-words text-content-secondary">{dict.remark || "-"}</TableCell>
+                                                <TableCell className="text-content-secondary">{formatDate(dict.updateTime)}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700" onClick={() => handleEdit(dict)} title="编辑">
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-red-50 hover:text-destructive" onClick={() => setDictToDelete(dict)} title="删除">
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
                                 </TableBody>
                             </Table>
-                        )}
-                        <div className="mt-4 flex justify-end">
-                            <Pagination>
-                                <PaginationContent>
-                                    <PaginationItem>
-                                        <PaginationPrevious
-                                            href="#"
-                                            onClick={(e) => {
-                                                e.preventDefault()
-                                                if (pagination.page > 1) {
-                                                    setPagination({ ...pagination, page: pagination.page - 1 })
-                                                }
+
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-border px-4 py-3">
+                                <div className="flex flex-wrap items-center gap-4 text-sm text-content-tertiary">
+                                    <span>共 <span className="font-semibold text-content-primary">{pagination.total}</span> 条配置</span>
+                                    <div className="flex items-center gap-2">
+                                    <span>每页</span>
+                                    <Select value={String(pagination.size)} onValueChange={handlePageSizeChange}>
+                                        <SelectTrigger className="h-9 w-20">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {pageSizeOptions.map(size => (
+                                                <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <span>条，第 {pagination.page} / {totalPages} 页</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <Pagination className="w-auto">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#"
+                                                    onClick={(e) => {
+                                                        e.preventDefault()
+                                                        handlePageChange(pagination.page - 1)
+                                                    }}
+                                                    className={pagination.page <= 1 ? "pointer-events-none opacity-50" : ""}
+                                                />
+                                            </PaginationItem>
+                                            {pageItems.map((page, index) => (
+                                                <PaginationItem key={`${page}-${index}`}>
+                                                    {page === "ellipsis" ? (
+                                                        <PaginationEllipsis />
+                                                    ) : (
+                                                        <PaginationLink
+                                                            href="#"
+                                                            isActive={pagination.page === page}
+                                                            onClick={(e) => {
+                                                                e.preventDefault()
+                                                                handlePageChange(page)
+                                                            }}
+                                                            className={pagination.page === page ? "border-blue-600 text-blue-600" : ""}
+                                                        >
+                                                            {page}
+                                                        </PaginationLink>
+                                                    )}
+                                                </PaginationItem>
+                                            ))}
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#"
+                                                    onClick={(e) => {
+                                                        e.preventDefault()
+                                                        handlePageChange(pagination.page + 1)
+                                                    }}
+                                                    className={pagination.page >= totalPages ? "pointer-events-none opacity-50" : ""}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                    <div className="flex items-center gap-2 text-sm text-content-tertiary">
+                                        <span>跳至</span>
+                                        <Input
+                                            value={jumpPage}
+                                            onChange={(e) => setJumpPage(e.target.value.replace(/[^\d]/g, ""))}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") handleJumpPage()
                                             }}
-                                            className={pagination.page <= 1 ? "pointer-events-none opacity-50" : ""}
+                                            className="h-9 w-16 text-center"
+                                            inputMode="numeric"
+                                            placeholder="页"
                                         />
-                                    </PaginationItem>
-                                    <PaginationItem>
-                                        <span className="text-sm text-muted-foreground">
-                                            第 {pagination.page} /{Math.ceil(pagination.total / pagination.size)} 页
-                                        </span>
-                                    </PaginationItem>
-                                    <PaginationItem>
-                                        <PaginationNext
-                                            href="#"
-                                            onClick={(e) => {
-                                                e.preventDefault()
-                                                if (pagination.page * pagination.size < pagination.total) {
-                                                    setPagination({ ...pagination, page: pagination.page + 1 })
-                                                }
-                                            }}
-                                            className={pagination.page * pagination.size >= pagination.total ? "pointer-events-none opacity-50" : ""}
-                                        />
-                                    </PaginationItem>
-                                </PaginationContent>
-                            </Pagination>
-                        </div>
-                    {/* </CardContent> */}
-                </Card>
+                                        <Button variant="outline" size="sm" onClick={handleJumpPage}>跳转</Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>

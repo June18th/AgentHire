@@ -236,8 +236,8 @@
             </properties>
             <dependencies>
                 <dependency>
-                    <groupId>org.liquibase</groupId>
-                    <artifactId>liquibase-core</artifactId>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-liquibase</artifactId>
                 </dependency>
                 <!--  测试环境，使用mysql作为数据库 -->
                 <dependency>
@@ -254,8 +254,8 @@
             </properties>
             <dependencies>
                 <dependency>
-                    <groupId>org.liquibase</groupId>
-                    <artifactId>liquibase-core</artifactId>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-liquibase</artifactId>
                 </dependency>
                 <!--  生产环境，使用mysql作为数据库 -->
                 <dependency>

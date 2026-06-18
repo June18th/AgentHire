@@ -141,17 +141,10 @@ export default function JobsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white border-b">
-                <div className="full-w mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <h1 className="text-2xl font-bold text-gray-900">职位管理</h1>
-                    </div>
-                </div>
-            </header>
-
-            <div className="full-w mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className="mb-6 flex flex-wrap gap-2 items-center">
+        <div className="min-h-screen bg-surface-muted">
+            <div className="mx-auto max-w-[1440px] px-6 py-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-2">
                     <Input placeholder="公司名称" className="w-32" value={filters.companyName || ''} onChange={e => handleFilterChange('companyName', e.target.value)} />
                     {
                         companyTypes && (
@@ -196,24 +189,25 @@ export default function JobsPage() {
 
                     <Input placeholder="工作地点" className="w-32" value={filters.jobLocation || ''} onChange={e => handleFilterChange('jobLocation', e.target.value)} />
                     <Input placeholder="岗位" className="w-36" value={filters.position || ''} onChange={e => handleFilterChange('position', e.target.value)} />
-                    <Button onClick={execPublishBlogs} className="bg-green-500 hover:bg-green-700">发布公众号博文</Button>
+                    </div>
+                    <Button onClick={execPublishBlogs}>发布公众号博文</Button>
                 </div>
                 <div className="bg-white rounded-lg shadow overflow-hidden">
                     {/* 设置表格大小：使用min-w-full确保表格宽度足够，text-base调整字体大小 */}
                     <Table className="min-w-full text-base">
-                        <TableHeader className="bg-gray-100">
+                        <TableHeader className="bg-blue-50">
                             <TableRow>
                                 {/* 设置各列宽度，根据内容重要性和长度分配不同宽度 */}
-                                <TableHead className="w-[15%]">公司名称</TableHead>
-                                <TableHead className="w-[10%]">公司类型</TableHead>
-                                <TableHead className="w-[15%]">所属行业</TableHead>
-                                <TableHead className="w-[10%]">工作地点</TableHead>
-                                <TableHead className="w-[10%]">招聘类型</TableHead>
-                                <TableHead className="w-[10%]">招聘对象</TableHead>
-                                <TableHead className="w-[15%]">岗位</TableHead>
-                                <TableHead className="w-[5%]">状态</TableHead>
-                                <TableHead className="w-[10%]">编辑时间</TableHead>
-                                <TableHead className="w-[10%]">操作</TableHead>
+                                <TableHead className="w-[15%] text-blue-600">公司名称</TableHead>
+                                <TableHead className="w-[10%] text-blue-600">公司类型</TableHead>
+                                <TableHead className="w-[15%] text-blue-600">所属行业</TableHead>
+                                <TableHead className="w-[10%] text-blue-600">工作地点</TableHead>
+                                <TableHead className="w-[10%] text-blue-600">招聘类型</TableHead>
+                                <TableHead className="w-[10%] text-blue-600">招聘对象</TableHead>
+                                <TableHead className="w-[15%] text-blue-600">岗位</TableHead>
+                                <TableHead className="w-[5%] text-blue-600">状态</TableHead>
+                                <TableHead className="w-[10%] text-blue-600">编辑时间</TableHead>
+                                <TableHead className="w-[10%] text-blue-600">操作</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -276,7 +270,10 @@ export default function JobsPage() {
                 </AlertDialog>
 
                 {/* 分页 */}
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-sm text-content-tertiary">
+                        共 <span className="font-semibold text-content-primary">{total}</span> 条职位
+                    </div>
                     <Pagination>
                         <PaginationContent>
                             <PaginationItem>

@@ -180,19 +180,10 @@ export default function DraftsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white border-b">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <h1 className="text-2xl font-bold text-gray-900">草稿列表</h1>
-                        <Button onClick={handlePublish} disabled={publishLoading || selectedIds?.length === 0} className="ml-4">
-                            {publishLoading ? "发布中..." : "同步职位"}
-                        </Button>
-                    </div>
-                </div>
-            </header>
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className=" pt-4 mb-6 flex flex-wrap gap-2 items-center">
+        <div className="min-h-screen bg-surface-muted">
+            <div className="mx-auto max-w-[1440px] px-6 py-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-2">
                     <Input placeholder="公司名称" className="w-32" value={filters.companyName || ''} onChange={e => handleFilterChange('companyName', e.target.value)} />
                     {
                         companyTypes && (
@@ -234,29 +225,33 @@ export default function DraftsPage() {
                             }
                         </SelectContent>
                     </Select>
+                    </div>
+                    <Button onClick={handlePublish} disabled={publishLoading || selectedIds?.length === 0}>
+                        {publishLoading ? "发布中..." : "同步职位"}
+                    </Button>
                 </div>
                 {/* 只让表格区域可横向滚动 */}
                 <div className="bg-white rounded-lg shadow overflow-x-auto">
                     <Table className="min-w-[1600px] table-fixed text-sm">
-                        <TableHeader className="bg-gray-100">
+                        <TableHeader className="bg-blue-50">
                             <TableRow>
-                                <TableHead className="whitespace-nowrap text-center">
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">
                                     <input type="checkbox" checked={checkSelectAll()}
                                         onChange={e => handleSelectAll(e.target.checked)} />
                                 </TableHead>
-                                <TableHead className="whitespace-nowrap text-center">公司名称</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">公司类型</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">所属行业</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">工作地点</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">招聘类型</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">招聘对象</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">岗位</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">更新时间</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">状态</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">待处理</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">链接</TableHead>
-                                <TableHead className="whitespace-nowrap text-center">公告</TableHead>
-                                <TableHead className="sticky right-0 bg-white z-10 whitespace-nowrap text-center w-[220px] text-white bg-gray-400">操作</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">公司名称</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">公司类型</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">所属行业</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">工作地点</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">招聘类型</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">招聘对象</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">岗位</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">更新时间</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">状态</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">待处理</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">链接</TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">公告</TableHead>
+                                <TableHead className="sticky right-0 z-10 whitespace-nowrap text-center w-[220px] bg-blue-50 text-blue-600">操作</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -312,7 +307,10 @@ export default function DraftsPage() {
                 </div>
             </div>
             {/* 分页 */}
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-sm text-content-tertiary">
+                    共 <span className="font-semibold text-content-primary">{total}</span> 条草稿
+                </div>
                 <Pagination>
                     <PaginationContent>
                         <PaginationItem>
