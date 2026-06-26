@@ -69,6 +69,7 @@ public class ModelConfig {
         private Boolean multimodal;
         @Builder.Default
         private Integer maxTokens = 32768;
+        private String billingType;
         private BigDecimal inputPricePerMillionTokens;
         private BigDecimal outputPricePerMillionTokens;
     }

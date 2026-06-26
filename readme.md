@@ -58,7 +58,8 @@ JobClaw/
 ```bash
 cp .env.example .env
 cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db
-# 在 .env 中设置 JOBCLAW_DATABASE_NAME=jobclaw-my，并配置 ZHIPU_API_KEY
+# 在 .env 中设置 JOBCLAW_DATABASE_NAME=jobclaw-my
+# 大模型 API Key 在后台「LLM供应商」页面配置
 
 ./mvnw spring-boot:run -pl app
 ```

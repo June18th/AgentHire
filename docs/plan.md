@@ -52,34 +52,9 @@ JOBCLAW_DATABASE_NAME=jobclaw-my
 
 ##### 步骤 3: 配置大模型 API Key
 
-**默认模型**: 智谱 GLM-4-Flash (文本) 和 GLM-4V-Flash (视觉)
+**默认模型**: 智谱 GLM-4.7-Flash (文本) 和 GLM-4.6V-Flash (视觉)
 
-**方式一：使用默认模型（推荐）**
-```bash
-# 在 .env 文件中配置智谱 API Key
-ZHIPU_API_KEY=your_zhipu_api_key_here
-```
-
-**方式二：自定义模型配置**
-```yaml
-# 修改 app/src/main/resources/application.yml
-agent:
-  ai:
-    preference:
-      - user-id: total  # 所有用户共用的默认配置
-        models:
-          vision: zhipufree#GLM-4V-Flash  # 视觉模型
-          text: zhipufree#GLM-4-Flash      # 文本模型
-```
-
-**本地开发推荐配置**:
-```bash
-# 拷贝配置文件
-cp app/src/main/resources/application.yml app/src/main/resources/application-private.yml
-
-# 在 application-private.yml 中维护具体配置
-# Git 已忽略此文件，不会提交到版本控制
-```
+启动项目后进入后台 **LLM供应商** 页面，编辑内置的 `zhipu` 供应商，填写 API Key 并保存。大模型供应商的 API Key、Base URL、API 风格和模型清单统一从后台维护，不再通过 `.env`、IDEA 启动参数或修改 `application.yml` 配置。
 
 #### 2.2 启动项目
 

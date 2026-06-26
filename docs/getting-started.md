@@ -65,87 +65,13 @@ JOBCLAW_DATABASE_NAME=jobclaw-my
 
 #### 1.4 配置大模型 API Key
 
-**默认模型**: 智谱 GLM-4-Flash (文本) 和 GLM-4V-Flash (视觉)
+**默认模型**: 智谱 GLM-4.7-Flash (文本) 和 GLM-4.6V-Flash (视觉)
 
-##### 方式一：使用默认模型（推荐）
+大模型供应商统一在后台配置，不再通过 `.env`、IDEA 启动参数或修改 `application.yml` 配置 API Key。
 
-```bash
-# 在 .env 文件中配置智谱 API Key
-ZHIPU_API_KEY=your_zhipu_api_key_here
-```
+启动项目后进入后台 **LLM供应商** 页面，编辑内置的 `zhipu` 供应商，填入从智谱开放平台获取的 API Key，并确认 Base URL、API 风格和模型清单后保存。
 
-##### 方式二：自定义模型配置
-
-如果您希望使用其他模型提供商（如硅基流动）作为默认模型，可以通过修改配置文件实现。
-
-**配置说明**：
-
-- **`user-id`**: 用户标识符
-  - `total`: 保留关键字，表示全局默认配置，适用于所有未配置个人 API Key 的用户
-  - `{userId}`: JobClaw 用户 ID，表示该用户的个性化模型偏好配置
-
-- **`channels`**: 消息推送渠道优先级
-  - 后台主动推送消息时，按此顺序尝试推送渠道
-  - 例如：`[wechat-clawbot, dingding, feishu]` 表示优先推送到微信，失败则尝试钉钉，最后飞书
-
-- **`models`**: 默认模型配置
-  - `vision`: 视觉理解模型（支持图片识别、OCR 等）
-  - `text`: 文本对话模型（用于普通聊天、问答等）
-  - 格式：`{providerName}#{modelName}`，如 `silicon#Qwen/Qwen3-8B`
-
-- **`providers`**: 模型提供商接入信息
-  - **Key**: 提供商名称（自定义，如 `silicon`、`zhipufree`、`openai` 等）
-  - **Value**: 提供商的接入配置
-    - `api-key`: API 密钥（建议使用环境变量 `${VAR_NAME:default}`）
-    - `api-style`: API 风格（`openai` 表示兼容 OpenAI 接口）
-    - `base-url`: API 基础地址
-    - `completions-path`: 对话补全接口路径
-    - `embeddings-path`: 向量嵌入接口路径
-    - `images-path`: 图像生成接口路径
-    - `models`: 支持的模型列表
-      - `name`: 模型名称
-      - `type`: 模型类型（`TEXT`/`VISION`/`IMAGE`/`VIDEO`/`EMBEDDING`/`ASR`/`TTS`）
-      - `multimodal`: 是否支持多模态（true/false）
-
-```yaml
-# 修改 app/src/main/resources/application.yml
-agent:
-  ai:
-    preference:
-      - user-id: total  # 所有用户共用的默认配置
-        channels:
-          - wechat-clawbot
-          - dingding
-        models:
-          vision: silicon#Qwen/Qwen3-8B
-          text: silicon#deepseek-ai/DeepSeek-OCR
-        providers:
-          silicon:
-            api-key: ${SILICON_API_KEY:}
-            api-style: openai
-            base-url: https://api.siliconflow.cn
-            completions-path: /v1/chat/completions
-            embeddings-path: /v1/embeddings
-            images-path: /v1/images/embeddings
-            models:
-              - name: Qwen/Qwen3-8B
-                type: TEXT
-                multimodal: false
-              - name: deepseek-ai/DeepSeek-OCR
-                type: VISION
-                multimodal: true
-
-```
-
-##### 本地开发推荐配置
-
-```bash
-# 拷贝配置文件
-cp app/src/main/resources/application.yml app/src/main/resources/application-private.yml
-
-# 在 application-private.yml 中维护具体配置
-# Git 已忽略此文件，不会提交到版本控制
-```
+如果希望使用其他供应商，也在这个页面新增或编辑供应商，再到用户侧模型偏好里选择对应模型。
 
 #### 1.5 配置 MCP 客户端（跨平台）
 
@@ -351,16 +277,16 @@ pnpm run deploy
 ##### 智谱（Zhipu AI）
 
 ```yaml
-提供商名称: zhipufree
+供应商: zhipu
 API Style: openai
 Base URL: https://open.bigmodel.cn/api/paas/v4
 Completions Path: /chat/completions
-API Key: 从智谱开放平台获取
+API Key: 在后台 LLM供应商 页面保存
 ```
 
 **推荐模型**:
-- 文本：`GLM-4-Flash`（免费，速度快）
-- 视觉：`GLM-4V-Flash`（免费，支持图片识别）
+- 文本：`glm-4.7-flash`（免费，速度快）
+- 视觉：`glm-4.6v-flash`（免费，支持图片识别）
 
 ##### 硅基流动（SiliconFlow）
 

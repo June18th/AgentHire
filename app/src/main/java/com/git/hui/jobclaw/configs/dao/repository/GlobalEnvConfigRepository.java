@@ -34,6 +34,24 @@ public interface GlobalEnvConfigRepository extends JpaRepository<GlobalEnvConfig
      */
     GlobalEnvConfigEntity findByConfigKey(String configKey);
 
+    /**
+     * 根据配置键前缀查询。
+     *
+     * @param configKeyPrefix 配置键前缀
+     * @return 配置列表
+     */
+    List<GlobalEnvConfigEntity> findByConfigKeyStartingWith(String configKeyPrefix);
+
+    /**
+     * 删除指定配置前缀下的配置项。
+     *
+     * @param configKeyPrefix 配置键前缀
+     */
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "DELETE FROM global_env_config WHERE config_key LIKE CONCAT(:configKeyPrefix, '%')", nativeQuery = true)
+    void deleteByConfigKeyStartingWith(@Param("configKeyPrefix") String configKeyPrefix);
+
 
     /**
      * 保存或更新配置 - H2数据库版本(存在则更新,不存在则插入)

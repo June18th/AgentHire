@@ -246,7 +246,7 @@ V2 抽象了统一的 `LlmCaller` 接口，提供三个级别的实现：
 模型按用户偏好动态解析，格式为 `provider#ModelName`：
 
 ```
-用户偏好：zhipufree#GLM-4-Flash
+用户偏好：zhipu#glm-4.7-flash
               │         │
               ▼         ▼
         Provider 名    模型名
@@ -433,14 +433,13 @@ cp .env.example .env
 cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db
 # 在 .env 中设置：JOBCLAW_DATABASE_NAME=jobclaw-my
 
-# 3. 配置大模型 API Key（默认使用智谱）
-# 在 .env 中设置：ZHIPU_API_KEY=your_key_here
-
-# 4. 启动后端
+# 3. 启动后端
 ./mvnw spring-boot:run
 
-# 5. 启动前端（可选）
+# 4. 启动前端（可选）
 cd ui-react && pnpm install && pnpm dev
+
+# 5. 在后台「LLM供应商」页面配置大模型 API Key
 ```
 
 ### 12.2 访问系统

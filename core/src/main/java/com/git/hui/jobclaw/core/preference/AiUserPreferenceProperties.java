@@ -106,9 +106,9 @@ public class AiUserPreferenceProperties {
     @Data
     public static class UserModelPreference {
         /**
-         * 视觉模型配置，格式: provider#modelName (如: zhipu#GLM-4V-Flash)
+         * 视觉模型配置，格式: provider#modelName (如: zhipu#glm-4.6v-flash)
          */
-        @JsonPropertyDescription("视觉模型配置，格式: provider#modelName (如: zhipu#GLM-4V-Flash)")
+        @JsonPropertyDescription("视觉模型配置，格式: provider#modelName (如: zhipu#glm-4.6v-flash)")
         private String vision;
 
         /**
@@ -228,6 +228,10 @@ public class AiUserPreferenceProperties {
          * 最大 token 数
          */
         private Integer maxTokens;
+        /**
+         * 计费类型: FREE / PAID
+         */
+        private String billingType;
         private java.math.BigDecimal inputPricePerMillionTokens;
         private java.math.BigDecimal outputPricePerMillionTokens;
     }

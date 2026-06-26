@@ -832,10 +832,12 @@ export interface UserModelConfig {
   name: string;
   type: string;
   multimodal?: boolean;
+  billingType?: "FREE" | "PAID" | string;
 }
 
 export interface UserProviderConfig {
   provider?: string;
+  displayName?: string;
   apiKey?: string;
   apiStyle?: string;
   baseUrl?: string;
@@ -906,6 +908,62 @@ export async function updateUserPreference(req: UpdateUserPreferenceReq): Promis
     return true;
   }
   throw new Error(res.data?.msg || "更新用户偏好配置失败");
+}
+
+export interface AdminLlmProviderConfig extends UserProviderConfig {
+  provider?: string;
+}
+
+export interface AdminLlmProviderResponse {
+  providers?: Record<string, AdminLlmProviderConfig>;
+}
+
+export interface AdminLlmProviderReq {
+  provider?: string;
+  originalProvider?: string;
+  config: AdminLlmProviderConfig;
+}
+
+export interface AdminLlmProviderTestResponse {
+  success: boolean;
+  status?: "success" | "warning" | "error";
+  message: string;
+  provider?: string;
+  apiStyle?: string;
+  model?: string;
+  elapsedMs?: number;
+}
+
+export async function getAdminLlmProviders(): Promise<AdminLlmProviderResponse> {
+  const res = await api.get("/api/admin/env-config/llm-providers");
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "获取供应商配置失败");
+}
+
+export async function saveAdminLlmProvider(req: AdminLlmProviderReq): Promise<boolean> {
+  const res = await api.post("/api/admin/env-config/llm-providers", req);
+  if (res.data && res.data.code === 0) {
+    return true;
+  }
+  throw new Error(res.data?.msg || "保存供应商配置失败");
+}
+
+export async function testAdminLlmProvider(req: AdminLlmProviderReq): Promise<AdminLlmProviderTestResponse> {
+  const res = await api.post("/api/admin/env-config/llm-providers/test", req);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "测试供应商连接失败");
+}
+
+export async function deleteAdminLlmProvider(provider: string): Promise<boolean> {
+  const res = await api.delete("/api/admin/env-config/llm-providers/" + encodeURIComponent(provider));
+  if (res.data && res.data.code === 0) {
+    return true;
+  }
+  throw new Error(res.data?.msg || "删除供应商配置失败");
 }
 
 export async function submitUserInterest(text: string | String) {

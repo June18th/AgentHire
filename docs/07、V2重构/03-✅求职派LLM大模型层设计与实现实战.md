@@ -399,16 +399,16 @@ public class ModelProviders {
 
         // Step 2: 根据模型类型获取偏好模型名称
         var preferModel = switch (modelType) {
-            case TEXT -> preference.getModels().getText();      // "zhipufree#GLM-4-Flash"
-            case VISION -> preference.getModels().getVision();  // "zhipufree#GLM-4V-Flash"
+            case TEXT -> preference.getModels().getText();      // "zhipu#glm-4.7-flash"
+            case VISION -> preference.getModels().getVision();  // "zhipu#glm-4.6v-flash"
             case IMAGE -> preference.getModels().getImage();
             // ...
         };
 
         // Step 3: 解析 provider + modelName
         var cell = preferModel.split("#");
-        String provider = cell[0];      // "zhipufree"
-        String modelName = cell[1];     // "GLM-4-Flash"
+        String provider = cell[0];      // "zhipu"
+        String modelName = cell[1];     // "glm-4.7-flash"
 
         // Step 4: 获取厂商配置（apiKey, baseUrl, apiStyle等）
         var providerInfo = preference.getProviders().get(provider);
@@ -485,22 +485,22 @@ agent:
       # 全局默认配置（所有用户共用）
       - user-id: total
         models:
-          vision: zhipufree#GLM-4V-Flash  # ← 视觉模型
-          text: zhipufree#GLM-4-Flash     # ← 文本模型
+          vision: zhipu#glm-4.6v-flash    # ← 视觉模型
+          text: zhipu#glm-4.7-flash       # ← 文本模型
         providers:
-          zhipufree:
-            api-key: ${ZHIPU_API_KEY:}
+          zhipu:
+            api-key: ""      # ← 在后台 LLM供应商 页面保存
             api-style: openai  # ← 使用OpenAI兼容接口
             base-url: https://open.bigmodel.cn/api/paas/v4
             models:
-              - name: GLM-4-Flash
+              - name: glm-4.7-flash
                 type: TEXT
-              - name: GLM-4V-Flash
+              - name: glm-4.6v-flash
                 type: VISION
                 multimodal: true
           
           silicon:
-            api-key: ${SILICON_API_KEY:}
+            api-key: ""      # ← 在后台 LLM供应商 页面保存
             api-style: openai  # ← 复用OpenAI Provider
             base-url: https://api.siliconflow.cn
             models:
@@ -548,7 +548,7 @@ OpenAiModelProvider.model(modelInfo) → OpenAiChatModel
 @Data
 @Builder
 public static class ModelInfo {
-    private String provider;           // 厂商名称（zhipufree, silicon）
+    private String provider;           // 厂商名称（zhipu, silicon）
     private String apiKey;             // API密钥
     private String baseUrl;            // 基础URL
     private String path;               // 对话路径（/v1/chat/completions）
@@ -966,7 +966,7 @@ agent:
   ai:
     providers:
       silicon:
-        api-key: ${SILICON_API_KEY:}
+        api-key: ""      # ← 在后台 LLM供应商 页面保存
         api-style: openai  # ← 使用OpenAI风格
         base-url: https://api.siliconflow.cn
         completions-path: /v1/chat/completions
@@ -1065,11 +1065,11 @@ public void registerUserPreferenceChangeCallback(PropertiesRefreshedEvent event)
 
 **答案**：
 
-1. **环境变量注入**：
+1. **后台全局配置覆盖**：
 ```yaml
 providers:
-  zhipufree:
-    api-key: ${ZHIPU_API_KEY:}  # ← 从环境变量读取
+  zhipu:
+    api-key: ""  # ← 在后台 LLM供应商 页面保存
 ```
 
 2. **用户维度隔离**：

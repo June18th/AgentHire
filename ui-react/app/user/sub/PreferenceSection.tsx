@@ -20,9 +20,7 @@ import {
 } from "@/lib/api";
 
 const API_STYLE_OPTIONS = [
-  { value: "openai", label: "OpenAI" },
-  { value: "zhipu", label: "智谱" },
-  { value: "ali", label: "阿里" },
+  { value: "openai", label: "OpenAI 兼容" },
   { value: "anthropic", label: "Anthropic" },
 ];
 
@@ -78,6 +76,7 @@ interface ProviderConfig {
   baseUrl?: string;
   chatUrl?: string;
   provider?: string;
+  displayName?: string;
   apiStyle?: string;
   completionsPath?: string;
   embeddingsPath?: string;
@@ -222,7 +221,7 @@ export default function PreferenceSection() {
   const getProviderLabel = (provider: string, config?: ProviderConfig) => {
     const apiStyle = config?.apiStyle || provider.replace("@", "");
     const option = API_STYLE_OPTIONS.find(o => o.value === apiStyle);
-    const displayProvider = config?.provider?.replace("@", "") || provider.replace("@", "");
+    const displayProvider = config?.displayName?.trim() || config?.provider?.replace("@", "") || provider.replace("@", "");
     
     if (apiStyle === "openai" && displayProvider) {
       return `OpenAI - ${displayProvider}`;
@@ -232,6 +231,14 @@ export default function PreferenceSection() {
 
   const getProvidersConfig = (): Record<string, ProviderConfig> => {
     return preference.providers as Record<string, ProviderConfig> || {};
+  };
+
+  const getModelOptionLabel = (modelValue: string) => {
+    const [provider, modelName] = modelValue.split("#");
+    if (!provider || !modelName) {
+      return modelValue;
+    }
+    return `${getProviderLabel(provider, getProvidersConfig()[provider])} / ${modelName}`;
   };
 
   const toggleProviderExpand = (provider: string) => {
@@ -467,12 +474,13 @@ export default function PreferenceSection() {
       const providers = getProvidersConfig();
       const providerConfig = providers[provider] || {};
       const models = providerConfig.models || [];
-      const deleteModelName = models[index]?.name;
+      const deleteModel = models[index];
+      const deleteModelName = deleteModel?.name;
       
       if (deleteModelName) {
         await updateUserPreference({ 
           provider: { provider },
-          model: { name: deleteModelName },
+          model: { name: deleteModelName, type: deleteModel?.type || "TEXT" },
           deleteModel: true
         });
       }
@@ -609,7 +617,7 @@ export default function PreferenceSection() {
                         {availableModels.length > 0 ? (
                           availableModels.map((model) => (
                             <SelectItem key={model} value={model}>
-                              {model}
+                              {getModelOptionLabel(model)}
                             </SelectItem>
                           ))
                         ) : (
@@ -642,7 +650,8 @@ export default function PreferenceSection() {
               <div className="space-y-2">
                 {Object.entries(getProvidersConfig()).map(([provider, config]) => {
                   const isExpanded = expandedProviders.has(provider);
-                  const hasApiKey = config.apiKey && !config.apiKey.startsWith("******");
+                  const apiKey = config.apiKey || "";
+                  const hasApiKey = apiKey && !apiKey.startsWith("******");
 
                   return (
                     <div key={provider} className="border rounded-lg overflow-hidden">
@@ -653,7 +662,7 @@ export default function PreferenceSection() {
                         <div>
                           <div className="font-medium">{getProviderLabel(provider, config)}</div>
                           <div className="text-sm text-muted-foreground">
-                            {hasApiKey ? `API Key: ${config.apiKey.substring(0, 8)}...` : "已配置 API Key"}
+                            {hasApiKey ? `API Key: ${apiKey.substring(0, 8)}...` : "已配置 API Key"}
                             {config.models && config.models.length > 0 && ` | ${config.models.length} 个模型`}
                           </div>
                         </div>

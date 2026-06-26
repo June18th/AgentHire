@@ -93,7 +93,7 @@ AbsChannel.processMessage()
 模型路由层解决的是“不同用户、不同任务使用哪个模型”的问题：
 
 - 文本模型、视觉模型、Embedding、ASR、TTS 等按 `ModelConfig.ModelType` 区分。
-- 用户偏好格式为 `provider#ModelName`，例如 `zhipufree#GLM-4-Flash`。
+- 用户偏好格式为 `provider#ModelName`，例如 `zhipu#glm-4.7-flash`。
 - Provider 接入放在 `providers/`，业务 Agent 不直接绑定具体模型厂商。
 
 ### 五、模块边界

@@ -133,6 +133,8 @@ public class ModelProviders {
                 .path(providerInfo.getCompletionsPath())
                 .type(modelInfo.getType())
                 .multimodal(modelInfo.getMultimodal())
+                .maxTokens(modelInfo.getMaxTokens())
+                .billingType(modelInfo.getBillingType())
                 .inputPricePerMillionTokens(modelInfo.getInputPricePerMillionTokens())
                 .outputPricePerMillionTokens(modelInfo.getOutputPricePerMillionTokens())
                 .build();

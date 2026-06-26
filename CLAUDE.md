@@ -34,7 +34,7 @@ pnpm run deploy     # Build + copy static assets to app/src/main/resources/stati
 ```bash
 cp .env.example .env                                              # Create env config
 cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db # Copy seed DB
-# Edit .env: set JOBCLAW_DATABASE_NAME=jobclaw-my, fill ZHIPU_API_KEY
+# Edit .env: set JOBCLAW_DATABASE_NAME=jobclaw-my; model API keys are filled from admin
 # macOS: set MCP_SERVERS_CONFIG=classpath:mcp-servers-mac.json
 ./mvnw install -DskipTests && ./mvnw spring-boot:run -pl app
 ```
@@ -72,7 +72,7 @@ IM message → Channel.adaptToReceive() → ChannelReceiveMessage
 
 ### Model resolution
 
-Per-user via `ModelProviders.getModel(userId, modelType)`. Preference format: `provider#ModelName` (e.g. `zhipufree#GLM-4-Flash`). Provider configs live in `application.yml` under `agent.ai.providers`. Each provider module implements `ModelProvider` with an `apiStyle` key.
+Per-user via `ModelProviders.getModel(userId, modelType)`. Preference format: `provider#modelName` (e.g. `zhipu#glm-4.7-flash`). Provider configs live in `application.yml` under `agent.ai.providers`. Each provider module implements `ModelProvider` with an `apiStyle` key.
 
 ### App module business domains
 
@@ -109,10 +109,10 @@ Auto-triggered by `IIdentityAgent.triggerToCollectIdentity()` in `MsgRouter` whe
 
 ## Configuration
 
-All runtime config via `.env` (never committed). Key variables:
-- `ZHIPU_API_KEY` / `SILICON_API_KEY` — model API keys
+Runtime config can come from `.env` (never committed) or backend global config managed in admin pages. Key points:
+- LLM provider API keys and Base URLs are configured from the admin `LLM供应商` page, not environment-variable overrides
 - `JOBCLAW_DATABASE_NAME` — H2 DB filename (default: `jobclaw`)
-- `AGENT_AI_PREFERENCE_TEXT` / `AGENT_AI_PREFERENCE_VISION` — default models
+- `AGENT_AI_PREFERENCE_TEXT` / `AGENT_AI_PREFERENCE_VISION` — optional default model overrides
 - `MCP_SERVERS_CONFIG` — `classpath:mcp-servers.json` (Windows) or `classpath:mcp-servers-mac.json` (macOS/Linux)
 
 Maven profiles: `dev` (default, H2), `test` (MySQL + Liquibase), `prod` (MySQL + Liquibase). Environment-specific configs live under `app/src/main/resources-env/{dev,test,prod}/`.

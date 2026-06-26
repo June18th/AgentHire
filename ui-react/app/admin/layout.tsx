@@ -11,6 +11,7 @@ const menu = [
     { label: "职位列表", path: "/admin/jobs" },
     { label: "字典管理", path: "/admin/dict" },
     { label: "用户管理", path: "/admin/users" },
+    { label: "LLM供应商", path: "/admin/llm-providers" },
     { label: "大模型监控", path: "/admin/llm-monitor" },
     { label: "券码管理", path: "/admin/coupon" },
 ]

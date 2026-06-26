@@ -39,17 +39,16 @@ pnpm run deploy      # Build + copy to app/src/main/resources/static/
 
 ### Configuration
 
-All runtime config goes in `.env` (copy from `.env.example`). Key variables:
-- `ZHIPU_API_KEY` / `SILICON_API_KEY` — AI model API keys
+Runtime config can come from `.env` (copy from `.env.example`) or backend global config managed in admin pages. Key points:
+- LLM provider API keys and Base URLs are configured from the admin `LLM供应商` page, not environment-variable overrides
 - `JOBCLAW_SERVER_PORT` — defaults to 8087
-- `AGENT_AI_PREFERENCE_TEXT` — default text model (format: `provider#ModelName`, e.g. `zhipufree#GLM-4-Flash`)
-- `AGENT_AI_PREFERENCE_VISION` — default vision model
+- `AGENT_AI_PREFERENCE_TEXT` / `AGENT_AI_PREFERENCE_VISION` — optional default model overrides (format: `provider#modelName`, e.g. `zhipu#glm-4.7-flash`)
 
 Maven profiles: `dev` (default, H2), `test` (MySQL + Liquibase), `prod` (MySQL + Liquibase).
 
 ### First-Time Setup
 
-1. Copy `.env.example` to `.env` and fill in `ZHIPU_API_KEY`
+1. Copy `.env.example` to `.env`; model API keys are configured later from the admin `LLM供应商` page
 2. Avoid polluting seed data — copy the H2 database and point to it:
    ```bash
    cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db
@@ -148,7 +147,7 @@ MsgRouter.onMessageResponse()
 ### Model Resolution
 
 Models are resolved per-user through `ModelProviders.getModel(userId, modelType)`:
-- User preference format: `provider#ModelName` (e.g. `zhipufree#GLM-4-Flash`)
+- User preference format: `provider#modelName` (e.g. `zhipu#glm-4.7-flash`)
 - Provider configs are in `application.yml` under `agent.ai.providers`
 - Each provider module implements `ModelProvider` interface with a specific `apiStyle` key
 - Results are cached in `ModelProviders.modelCache`

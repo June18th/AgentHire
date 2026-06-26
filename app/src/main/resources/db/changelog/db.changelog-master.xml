@@ -78,4 +78,9 @@
             </column>
         </addColumn>
     </changeSet>
+
+    <!-- 内置大模型供应商配置元数据 -->
+    <changeSet id="260618_00000003" author="Codex" runOnChange="true">
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/llm_provider_config_260618.sql"/>
+    </changeSet>
 </databaseChangeLog>

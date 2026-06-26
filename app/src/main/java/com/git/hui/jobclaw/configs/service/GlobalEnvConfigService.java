@@ -33,6 +33,14 @@ public class GlobalEnvConfigService implements EnvConfigRepository<GlobalEnvConf
         return configRepository.findByEnabledOrderByCreateTimeAsc(enabled);
     }
 
+    public void deleteByConfigKeyPrefix(String configKeyPrefix) {
+        configRepository.deleteByConfigKeyStartingWith(configKeyPrefix);
+    }
+
+    public List<GlobalEnvConfigEntity> findByConfigKeyPrefix(String configKeyPrefix) {
+        return configRepository.findByConfigKeyStartingWith(configKeyPrefix);
+    }
+
     /**
      * 保存或更新配置(自动根据数据库类型选择合适的方法)
      *
