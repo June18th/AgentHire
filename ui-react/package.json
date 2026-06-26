@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "node scripts/build-static.mjs",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "build:static": "next build",
+    "build:static": "node scripts/build-static.mjs",
     "clean:to-spring": "rimraf ../app/src/main/resources/static",
-    "copy:to-spring": "cpx \"out/**/*\" ../app/src/main/resources/static/",
+    "copy:to-spring": "cpx \".next-build/**/*\" ../app/src/main/resources/static/",
     "deploy": "npm run build:static && npm run clean:to-spring && npm run copy:to-spring"
   },
   "dependencies": {

@@ -30,18 +30,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// 响应拦截器，处理302重定向
+// 响应拦截器，处理登录态失效
 api.interceptors.response.use(
   (response) => {
-    console.log("响应拦截器", response);
     if (response.data.code == 100403003) {
       // 清除本地缓存的登录信息
       if (typeof window !== "undefined") {
         localStorage.removeItem("oc-token");
         localStorage.removeItem("oc-user");
-        window.location.href = "/";
       }
-      return Promise.reject("未登录");
+      return Promise.reject(new Error(response.data.msg || "未登录"));
     }
     return response;
   },
@@ -52,7 +50,8 @@ api.interceptors.response.use(
       error.response.data.code === 100403003
     ) {
       if (typeof window !== "undefined") {
-        window.location.href = "/";
+        localStorage.removeItem("oc-token");
+        localStorage.removeItem("oc-user");
       }
     }
     return Promise.reject(error);
@@ -167,7 +166,6 @@ export async function submitOcEntry(params: any) {
 }
 
 export async function updateOcState(params: { id: number; state: number }) {
-  console.log("这里啦");
   const res = await api.get(
     `/api/admin/oc/updateState?id=${params.id}&state=${params.state}`
   );
@@ -434,10 +432,8 @@ export function connectSSEByTaskId(
   function processMessage(data: string) {
     if (isClosed) return;
     try {
-      // console.log('接收到SSE消息:', data);
       onMessage(data);
     } catch (error) {
-      // console.error('处理SSE消息时出错:', error);
       onError(
         new Error(
           `处理SSE消息时出错: ${
@@ -456,7 +452,6 @@ export function connectSSEByTaskId(
       controller.abort();
       controller = null;
     }
-    console.log("SSE连接已关闭");
   }
 
   // 启动fetch请求
@@ -487,7 +482,6 @@ export function submitAIAgentTaskSSE(
   submitAIAgentTask(
     params,
     (taskId) => {
-      console.log("成功获取任务ID:", taskId);
       // 使用taskId建立SSE连接
       closeSSE = connectSSEByTaskId(taskId, onMessage, onError, onComplete);
     },
@@ -908,6 +902,99 @@ export async function updateUserPreference(req: UpdateUserPreferenceReq): Promis
     return true;
   }
   throw new Error(res.data?.msg || "更新用户偏好配置失败");
+}
+
+export interface WxClawbotAccount {
+  userId: string;
+  appId?: string;
+  appSecret?: string;
+  mode?: string;
+  state?: string;
+}
+
+export interface BindWxClawbotReq {
+  wxClawbotUserId: string;
+  appId: string;
+  appSecret: string;
+}
+
+export interface AiProviderConfig {
+  providerName: string;
+  apiKey: string;
+  baseUrl?: string;
+  visionModel?: string;
+  textModel?: string;
+}
+
+export interface UserModelEntry {
+  preference?: UserPreference & {
+    vision?: string;
+    text?: string;
+  };
+}
+
+export async function getWxClawbotAccounts(): Promise<WxClawbotAccount[]> {
+  const accounts = await fetchWeChatList();
+  return accounts.map((account) => ({
+    userId: account.userId || "",
+    appId: account.appId,
+    appSecret: account.appSecret,
+    mode: account.mode,
+    state: account.state,
+  }));
+}
+
+export async function bindWxClawbot(req: BindWxClawbotReq): Promise<boolean> {
+  const res = await api.post("/api/wechat/clawbot/bind", req);
+  if (res.data && res.data.code === 0) {
+    return true;
+  }
+  throw new Error(res.data?.msg || "绑定微信 ClawBot 失败");
+}
+
+export async function unbindWxClawbot(userId: string): Promise<boolean> {
+  const res = await api.post("/api/wechat/clawbot/unbind", { userId });
+  if (res.data && res.data.code === 0) {
+    return true;
+  }
+  throw new Error(res.data?.msg || "解绑微信 ClawBot 失败");
+}
+
+export async function getUserAiProvider(): Promise<UserModelEntry> {
+  const preference = await getUserPreference();
+  return {
+    preference: {
+      ...preference,
+      vision: preference.models?.vision,
+      text: preference.models?.text,
+    },
+  };
+}
+
+export async function saveAiProvider(config: AiProviderConfig): Promise<boolean> {
+  const provider: UpdateProviderReq = {
+    provider: config.providerName,
+    apiKey: config.apiKey,
+    apiStyle: config.providerName,
+    baseUrl: config.baseUrl,
+  };
+  const modelName = config.textModel || config.visionModel;
+  const model = modelName ? { name: modelName, type: config.textModel ? "TEXT" : "VISION", multimodal: Boolean(config.visionModel) } : undefined;
+  return updateUserPreference({
+    provider,
+    model,
+    models: {
+      text: config.textModel ? `${config.providerName}#${config.textModel}` : undefined,
+      vision: config.visionModel ? `${config.providerName}#${config.visionModel}` : undefined,
+    },
+  });
+}
+
+export async function deleteAiProvider(providerName: string): Promise<boolean> {
+  return updateUserPreference({
+    provider: { provider: providerName },
+    deleteProvider: true,
+  });
 }
 
 export interface AdminLlmProviderConfig extends UserProviderConfig {

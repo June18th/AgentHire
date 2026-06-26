@@ -324,7 +324,7 @@ export default function UserConfigPage() {
                                     <div>
                                         <div className="font-semibold">{provider.label}</div>
                                         <div className="text-sm text-gray-500 mt-1">
-                                            API Key: {provider.config.apiKey.substring(0, 8)}***
+                                            API Key: {provider.config.apiKey ? `${provider.config.apiKey.substring(0, 8)}***` : "未配置"}
                                         </div>
                                         {aiProvider?.preference && (
                                             <div className="text-sm text-gray-500 mt-1">

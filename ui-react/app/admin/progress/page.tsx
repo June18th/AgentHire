@@ -1,234 +1,394 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  Check,
+  CircleDashed,
+  FileText,
+  Layers3,
+  Loader2,
+  Play,
+  RefreshCcw,
+  Rocket,
+  ScanLine,
+  UploadCloud,
+  WandSparkles,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { submitAIAgentTaskSSE, GlobalConfigItemValue } from "@/lib/api";
+import { submitAIAgentTaskSSE, type GlobalConfigItemValue } from "@/lib/api";
 import { getConfigValue } from "@/lib/config";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-// 进度节点类型定义
+
 interface ProgressNode {
   id: string;
   title: string;
   description: string;
   step: number;
+  icon: LucideIcon;
+}
+
+type RunState = 0 | 1 | 2;
+type StepVisualState = "active" | "done" | "pending";
+type ActivityTone = "info" | "running" | "success" | "error";
+
+interface ActivityLog {
+  id: number;
+  time: string;
+  message: string;
+  tone: ActivityTone;
+}
+
+interface AgentLogMessage {
+  cmd: string;
+  info?: unknown;
+  agent?: string;
+}
+
+const progressNodes: ProgressNode[] = [
+  {
+    id: "entry",
+    title: "录入任务",
+    description: "提交职位线索与附件",
+    step: 0,
+    icon: FileText,
+  },
+  {
+    id: "task_classify",
+    title: "任务分类",
+    description: "识别文本、链接或文件",
+    step: 1,
+    icon: Layers3,
+  },
+  {
+    id: "task_gather",
+    title: "数据提取",
+    description: "抽取校招结构化字段",
+    step: 2,
+    icon: ScanLine,
+  },
+  {
+    id: "draft_washer",
+    title: "数据清洗",
+    description: "校验并标准化草稿",
+    step: 3,
+    icon: WandSparkles,
+  },
+  {
+    id: "draft_publish",
+    title: "发布上线",
+    description: "写入正式职位库",
+    step: 4,
+    icon: Rocket,
+  },
+];
+
+const stepStateClass: Record<StepVisualState, string> = {
+  active: "border-blue-200 bg-blue-50 text-blue-700 shadow-sm",
+  done: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  pending: "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50",
+};
+
+const iconStateClass: Record<StepVisualState, string> = {
+  active: "bg-blue-600 text-white",
+  done: "bg-emerald-500 text-white",
+  pending: "bg-slate-100 text-slate-500",
+};
+
+const logToneClass: Record<ActivityTone, string> = {
+  info: "bg-slate-400",
+  running: "bg-blue-400",
+  success: "bg-emerald-400",
+  error: "bg-rose-400",
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function formatPayload(info: unknown) {
+  if (info === undefined || info === null || info === "") {
+    return "";
+  }
+  if (typeof info === "string") {
+    return info;
+  }
+  try {
+    return JSON.stringify(info);
+  } catch {
+    return String(info);
+  }
+}
+
+function getArrayLength(source: unknown, key: string) {
+  if (!isRecord(source)) {
+    return 0;
+  }
+  const value = source[key];
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function getNestedArrayLength(source: unknown, key: string, nestedKey: string) {
+  if (!isRecord(source)) {
+    return 0;
+  }
+  return getArrayLength(source[key], nestedKey);
+}
+
+function getTaskType(info: unknown) {
+  if (!isRecord(info) || !isRecord(info.task)) {
+    return undefined;
+  }
+  return info.task.type;
+}
+
+function formatFileSize(file: File) {
+  const kb = file.size / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1)} KB`;
+  }
+  return `${(kb / 1024).toFixed(1)} MB`;
 }
 
 export default function ProgressPage() {
-  // 当前进度节点索引
+  // AIDEV-NOTE: AI-GENERATED UI polish
   const [currentStep, setCurrentStep] = useState(0);
-
-  // 进度节点定义
-  const progressNodes: ProgressNode[] = [
-    {
-      id: "entry",
-      title: "录入任务",
-      description: "输入采集任务",
-      step: 0,
-    },
-    {
-      id: "task_classify",
-      title: "任务分类",
-      description: "系统自动分类任务类型",
-      step: 1,
-    },
-    {
-      id: "task_gather",
-      title: "数据提取",
-      description: "大模型提取校招数据",
-      step: 2,
-    },
-    {
-      id: "draft_washer",
-      title: "数据清洗",
-      description: "清洗转换为标准化数据",
-      step: 3,
-    },
-    {
-      id: "draft_publish",
-      title: "发布上线",
-      description: "自动上架标准数据",
-      step: 4,
-    },
-  ];
-
   const [taskTypeOptions, setTaskTypeOptions] = useState<
     GlobalConfigItemValue[]
   >([]);
+  const [inputValue, setInputValue] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [runState, setRunState] = useState<RunState>(0);
+  const [stateInfo, setStateInfo] = useState<Record<number, string>>({});
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [sseController, setSseController] = useState<AbortController | null>(
+    null
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const logIdRef = useRef(0);
+  const { toast } = useToast();
+
   useEffect(() => {
     getConfigValue("gather", "GatherTargetTypeEnum").then(setTaskTypeOptions);
   }, []);
-  // 输入框状态
-  const [inputValue, setInputValue] = useState("");
-  // 上传文件状态
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 提示信息
-  const { toast } = useToast();
-  // 0 未开始 1 运行中 2 运行完成
-  const [runState, setRunState] = useState(0);
-  const [stateInfo, setStateInfo] = useState<{ [key: number]: string }>({});
-
-  // 处理输入变化
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
-  };
-
-  // 处理文件选择
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-
-  // 处理拖拽上传
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setSelectedFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  // 处理粘贴上传
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    const items = e.clipboardData?.items;
-    if (items) {
+  useEffect(() => {
+    const handleWindowPaste = (event: ClipboardEvent) => {
+      if (runState === 1) {
+        return;
+      }
+      const items = event.clipboardData?.items;
+      if (!items) {
+        return;
+      }
       for (let i = 0; i < items.length; i++) {
         if (items[i].kind === "file") {
           setSelectedFile(items[i].getAsFile());
           break;
         }
       }
-    }
-  };
+    };
+
+    window.addEventListener("paste", handleWindowPaste);
+    return () => window.removeEventListener("paste", handleWindowPaste);
+  }, [runState]);
+
   useEffect(() => {
-    function handlePaste(e: ClipboardEvent) {
-      const items = e.clipboardData?.items;
-      if (items) {
-        for (let i = 0; i < items.length; i++) {
-          if (items[i].kind === "file") {
-            setSelectedFile(items[i].getAsFile());
-            break;
-          }
-        }
+    return () => {
+      if (sseController) {
+        sseController.abort();
       }
-    }
-    window.addEventListener("paste", handlePaste);
-    return () => window.removeEventListener("paste", handlePaste);
-  });
+    };
+  }, [sseController]);
 
-  // 清除选中的文件
-  const clearSelectedFile = () => {
-    setSelectedFile(null);
+  const completedCount = progressNodes.filter((node) =>
+    Boolean(stateInfo[node.step])
+  ).length;
+  const currentPercent = Math.round(
+    (completedCount / progressNodes.length) * 100
+  );
+  const isRunning = runState === 1;
+  const canSubmit = Boolean(inputValue.trim() || selectedFile) && !isRunning;
+
+  const getStepVisualState = (index: number): StepVisualState => {
+    if (stateInfo[index]) {
+      return "done";
+    }
+    if (runState !== 2 && index === currentStep) {
+      return "active";
+    }
+    return "pending";
   };
 
-  // 进入下一步
-  const handleNextStep = () => {
-    if (currentStep < progressNodes.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
+  const appendLog = (message: string, tone: ActivityTone = "info") => {
+    logIdRef.current += 1;
+    const id = logIdRef.current;
+    const time = new Date().toLocaleTimeString();
+    setLogs((prevLogs) => [
+      ...prevLogs,
+      {
+        id,
+        time,
+        message,
+        tone,
+      },
+    ]);
   };
 
-  const [logs, setLogs] = useState<string[]>([]);
-
-  const handleSubmitTask = async () => {
-    if (!inputValue && !selectedFile) return;
-
+  const parseAgentLog = (message: string): AgentLogMessage => {
     try {
-      // 清空之前的日志
-      setLogs([]);
-
-      // 直接调用SSE连接函数，该函数会处理参数和请求
-      await setupSSEConnection();
-    } catch (error) {
-      const defaultAgent = progressNodes[currentStep].id;
-      addLog(
-        `{"cmd":"error", "info": "提交失败: ${
-          error instanceof Error ? error.message : String(error)
-        }", "agent": "${defaultAgent}"}`
-      );
-      toast({
-        title: "失败",
-        description: `提交失败: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive",
-      });
+      const parsed: unknown = JSON.parse(message);
+      if (!isRecord(parsed)) {
+        return { cmd: "error", info: `无法识别的消息: ${message}` };
+      }
+      return {
+        cmd: String(parsed.cmd || "info"),
+        info: parsed.info,
+        agent: typeof parsed.agent === "string" ? parsed.agent : undefined,
+      };
+    } catch {
+      return { cmd: "error", info: `解析消息失败: ${message}` };
     }
   };
 
-  // 添加日志的辅助函数
-  const addLog = (message: string, type: "info" | "error" = "info") => {
-    console.debug(`[日志] ${message}`);
-    const msg = JSON.parse(message);
-    let { cmd, info, agent } = msg;
-    // agent 与 progressNodes 中的id进行匹配，判断当前执行到哪一步了
-    const node = progressNodes.find((item) => item.id === agent);
+  const buildStepInfo = (step: number, info: unknown) => {
+    if (step === 1) {
+      const taskType = getTaskType(info);
+      const matchedOption = taskTypeOptions.find(
+        (option) => String(option.value) === String(taskType)
+      );
+      return `任务分类为：${matchedOption?.intro || "未映射类型"}`;
+    }
+    if (step === 2) {
+      return `新增 ${getArrayLength(info, "insertList")} 条，更新 ${getArrayLength(
+        info,
+        "updateList"
+      )} 条`;
+    }
+    if (step === 3) {
+      return `完成清洗 ${getNestedArrayLength(info, "washer", "ids")} 条`;
+    }
+    if (step === 4) {
+      return `成功发布 ${getArrayLength(info, "publish")} 条`;
+    }
+    return "";
+  };
+
+  const addLog = (message: string) => {
+    const msg = parseAgentLog(message);
+    const node = progressNodes.find((item) => item.id === msg.agent);
+    const payload = formatPayload(msg.info);
+
     if (node) {
       setCurrentStep(node.step);
     }
 
-    const strInfo = JSON.stringify(info);
-
-    if (cmd === "init") {
+    if (msg.cmd === "init") {
       setRunState(1);
-      setLogs((prevLogs) => [ ...prevLogs, `[${new Date().toLocaleTimeString()}] ${strInfo}`, ]);
-    } else if (cmd == "start") {
-      setLogs((prevLogs) => [ ...prevLogs, `[${new Date().toLocaleTimeString()}] 【${node?.title }】 启动执行 ${strInfo}`, ]);
-    } else if (cmd == "end") {
-      setLogs((prevLogs) => [ ...prevLogs, `[${new Date().toLocaleTimeString()}] 【${node?.title }】 结束执行 ${strInfo}`, ]);
+      appendLog(payload || "已建立 SSE 链接", "running");
+      return;
+    }
 
-      let stepInfo = "";
-      if (node?.step == 1) {
-        // 分类
-        // 遍历taskTypeOptions找到匹配的项目
-        const matchedOption = taskTypeOptions.find(
-          (option) => option.value == info.task.type
-        ) || { intro: "未映射" };
-        stepInfo = `任务分类为：【${matchedOption.intro}】`;
-      } else if (node?.step == 2) {
-        // 提取
-        stepInfo = `任务提取结果：\n 新增: ${info.insertList.length}条\n更新：${info.updateList.length}条`;
-      } else if (node?.step == 3) {
-        // 数据清洗
-        stepInfo = `完成数据清洗: ${info.washer.ids.length}条`;
-      } else if (node?.step == 4) {
-        // 发布上线
-        stepInfo = `成功发布上线: ${info.publish.length}条`;
-      }
+    if (msg.cmd === "start") {
+      appendLog(`【${node?.title || "Agent"}】开始执行 ${payload}`, "running");
+      return;
+    }
 
-      // 使用函数形式确保获取最新状态
-      setStateInfo((prevStateInfo) => {
-        // 创建深拷贝以避免直接修改状态
-        const newStates = { ...prevStateInfo };
-        if (node) {
-          newStates[node.step] = stepInfo;
+    if (msg.cmd === "end") {
+      appendLog(`【${node?.title || "Agent"}】执行完成 ${payload}`, "success");
+
+      if (node) {
+        const stepInfo = buildStepInfo(node.step, msg.info);
+        if (stepInfo) {
+          setStateInfo((prevStateInfo) => ({
+            ...prevStateInfo,
+            [node.step]: stepInfo,
+          }));
         }
-        return newStates;
-      });
-    } else if (cmd == "over") {
-      // 表示执行完成
-      setLogs((prevLogs) => [ ...prevLogs, `[${new Date().toLocaleTimeString()}] 【任务完成】`, ]);
+      }
+      return;
+    }
+
+    if (msg.cmd === "over") {
+      appendLog("【任务完成】Agent 流水线已结束", "success");
       setRunState(2);
-      toast({ title: "成功", description: `任务执行完成` });
-    } else if (cmd == "error") {
-      setLogs((prevLogs) => [ ...prevLogs, `[${new Date().toLocaleTimeString()}] 【任务失败】 ${info}`, ]);
-      toast({ title: "失败", description: `任务执行失败: ${info}`, variant: "destructive", });
+      toast({ title: "成功", description: "任务执行完成" });
+      return;
+    }
+
+    if (msg.cmd === "error") {
+      appendLog(`【任务失败】${payload}`, "error");
+      setRunState(0);
+      setSseController(null);
+      toast({
+        title: "失败",
+        description: `任务执行失败: ${payload}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    appendLog(payload || message, "info");
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
     }
   };
 
-  // 设置SSE连接的函数
-  const [sseController, setSseController] = useState<AbortController | null>(
-    null
-  );
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
 
-  // 使用fetch API实现POST方式的SSE
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (isRunning) {
+      return;
+    }
+    if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+      setSelectedFile(event.dataTransfer.files[0]);
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    if (isRunning) {
+      return;
+    }
+    const items = event.clipboardData?.items;
+    if (!items) {
+      return;
+    }
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === "file") {
+        setSelectedFile(items[i].getAsFile());
+        break;
+      }
+    }
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const restart = () => {
+    setCurrentStep(0);
+    setRunState(0);
+    setInputValue("");
+    clearSelectedFile();
+    setStateInfo({});
+    setLogs([]);
+    logIdRef.current = 0;
+  };
+
   const setupSSEConnection = async () => {
-    // 取消之前的连接
     if (sseController) {
       sseController.abort();
     }
@@ -237,7 +397,6 @@ export default function ProgressPage() {
     setSseController(newController);
 
     try {
-      // 准备参数
       const params = {
         model: "ZhiPu",
         type: "0",
@@ -245,41 +404,65 @@ export default function ProgressPage() {
         content: inputValue,
       };
 
-      // 调用SSE API
       submitAIAgentTaskSSE(
         params,
         (line) => {
-          console.log("接收到SSE消息:", line);
           const defaultAgent = progressNodes[currentStep].id;
-          try {
-            const data = JSON.parse(line);
-            addLog(data.message || JSON.stringify(data), data.type);
+          const closeStream = () => {
+            newController.abort();
+            setSseController(null);
+          };
 
-            // 如果任务完成，关闭连接
-            if (data.status === "completed" || data.status === "failed") {
-              newController.abort();
-              setSseController(null);
+          try {
+            const data: unknown = JSON.parse(line);
+            if (!isRecord(data)) {
               addLog(
-                `{"cmd":"over", "info": "任务${
-                  data.status === "completed" ? "成功完成" : "失败"
-                }", "agent": "${defaultAgent}"}`
+                `{"cmd":"error", "info": "解析消息失败: ${line}", "agent": "${defaultAgent}"}`
+              );
+              return;
+            }
+
+            const message =
+              typeof data.message === "string"
+                ? data.message
+                : JSON.stringify(data);
+
+            const agentLog = parseAgentLog(message);
+            addLog(message);
+
+            if (agentLog.cmd === "over" || agentLog.cmd === "error") {
+              closeStream();
+              return;
+            }
+
+            if (data.status === "completed") {
+              closeStream();
+              addLog(
+                `{"cmd":"over", "info": "任务成功完成", "agent": "${defaultAgent}"}`
+              );
+              return;
+            }
+
+            if (data.status === "failed") {
+              closeStream();
+              addLog(
+                `{"cmd":"error", "info": "任务执行失败", "agent": "${defaultAgent}"}`
               );
             }
-          } catch (error) {
+          } catch {
             addLog(
               `{"cmd":"error", "info": "解析消息失败: ${line}", "agent": "${defaultAgent}"}`
             );
           }
         },
         (error) => {
-          // 处理错误
           const defaultAgent = progressNodes[currentStep].id;
           addLog(
             `{"cmd":"error", "info": "请求失败: ${error.message}", "agent": "${defaultAgent}"}`
           );
+          setSseController(null);
         },
         () => {
-          // 完成回调
           const defaultAgent = progressNodes[currentStep].id;
           setSseController(null);
           addLog(
@@ -289,11 +472,12 @@ export default function ProgressPage() {
         newController
       );
 
-      // 开始啦
-      addLog('{"cmd":"init", "info": "建立SSE链接，准备接收任务进度..", "agent": "task_classify"}');
+      addLog(
+        '{"cmd":"init", "info": "建立 SSE 链接，准备接收任务进度", "agent": "task_classify"}'
+      );
       toast({
         title: "成功",
-        description: "建立SSE链接，准备接收任务进度.."
+        description: "已提交任务，正在接收执行进度",
       });
     } catch (error) {
       if (!newController.signal.aborted) {
@@ -303,137 +487,197 @@ export default function ProgressPage() {
             error instanceof Error ? error.message : "未知错误"
           }", "agent": "${defaultAgent}"}`
         );
-        toast({
-          title: "失败",
-          description: `SSE连接错误: ${error instanceof Error ? error.message : "未知错误"}`,
-          variant: "destructive",
-        });
       }
       setSseController(null);
     }
   };
 
-  // 组件卸载时关闭SSE连接
-  useEffect(() => {
-    return () => {
-      if (sseController) {
-        sseController.abort();
-      }
-    };
-  }, [sseController]);
+  const handleSubmitTask = async () => {
+    if (!canSubmit) {
+      return;
+    }
 
-  // 返回到上一步
-  const handlePrevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+    try {
+      setLogs([]);
+      setStateInfo({ 0: "已提交职位线索与附件" });
+      setCurrentStep(0);
+      setRunState(1);
+      logIdRef.current = 0;
+      appendLog("任务已提交，等待 Agent 调度", "running");
+      await setupSSEConnection();
+    } catch (error) {
+      const defaultAgent = progressNodes[currentStep].id;
+      addLog(
+        `{"cmd":"error", "info": "提交失败: ${
+          error instanceof Error ? error.message : String(error)
+        }", "agent": "${defaultAgent}"}`
+      );
     }
   };
 
-  const restart = () => {
-    setCurrentStep(0);
-    setRunState(0);
-    setInputValue("");
-    setSelectedFile(null);
-    setStateInfo({});
-    setLogs([]);
-  };
-
   return (
-    <div className="min-h-screen bg-surface-muted">
-      <div className="mx-auto max-w-[1440px] px-6 py-6">
-        {/* 进度图 */}
-        <div className="mb-6 bg-white rounded-lg shadow p-6 overflow-x-auto">
-          <h2 className="text-xl font-semibold mb-6">任务进度流程</h2>
-          <div className="flex flex-row items-center justify-between relative min-w-[600px]">
-            {/* 连接线 */}
-            <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 transform -translate-y-1/2 z-0"></div>
-            <div
-              className={`absolute top-1/2 left-0 h-1 bg-blue-600 transform -translate-y-1/2 z-10`}
-              style={{
-                width: `${(currentStep / (progressNodes.length - 1)) * 100}%`,
-              }}
-            ></div>
-
-            {/* 进度节点 */}
-            {progressNodes.map((node, index) => (
-              <div
-                key={node.id}
-                className="relative z-20 flex flex-col items-center"
-                style={{ flex: "1 1 20%" }}
-                onClick={() => {
-                  if (runState > 0 || true) {
-                    setCurrentStep(index);
-                  }
-                }}
-              >
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-2
-                    ${
-                      index === currentStep
-                        ? "bg-blue-600 text-white" // 当前节点
-                        : index < currentStep
-                        ? "bg-green-500 text-white" // 已完成节点
-                        : "bg-gray-200 text-gray-500"
-                    }`} // 未完成节点
-                >
-                  {index + 1}
-                </div>
-                <div className="text-center">
-                  <h3 className="font-medium text-sm sm:text-base">
-                    {node.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-gray-500 mt-1 max-w-[120px] sm:max-w-[150px] whitespace-nowrap overflow-hidden text-ellipsis">
-                    {node.description}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* 当前节点信息 */}
-          <div>
-            <div className="mt-8 p-4 bg-blue-50 rounded-md border border-blue-100">
-              <div className="flex items-center">
-                <Badge className="mr-2" color="blue">
-                  当前步骤
-                </Badge>
-                <h3 className="text-lg font-semibold">
-                  {currentStep + 1}. {progressNodes[currentStep].title}
-                </h3>
-              </div>
-              <p className="mt-2">{progressNodes[currentStep].description}</p>
-              {stateInfo[currentStep] && (
-                <p className="mt-2 text-blue-700">{stateInfo[currentStep]}</p>
-              )}
+    <div className="min-h-full bg-[#f6f8fb]">
+      <div className="mx-auto max-w-[1480px] px-6 py-6">
+        <section className="mb-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-base font-semibold text-slate-950">
+                Agent 作业链
+              </h2>
+              <p className="text-sm text-slate-500">
+                从采集源到正式职位库的自动处理路径。
+              </p>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              <span>
+                已完成{" "}
+                <span className="font-semibold text-slate-950">
+                  {completedCount}
+                </span>
+                /{progressNodes.length}
+              </span>
+              <span className="h-4 w-px bg-slate-200" />
+              <span>
+                进度{" "}
+                <span className="font-semibold text-slate-950">
+                  {currentPercent}%
+                </span>
+              </span>
             </div>
           </div>
-        </div>
 
-        {/* 业务区域 */}
-        <div className="bg-white rounded-lg shadow p-6 overflow-x-auto">
-          {currentStep === 0 ? (
-            // 录入任务节点的业务内容
-            <div>
-              <h2 className="text-xl font-semibold mb-6">任务信息录入</h2>
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-2">
-                  任务内容
-                </label>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-blue-600 transition-all duration-500"
+              style={{ width: `${currentPercent}%` }}
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-5">
+            {progressNodes.map((node, index) => {
+              const visualState = getStepVisualState(index);
+              const Icon = node.icon;
+
+              return (
+                <button
+                  key={node.id}
+                  type="button"
+                  onClick={() => setCurrentStep(index)}
+                  className={cn(
+                    "min-h-[96px] rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2",
+                    stepStateClass[visualState]
+                  )}
+                  aria-current={visualState === "active" ? "step" : undefined}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
+                          iconStateClass[visualState]
+                        )}
+                      >
+                        {visualState === "done" ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Icon className="h-4 w-4" />
+                        )}
+                      </span>
+                      <span className="truncate text-sm font-semibold leading-5 text-slate-950">
+                        {node.title}
+                      </span>
+                    </div>
+                    <span className="text-xs font-semibold text-current/70">
+                      0{index + 1}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    {node.description}
+                  </p>
+                  {stateInfo[index] && (
+                    <p className="mt-2 line-clamp-2 whitespace-pre-line text-xs leading-5 text-emerald-700">
+                      {stateInfo[index]}
+                    </p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  任务投料
+                </h2>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {selectedFile && (
+                  <Badge
+                    variant="outline"
+                    className="w-fit rounded-md border-blue-100 bg-blue-50 text-blue-700"
+                  >
+                    已附加 1 个文件
+                  </Badge>
+                )}
+                {(runState === 2 || logs.length > 0) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={restart}
+                    disabled={isRunning}
+                    className="gap-2"
+                  >
+                    <RefreshCcw className="h-4 w-4" />
+                    重新录入
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  onClick={handleSubmitTask}
+                  disabled={!canSubmit}
+                  className="min-w-32 gap-2"
+                >
+                  {isRunning ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  {isRunning ? "执行中" : "启动 Agent"}
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-5">
+              <div>
                 <Textarea
-                  rows={4}
+                  rows={5}
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="请粘贴职位JD、简历或其他AI任务内容..."
+                  onChange={(event) => setInputValue(event.target.value)}
+                  disabled={isRunning}
+                  placeholder="支持职位 JD、招聘链接、HTML 文本和表格/图片附件。"
+                  className="min-h-[150px] resize-none rounded-lg border-slate-200 bg-slate-50/70 px-4 py-3 text-sm leading-6 shadow-inner placeholder:text-slate-400 focus-visible:ring-blue-500"
                 />
               </div>
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-2">
-                  上传文件
+
+              <div>
+                <label className="text-sm font-medium text-slate-900">
+                  附件
                 </label>
                 <div
-                  className="border border-dashed border-gray-300 rounded-md flex flex-col items-center justify-center cursor-pointer bg-gray-50 hover:bg-gray-100 transition"
-                  style={{ maxHeight: 110 }}
-                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "mt-2 flex min-h-[132px] items-center justify-center rounded-lg border border-dashed p-4 transition-colors",
+                    isRunning
+                      ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-70"
+                      : "cursor-pointer border-slate-300 bg-white hover:border-blue-300 hover:bg-blue-50/40"
+                  )}
+                  onClick={() => {
+                    if (!isRunning) {
+                      fileInputRef.current?.click();
+                    }
+                  }}
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                   onPaste={handlePaste}
@@ -442,132 +686,103 @@ export default function ProgressPage() {
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
+                    disabled={isRunning}
                     onChange={handleFileSelect}
                   />
                   {selectedFile ? (
-                    <div className="flex items-center gap-2 px-5 py-3 w-full justify-center">
-                      <div className="text-blue-600 font-medium">
-                        已选择文件：{selectedFile.name}
+                    <div className="flex w-full items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-blue-100 text-blue-700">
+                          <FileText className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-slate-950">
+                            {selectedFile.name}
+                          </div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {formatFileSize(selectedFile)}
+                          </div>
+                        </div>
                       </div>
                       <button
                         type="button"
-                        className="ml-2 px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs"
-                        onClick={clearSelectedFile}
-                        title="清除附件"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-white hover:text-slate-900"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          clearSelectedFile();
+                        }}
+                        title="移除附件"
+                        disabled={isRunning}
                       >
-                        ×
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center p-6">
-                      <div className="flex items-center gap-4 w-full justify-center">
-                        <svg
-                          className="w-12 h-12 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                          ></path>
-                        </svg>
-                        <div className="text-left">
-                          <p className="text-sm text-gray-500 mb-1">
-                            支持三种上传方式：
-                          </p>
-                          <ul className="text-xs text-gray-500 space-y-1">
-                            <li>• 点击区域选择文件</li>
-                            <li>• 将文件拖拽到区域内</li>
-                            <li>• 使用 Ctrl+V 粘贴文件</li>
-                          </ul>
-                        </div>
+                    <div className="flex flex-col items-center text-center">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                        <UploadCloud className="h-6 w-6" />
+                      </span>
+                      <div className="mt-3 text-sm font-medium text-slate-900">
+                        拖入文件或点击选择
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        CSV、Excel、图片与常见文档均可作为采集源
                       </div>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="flex justify-end mt-4">
-                <Button
-                  onClick={handleSubmitTask}
-                  disabled={!inputValue && !selectedFile}
-                >
-                  提交
-                </Button>
-              </div>
             </div>
-          ) : (
-            // 其他节点的业务内容
-            <div className="full-w">
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <svg
-                  className="w-24 h-24 text-gray-300 mb-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path>
-                </svg>
-                <h3 className="text-xl font-semibold mb-2">
-                  {progressNodes[currentStep].title}
-                </h3>
-                <p className="text-gray-500 max-w-md mb-8">
-                  {currentStep === 1 &&
-                    "系统正在根据您提供的信息自动分类任务类型，请稍候..."}
-                  {currentStep === 2 &&
-                    "系统正在从上传的文件中提取关键数据，请稍候..."}
-                  {currentStep === 3 &&
-                    "系统正在清洗并标准化提取的数据，请稍候..."}
-                  {currentStep === 4 && "数据已审核通过并成功发布上线！"}
-                </p>
-                <div className="flex gap-3">
-                  {runState === 2 && (
-                    <Button
-                      onClick={() => {
-                        restart();
-                      }}
-                    >
-                      再次提交
-                    </Button>
-                  )}
+
+          </section>
+
+          <aside className="min-h-0">
+            <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-900 bg-slate-950 shadow-sm">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-white">
+                    执行记录
+                  </h2>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    SSE 实时事件流
+                  </p>
                 </div>
+                <span className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-200">
+                  {logs.length} 条
+                </span>
               </div>
-              {/* 日志区域 - 只在录入任务步骤显示 */}
-              <h2 className="text-xl font-semibold w-[90%] mx-auto mt-6 overflow-y-auto">
-                执行记录
-              </h2>
-              <div className="w-[90%] mx-auto mt-6 bg-gray-50 p-4 rounded-md border border-gray-200 h-64 overflow-y-auto">
-                <h3 className="font-medium text-gray-700 mb-2">任务明细</h3>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
                 {logs.length === 0 ? (
-                  <p className="text-gray-500 text-sm">暂无日志</p>
+                  <div className="flex h-full flex-col items-center justify-center text-center text-slate-400">
+                    <CircleDashed className="h-8 w-8" />
+                    <div className="mt-3 text-sm">暂无执行事件</div>
+                  </div>
                 ) : (
-                  <div className="space-y-1 text-sm">
-                    {logs.map((log, index) => (
-                      <div
-                        key={index}
-                        className={`
-                      ${log.includes("启动执行") ? "text-blue-600" : ""}
-                      ${log.includes("结束执行") ? "text-green-600" : ""}
-                      ${log.includes("任务完成") ? "text-red-600" : ""}
-                    `}
-                      >
-                        {log}
+                  <div className="space-y-3">
+                    {logs.map((log) => (
+                      <div key={log.id} className="flex gap-3">
+                        <span
+                          className={cn(
+                            "mt-2 h-2 w-2 shrink-0 rounded-full",
+                            logToneClass[log.tone]
+                          )}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] font-medium text-slate-500">
+                            {log.time}
+                          </div>
+                          <div className="mt-0.5 break-words font-mono text-xs leading-5 text-slate-200">
+                            {log.message}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            </section>
+          </aside>
         </div>
       </div>
     </div>

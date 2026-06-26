@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -155,10 +156,51 @@ public class WeChatClawBotBinder implements ChannelBinder {
             return List.of();
         }
         var userAccounts = accounts.get(String.valueOf(userId));
-        if (userAccounts == null) {
+        if (userAccounts == null || userAccounts.getState() != ChannelConfig.ChannelState.NORMAL || userAccounts.getAppSecret() == null
+                || userAccounts.getAppSecret().isBlank()) {
             return List.of();
         }
         return List.of(userAccounts);
+    }
+
+    @Operation(summary = "手动绑定微信 ClawBot 账号")
+    @PostMapping("/bind")
+    public boolean bindManual(@RequestBody ManualBindReq req) {
+        if (req == null || req.wxClawbotUserId() == null || req.wxClawbotUserId().isBlank() || req.appId() == null
+                || req.appId().isBlank() || req.appSecret() == null || req.appSecret().isBlank()) {
+            throw new IllegalArgumentException("微信 ClawBot 账号信息不完整");
+        }
+
+        Long userId = ReqInfoContext.getReqInfo().getUserId();
+        var account = WxClawBotAccount.builder()
+                .userId(req.wxClawbotUserId())
+                .appId(req.appId())
+                .appSecret(req.appSecret())
+                .mode(ChannelConfig.ConnectionMode.LOOP)
+                .state(ChannelConfig.ChannelState.NORMAL)
+                .build();
+        this.bindAccount(userId, account);
+        return true;
+    }
+
+    @Operation(summary = "解绑微信 ClawBot 账号")
+    @PostMapping("/unbind")
+    public boolean unbindManual(@RequestBody ManualUnbindReq req) {
+        Long userId = ReqInfoContext.getReqInfo().getUserId();
+        Map<String, Object> obj = new HashMap<>();
+        obj.put(WX_CLAW_BOT_ACCOUNT_PREFIX + "." + userId + ".app-secret", "");
+        obj.put(WX_CLAW_BOT_ACCOUNT_PREFIX + "." + userId + ".state", ChannelConfig.ChannelState.ERROR.name());
+        configurationManager.updateProperties(obj);
+
+        var accounts = wxChatClawBotProperties.getAccounts();
+        if (accounts != null) {
+            var account = accounts.get(String.valueOf(userId));
+            if (account != null) {
+                account.setAppSecret("");
+                account.setState(ChannelConfig.ChannelState.ERROR);
+            }
+        }
+        return true;
     }
 
     @Override
@@ -201,5 +243,11 @@ public class WeChatClawBotBinder implements ChannelBinder {
     }
 
     public record LoginStatus(boolean success, String msg, String accountId) {
+    }
+
+    public record ManualBindReq(String wxClawbotUserId, String appId, String appSecret) {
+    }
+
+    public record ManualUnbindReq(String userId) {
     }
 }
