@@ -19,10 +19,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { submitAIAgentTaskSSE, type GlobalConfigItemValue } from "@/lib/api";
+import {
+  devWxLogin,
+  submitAIAgentTaskSSE,
+  type GlobalConfigItemValue,
+} from "@/lib/api";
 import { getConfigValue } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useLoginUser } from "@/hooks/useLoginUser";
 
 interface ProgressNode {
   id: string;
@@ -47,6 +52,14 @@ interface AgentLogMessage {
   cmd: string;
   info?: unknown;
   agent?: string;
+}
+
+interface StoredUserInfo {
+  userId: number;
+  role: number;
+  nickname?: string;
+  avatar?: string;
+  timestamp?: number;
 }
 
 const progressNodes: ProgressNode[] = [
@@ -154,6 +167,30 @@ function formatFileSize(file: File) {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
+function getStoredUserInfo(): StoredUserInfo | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = localStorage.getItem("oc-user");
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as StoredUserInfo;
+  } catch {
+    return null;
+  }
+}
+
+function isLocalhost() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+}
+
 export default function ProgressPage() {
   // AIDEV-NOTE: AI-GENERATED UI polish
   const [currentStep, setCurrentStep] = useState(0);
@@ -171,6 +208,7 @@ export default function ProgressPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logIdRef = useRef(0);
   const { toast } = useToast();
+  const { userInfo, setUserInfo } = useLoginUser();
 
   useEffect(() => {
     getConfigValue("gather", "GatherTargetTypeEnum").then(setTaskTypeOptions);
@@ -239,6 +277,32 @@ export default function ProgressPage() {
     ]);
   };
 
+  const ensureAdminSession = async () => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("oc-token") : null;
+    const storedUser = getStoredUserInfo();
+    if (token && (userInfo?.role === 3 || storedUser?.role === 3)) {
+      return;
+    }
+
+    if (!isLocalhost()) {
+      throw new Error("请先使用管理员账号登录后再提交任务");
+    }
+
+    const login = await devWxLogin("admin");
+    const nextUser: StoredUserInfo = {
+      userId: login.user.userId,
+      role: login.user.role,
+      nickname: login.user.displayName,
+      avatar: login.user.avatar,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem("oc-token", login.token);
+    localStorage.setItem("oc-user", JSON.stringify(nextUser));
+    setUserInfo(nextUser);
+    appendLog("已切换到本地管理员会话", "success");
+  };
+
   const parseAgentLog = (message: string): AgentLogMessage => {
     try {
       const parsed: unknown = JSON.parse(message);
@@ -278,6 +342,25 @@ export default function ProgressPage() {
     return "";
   };
 
+  const buildStartInfo = (step: number, info: unknown) => {
+    if (step === 1) {
+      return "准备识别任务类型";
+    }
+    if (step === 2) {
+      return "开始抽取结构化字段";
+    }
+    if (step === 3) {
+      const total =
+        getArrayLength(info, "insertList") + getArrayLength(info, "updateList");
+      return `待清洗 ${total} 条`;
+    }
+    if (step === 4 && isRecord(info)) {
+      const ids = info.ids;
+      return `待发布 ${Array.isArray(ids) ? ids.length : 0} 条`;
+    }
+    return "";
+  };
+
   const addLog = (message: string) => {
     const msg = parseAgentLog(message);
     const node = progressNodes.find((item) => item.id === msg.agent);
@@ -294,15 +377,22 @@ export default function ProgressPage() {
     }
 
     if (msg.cmd === "start") {
-      appendLog(`【${node?.title || "Agent"}】开始执行 ${payload}`, "running");
+      const startInfo = node ? buildStartInfo(node.step, msg.info) : "";
+      appendLog(
+        `【${node?.title || "Agent"}】开始执行 ${startInfo || payload}`,
+        "running"
+      );
       return;
     }
 
     if (msg.cmd === "end") {
-      appendLog(`【${node?.title || "Agent"}】执行完成 ${payload}`, "success");
+      const stepInfo = node ? buildStepInfo(node.step, msg.info) : "";
+      appendLog(
+        `【${node?.title || "Agent"}】执行完成 ${stepInfo || payload}`,
+        "success"
+      );
 
       if (node) {
-        const stepInfo = buildStepInfo(node.step, msg.info);
         if (stepInfo) {
           setStateInfo((prevStateInfo) => ({
             ...prevStateInfo,
@@ -333,6 +423,16 @@ export default function ProgressPage() {
     }
 
     appendLog(payload || message, "info");
+  };
+
+  const addParseErrorLog = (line: string, agent: string) => {
+    addLog(
+      JSON.stringify({
+        cmd: "error",
+        info: `解析消息失败: ${line}`,
+        agent,
+      })
+    );
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -395,6 +495,7 @@ export default function ProgressPage() {
 
     const newController = new AbortController();
     setSseController(newController);
+    let terminalSeen = false;
 
     try {
       const params = {
@@ -416,9 +517,7 @@ export default function ProgressPage() {
           try {
             const data: unknown = JSON.parse(line);
             if (!isRecord(data)) {
-              addLog(
-                `{"cmd":"error", "info": "解析消息失败: ${line}", "agent": "${defaultAgent}"}`
-              );
+              addParseErrorLog(line, defaultAgent);
               return;
             }
 
@@ -431,11 +530,13 @@ export default function ProgressPage() {
             addLog(message);
 
             if (agentLog.cmd === "over" || agentLog.cmd === "error") {
+              terminalSeen = true;
               closeStream();
               return;
             }
 
             if (data.status === "completed") {
+              terminalSeen = true;
               closeStream();
               addLog(
                 `{"cmd":"over", "info": "任务成功完成", "agent": "${defaultAgent}"}`
@@ -444,15 +545,14 @@ export default function ProgressPage() {
             }
 
             if (data.status === "failed") {
+              terminalSeen = true;
               closeStream();
               addLog(
                 `{"cmd":"error", "info": "任务执行失败", "agent": "${defaultAgent}"}`
               );
             }
           } catch {
-            addLog(
-              `{"cmd":"error", "info": "解析消息失败: ${line}", "agent": "${defaultAgent}"}`
-            );
+            addParseErrorLog(line, defaultAgent);
           }
         },
         (error) => {
@@ -465,9 +565,11 @@ export default function ProgressPage() {
         () => {
           const defaultAgent = progressNodes[currentStep].id;
           setSseController(null);
-          addLog(
-            `{"cmd":"over", "info": "SSE连接已关闭", "agent": "${defaultAgent}"}`
-          );
+          if (!terminalSeen) {
+            addLog(
+              `{"cmd":"over", "info": "SSE连接已关闭", "agent": "${defaultAgent}"}`
+            );
+          }
         },
         newController
       );
@@ -499,10 +601,13 @@ export default function ProgressPage() {
 
     try {
       setLogs([]);
-      setStateInfo({ 0: "已提交职位线索与附件" });
+      setStateInfo({});
       setCurrentStep(0);
       setRunState(1);
       logIdRef.current = 0;
+      appendLog("校验管理员登录态", "running");
+      await ensureAdminSession();
+      setStateInfo({ 0: "已提交职位线索与附件" });
       appendLog("任务已提交，等待 Agent 调度", "running");
       await setupSSEConnection();
     } catch (error) {
@@ -516,9 +621,9 @@ export default function ProgressPage() {
   };
 
   return (
-    <div className="min-h-full bg-[#f6f8fb]">
-      <div className="mx-auto max-w-[1480px] px-6 py-6">
-        <section className="mb-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="min-h-full bg-[#f6f8fb] xl:h-full xl:min-h-0 xl:overflow-hidden">
+      <div className="mx-auto max-w-[1480px] px-6 py-6 xl:flex xl:h-full xl:flex-col">
+        <section className="mb-5 shrink-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h2 className="text-base font-semibold text-slate-950">
@@ -605,8 +710,8 @@ export default function ProgressPage() {
           </div>
         </section>
 
-        <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="grid items-stretch gap-5 xl:min-h-0 xl:flex-1 xl:gap-3 xl:[--progress-col:calc((100%_-_88px)_/_5)] xl:grid-cols-[calc(var(--progress-col)_+_20px)_var(--progress-col)_var(--progress-col)_var(--progress-col)_calc(var(--progress-col)_+_20px)]">
+          <section className="min-h-0 rounded-lg border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2 xl:overflow-y-auto">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-950">
@@ -736,8 +841,8 @@ export default function ProgressPage() {
 
           </section>
 
-          <aside className="min-h-0">
-            <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-900 bg-slate-950 shadow-sm">
+          <aside className="min-h-0 xl:col-span-3">
+            <section className="flex min-h-[360px] flex-col overflow-hidden rounded-lg border border-slate-900 bg-slate-950 shadow-sm xl:h-full xl:min-h-0">
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                 <div>
                   <h2 className="text-sm font-semibold text-white">
@@ -752,7 +857,7 @@ export default function ProgressPage() {
                 </span>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 [scrollbar-gutter:stable]">
                 {logs.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-center text-slate-400">
                     <CircleDashed className="h-8 w-8" />

@@ -32,6 +32,9 @@ public class DraftConvert {
                 .setJobAnnouncement(bo.jobAnnouncement())
                 .setInternalReferralCode(bo.internalReferralCode())
                 .setRemarks(bo.remarks())
+                .setSalary(bo.salary())
+                .setEducation(bo.education())
+                .setExperience(bo.experience())
                 ;
     }
 

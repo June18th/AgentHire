@@ -44,10 +44,12 @@ public abstract class BaseAgent {
 
     public void sendInfo(String cmd, Object info) {
         ReqInfoContext.ReqInfo reqInfo = ReqInfoContext.getReqInfo();
+        if (reqInfo == null) {
+            return;
+        }
         try {
-
-            SseEmitter sseEmitter = (SseEmitter) reqInfo.getContextVar(ReqInfoContext.REQ_INFO_KEY);
-            if (sseEmitter != null) {
+            Object emitter = reqInfo.getContextVar(ReqInfoContext.REQ_INFO_KEY);
+            if (emitter instanceof SseEmitter sseEmitter) {
                 sseEmitter.send(Map.of("agent", agentName(), "cmd", cmd, "info", info));
             }
         } catch (IOException e) {

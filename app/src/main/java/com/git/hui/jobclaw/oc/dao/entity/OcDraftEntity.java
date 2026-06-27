@@ -145,7 +145,7 @@ public class OcDraftEntity implements FetchedDraftEntity {
             this.companyType = "";
         }
         if (this.companyIndustry == null) {
-            this.companyType = "";
+            this.companyIndustry = "";
         }
         if (this.jobLocation == null) {
             this.jobLocation = "";
@@ -179,6 +179,15 @@ public class OcDraftEntity implements FetchedDraftEntity {
         }
         if (this.remarks == null) {
             this.remarks = "";
+        }
+        if (this.salary == null) {
+            this.salary = "";
+        }
+        if (this.education == null) {
+            this.education = "";
+        }
+        if (this.experience == null) {
+            this.experience = "";
         }
         if (this.state == null) {
             this.state = 0;

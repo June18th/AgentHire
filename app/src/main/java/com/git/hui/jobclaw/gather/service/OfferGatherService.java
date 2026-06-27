@@ -1,11 +1,13 @@
 package com.git.hui.jobclaw.gather.service;
 
 import cn.hutool.core.io.resource.ResourceUtil;
+import cn.hutool.http.HttpRequest;
 import cn.idev.excel.ExcelReader;
 import cn.idev.excel.FastExcel;
 import cn.idev.excel.context.AnalysisContext;
 import cn.idev.excel.metadata.data.ReadCellData;
 import cn.idev.excel.read.listener.ReadListener;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.configs.service.CommonDictService;
@@ -41,12 +43,17 @@ import org.springframework.util.MimeTypeUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -58,6 +65,10 @@ import java.util.stream.Collectors;
 public class OfferGatherService {
     // 默认六行数据一组
     private static final Integer SPLIT_LEN = 6;
+    private static final String GF_JIANLI_HOST = "offer.gfjianli.com";
+    private static final String GF_JIANLI_API = "https://api.gfjianli.com/api/c/resume/campusRecruitment";
+    private static final int GF_JIANLI_IMPORT_LIMIT = 20;
+    private static final Pattern GRADUATION_YEAR_PATTERN = Pattern.compile("(20\\d{2})\\s*届?");
 
     private static final AtomicBoolean SCHEDULE_LOCK = new AtomicBoolean(false);
 
@@ -255,9 +266,210 @@ public class OfferGatherService {
             throw new BizException(StatusEnum.UNEXPECT_ERROR, "请输入包含合法url地址的文本");
         }
 
+        String sourceUrl = extractFirstUrl(filePath);
+        if (isGfJianliOfferUrl(sourceUrl)) {
+            return (s) -> gatherFromGfJianli(sourceUrl);
+        }
+
         return (s) -> {
             return gatherAiAgent.gatherByAutoSplit(model, filePath);
         };
+    }
+
+    private String extractFirstUrl(String text) {
+        Matcher matcher = Pattern.compile("https?://\\S+").matcher(text);
+        if (!matcher.find()) {
+            return text;
+        }
+        return matcher.group().replaceAll("[，。,;；]+$", "");
+    }
+
+    private boolean isGfJianliOfferUrl(String url) {
+        try {
+            String host = URI.create(url).getHost();
+            return host != null && (GF_JIANLI_HOST.equals(host) || host.endsWith("." + GF_JIANLI_HOST));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private List<GatherOcDraftBo> gatherFromGfJianli(String sourceUrl) {
+        String token = queryParam(sourceUrl, "token");
+        if (StringUtils.isBlank(token)) {
+            throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS_MIXED, "GF简历链接缺少token参数");
+        }
+
+        String response = HttpRequest.get(GF_JIANLI_API)
+                .header("token", token)
+                .header("User-Agent", "Mozilla/5.0 JobClaw")
+                .form("page", "1")
+                .form("limit", String.valueOf(GF_JIANLI_IMPORT_LIMIT))
+                .timeout(15_000)
+                .execute()
+                .body();
+        if (StringUtils.isBlank(response)) {
+            throw new BizException(StatusEnum.UNEXPECT_ERROR, "GF简历接口无响应");
+        }
+
+        JsonNode root = JsonUtil.toJsonNode(response);
+        if (root.path("code").asInt() != 200) {
+            throw new BizException(StatusEnum.UNEXPECT_ERROR, "GF简历接口返回异常:" + root.path("msg").asText("未知错误"));
+        }
+
+        JsonNode listNode = root.path("data").path("list");
+        if (!listNode.isArray()) {
+            throw new BizException(StatusEnum.UNEXPECT_ERROR, "GF简历接口返回数据缺少list");
+        }
+
+        List<GatherOcDraftBo> list = new ArrayList<>();
+        for (JsonNode row : listNode) {
+            GatherOcDraftBo bo = toGfJianliDraft(row, sourceUrl);
+            if (bo != null) {
+                list.add(bo);
+            }
+        }
+        log.info("GF简历链接解析完成: url={}, cnt={}", sourceUrl, list.size());
+        return list;
+    }
+
+    private String queryParam(String url, String key) {
+        String query = URI.create(url).getRawQuery();
+        if (StringUtils.isBlank(query)) {
+            return "";
+        }
+        for (String item : query.split("&")) {
+            String[] pair = item.split("=", 2);
+            String itemKey = decode(pair[0]);
+            if (key.equals(itemKey)) {
+                return pair.length > 1 ? decode(pair[1]) : "";
+            }
+        }
+        return "";
+    }
+
+    private String decode(String value) {
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    }
+
+    private GatherOcDraftBo toGfJianliDraft(JsonNode row, String sourceUrl) {
+        String company = text(row, "company");
+        String title = text(row, "title");
+        if (StringUtils.isBlank(company) && StringUtils.isBlank(title)) {
+            return null;
+        }
+
+        String referralLink = firstNotBlank(text(row, "referralMethod"), sourceUrl);
+        String positions = firstNotBlank(text(row, "positions"), title);
+        String remarks = buildGfJianliRemarks(row, title);
+        return new GatherOcDraftBo(
+                company,
+                inferCompanyType(company, text(row, "industry")),
+                text(row, "industry"),
+                text(row, "workLocation"),
+                inferRecruitmentType(title, text(row, "infoType")),
+                inferRecruitmentTarget(title, text(row, "infoType")),
+                positions,
+                firstNotBlank(text(row, "recruitmentStatus"), text(row, "progressCheck"), "未投递"),
+                normalizeDate(firstNotBlank(text(row, "recordTime"), text(row, "createTime"))),
+                normalizeDate(text(row, "expirationTime")),
+                referralLink,
+                referralLink,
+                firstNotBlank(text(row, "referralCode"), "-"),
+                remarks,
+                null,
+                null,
+                null
+        );
+    }
+
+    private String text(JsonNode node, String key) {
+        JsonNode value = node.path(key);
+        if (value.isMissingNode() || value.isNull()) {
+            return "";
+        }
+        return value.asText("").trim();
+    }
+
+    private String firstNotBlank(String... values) {
+        for (String value : values) {
+            if (!StringUtils.isBlank(value)) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private String inferCompanyType(String company, String industry) {
+        String source = firstNotBlank(company, "") + " " + firstNotBlank(industry, "");
+        if (source.matches(".*(银行|农信|农商).*")) {
+            return "银行";
+        }
+        if (source.matches(".*(大学|学院|学校).*")) {
+            return "学校";
+        }
+        if (source.matches(".*(中航|航空|航天|国网|国家|中国|中铁|中建|中核|中电|兵器|船舶|光电).*")) {
+            return "央国企";
+        }
+        return "民企";
+    }
+
+    private String inferRecruitmentType(String title, String infoType) {
+        String source = firstNotBlank(title, "") + " " + firstNotBlank(infoType, "");
+        if (source.contains("实习")) {
+            return source.contains("暑期") ? "暑期实习" : "日常实习";
+        }
+        if (source.contains("春招")) {
+            return "春招";
+        }
+        if (source.contains("补录")) {
+            return "补录";
+        }
+        if (source.contains("提前批") || source.contains("2027")) {
+            return "秋招提前批";
+        }
+        return "秋招";
+    }
+
+    private String inferRecruitmentTarget(String title, String infoType) {
+        String source = firstNotBlank(title, "") + " " + firstNotBlank(infoType, "");
+        Matcher matcher = GRADUATION_YEAR_PATTERN.matcher(source);
+        while (matcher.find()) {
+            String year = matcher.group(1);
+            if ("2025".equals(year) || "2026".equals(year) || "2027".equals(year)) {
+                return year + "年毕业生";
+            }
+        }
+        if (source.contains("实习")) {
+            return "其他";
+        }
+        return "2026年毕业生";
+    }
+
+    private String normalizeDate(String dateText) {
+        if (StringUtils.isBlank(dateText)) {
+            return "招满为止";
+        }
+        String date = dateText.length() >= 10 ? dateText.substring(0, 10) : dateText;
+        if (date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return date.substring(0, 4) + "年" + date.substring(5, 7) + "月" + date.substring(8, 10) + "日";
+        }
+        return dateText;
+    }
+
+    private String buildGfJianliRemarks(JsonNode row, String title) {
+        List<String> parts = new ArrayList<>();
+        addIfPresent(parts, title);
+        addIfPresent(parts, text(row, "remarks"));
+        addIfPresent(parts, text(row, "recruitmentRemarks"));
+        addIfPresent(parts, text(row, "mainBusiness"));
+        addIfPresent(parts, "GF简历ID:" + text(row, "id"));
+        return String.join("；", parts);
+    }
+
+    private void addIfPresent(List<String> parts, String value) {
+        if (!StringUtils.isBlank(value) && !"GF简历ID:".equals(value)) {
+            parts.add(value);
+        }
     }
 
     private Function<GatherReq, List<GatherOcDraftBo>> gatherByImg(GatherModelEnum model, GatherFileBo file) throws IOException {

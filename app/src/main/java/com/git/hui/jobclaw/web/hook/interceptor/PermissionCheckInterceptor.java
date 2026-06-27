@@ -12,6 +12,7 @@ import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.web.hook.filter.BodyReaderHttpServletRequestWrapper;
 import com.git.hui.jobclaw.core.apis.ResVo;
 import io.micrometer.common.util.StringUtils;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
+
+import java.io.IOException;
 
 /**
  * 权限管控拦截器
@@ -41,6 +44,10 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        if (request.getDispatcherType() == DispatcherType.ASYNC) {
+            return true;
+        }
+
         if (handler instanceof HandlerMethod) {
             HandlerMethod handlerMethod = (HandlerMethod) handler;
             Permission permission = handlerMethod.getMethod().getAnnotation(Permission.class);
@@ -54,9 +61,7 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
 
 
             if (ReqInfoContext.getReqInfo() == null || ReqInfoContext.getReqInfo().getUserId() == null) {
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                response.getWriter().println(JsonUtil.toStr(ResVo.fail(StatusEnum.FORBID_NOTLOGIN)));
-                response.getWriter().flush();
+                writeJson(response, ResVo.fail(StatusEnum.FORBID_NOTLOGIN));
                 return false;
             }
 
@@ -64,26 +69,29 @@ public class PermissionCheckInterceptor implements HandlerInterceptor {
                     && UserRoleEnum.ADMIN != ReqInfoContext.getReqInfo().getUser().role()) {
                 // 设置为无权限
                 response.setStatus(HttpStatus.FORBIDDEN.value());
+                writeJson(response, ResVo.fail(StatusEnum.FORBID_ERROR_MIXED.getCode(), "无权限:请使用管理员账号登录"));
                 return false;
             }
 
             if (permission.role() == UserRoleEnum.VIP
                     && UserRoleEnum.VIP != ReqInfoContext.getReqInfo().getUser().role()) {
                 // 这里是会员专项的内容，无权访问
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                response.getWriter().println(JsonUtil.toStr(ResVo.fail(StatusEnum.FORBID_VIP_INFO)));
-                response.getWriter().flush();
+                writeJson(response, ResVo.fail(StatusEnum.FORBID_VIP_INFO));
                 return false;
             }
         } else if (!checkMcpPermission(request)) {
             log.info("MCPServer 接口权限校验失败!");
             // mcp 相关校验 - 无权访问
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().println(JsonUtil.toStr(ResVo.fail(StatusEnum.FORBID_VIP_INFO)));
-            response.getWriter().flush();
+            writeJson(response, ResVo.fail(StatusEnum.FORBID_VIP_INFO));
             return false;
         }
         return true;
+    }
+
+    private void writeJson(HttpServletResponse response, ResVo<?> body) throws IOException {
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().println(JsonUtil.toStr(body));
+        response.getWriter().flush();
     }
 
     private boolean checkMcpPermission(HttpServletRequest request) {

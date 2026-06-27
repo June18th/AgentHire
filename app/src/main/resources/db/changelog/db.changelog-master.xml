@@ -83,4 +83,49 @@
     <changeSet id="260618_00000003" author="Codex" runOnChange="true">
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/llm_provider_config_260618.sql"/>
     </changeSet>
+
+    <!-- 放宽采集任务结果字段长度 -->
+    <changeSet id="260627_00000001" author="Codex">
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_260627.sql"/>
+    </changeSet>
+
+    <!-- 补齐草稿表的岗位补充信息字段 -->
+    <changeSet id="260627_00000002" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="draft_oc" columnName="salary"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="draft_oc">
+            <column name="salary" type="varchar(128)" defaultValue="" remarks="薪资范围">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="260627_00000003" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="draft_oc" columnName="education"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="draft_oc">
+            <column name="education" type="varchar(128)" defaultValue="" remarks="学历要求">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="260627_00000004" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="draft_oc" columnName="experience"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="draft_oc">
+            <column name="experience" type="varchar(128)" defaultValue="" remarks="工作经验要求">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
 </databaseChangeLog>

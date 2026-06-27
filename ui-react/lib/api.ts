@@ -58,6 +58,62 @@ api.interceptors.response.use(
   }
 );
 
+interface ApiResponse<T> {
+  code?: number;
+  msg?: string;
+  message?: string;
+  data?: T;
+}
+
+function isBlankErrorMessage(message?: string) {
+  return !message || message.trim() === "" || message.trim() === "???";
+}
+
+function getApiResponseMessage(data: unknown) {
+  if (!data || typeof data !== "object") {
+    return undefined;
+  }
+
+  const record = data as Record<string, unknown>;
+  const message = record.msg ?? record.message;
+  if (typeof message === "string" && !isBlankErrorMessage(message)) {
+    return message;
+  }
+
+  if (record.code !== undefined && record.code !== 0) {
+    return `后端返回异常(code=${String(record.code)})`;
+  }
+
+  return undefined;
+}
+
+function getRequestErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const responseMessage = getApiResponseMessage(error.response?.data);
+    if (responseMessage) {
+      return responseMessage;
+    }
+    if (error.response?.status === 403) {
+      return "无权限或登录态已失效，请使用管理员账号登录";
+    }
+    if (error.response?.status === 401) {
+      return "登录态已失效，请重新登录";
+    }
+    if (error.response?.status) {
+      return `HTTP ${error.response.status}`;
+    }
+    if (!isBlankErrorMessage(error.message)) {
+      return error.message;
+    }
+    return fallback;
+  }
+
+  if (error instanceof Error && !isBlankErrorMessage(error.message)) {
+    return error.message;
+  }
+  return fallback;
+}
+
 /**
  * 获取微信扫码登录 SSE 订阅 URL
  */
@@ -269,9 +325,9 @@ export function submitAIAgentTask(
 ) {
   // 用于文件上传的表单数据
   const formData = new FormData();
-  Object.keys(params).forEach((key) => {
-    if (params[key] !== undefined && params[key] !== null) {
-      formData.append(key, params[key]);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value);
     }
   });
 
@@ -289,15 +345,19 @@ export function submitAIAgentTask(
   // 发送请求
   api(config)
     .then((response) => {
-      if (!response?.data?.data) {
+      const result = response?.data as ApiResponse<string | number> | undefined;
+      if (!result || result.code !== 0) {
+        throw new Error(getApiResponseMessage(result) || "提交任务失败");
+      }
+      if (result.data === undefined || result.data === null || result.data === "") {
         throw new Error("未能获取有效的任务ID");
       }
-      onSuccess(response.data.data);
+      onSuccess(String(result.data));
     })
     .catch((error) => {
       if (!controller?.signal.aborted) {
         console.error("提交任务失败:", error);
-        onError(new Error(`提交任务失败: ${error.message}`));
+        onError(new Error(`提交任务失败: ${getRequestErrorMessage(error, "请求异常")}`));
       }
     });
 }
@@ -340,7 +400,16 @@ export function connectSSEByTaskId(
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let message = `HTTP error! status: ${response.status}`;
+        try {
+          const data: unknown = await response.json();
+          message = getApiResponseMessage(data) || message;
+        } catch {
+          if (response.status === 403) {
+            message = "无权限或登录态已失效，请使用管理员账号登录";
+          }
+        }
+        throw new Error(message);
       }
 
       if (!response.body) {
@@ -351,13 +420,15 @@ export function connectSSEByTaskId(
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
 
-      // 读取流数据
       while (!isClosed) {
         const { done, value } = await reader.read();
         if (done) {
+          const tail = decoder.decode();
+          if (tail) {
+            buffer += tail;
+          }
           if (buffer) {
-            // 处理剩余的缓冲区数据
-            processMessage(buffer);
+            buffer = processBuffer(buffer, true);
           }
           if (onComplete && !isClosed) {
             onComplete();
@@ -367,9 +438,8 @@ export function connectSSEByTaskId(
         }
 
         const directResponse = decoder.decode(value, { stream: true });
-        processBuffer(directResponse);
-        // buffer += directResponse;
-        // processBuffer(buffer);
+        buffer += directResponse;
+        buffer = processBuffer(buffer);
       }
     } catch (error) {
       if (
@@ -389,42 +459,32 @@ export function connectSSEByTaskId(
     }
   }
 
-  // 处理缓冲区数据，识别以data:开头的行作为新数据
-  function processBuffer(buffer: string) {
-    // 按换行符分割所有行
-    const lines = buffer.split("\n");
+  function processBuffer(nextBuffer: string, flush = false) {
+    const normalized = nextBuffer.replace(/\r\n/g, "\n");
+    const events = normalized.split(/\n\n+/);
+    const remainder = flush ? "" : events.pop() ?? "";
 
-    let currentMessage = "";
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      // 如果行为空，则放在当前消息中
-      if (line === "") {
-        currentMessage += line;
-        continue;
-      }
-
-      // 检查是否以data:开头
-      if (line.startsWith("data:")) {
-        // 如果已有未处理的消息，先处理它
-        if (currentMessage) {
-          processMessage(currentMessage);
-        }
-        // 提取data:后面的内容
-        currentMessage = line.substring(5).trim(); // 5 是 "data:" 的长度
-      } else if (currentMessage) {
-        // 如果不是以data:开头，但已有当前消息，将其添加到当前消息
-        currentMessage += "\n" + line;
-      } else {
-        // 如果没有当前消息，但行不为空，直接处理它（兼容原有格式）
-        processMessage(line);
-      }
+    events.forEach(processEvent);
+    if (flush && remainder.trim()) {
+      processEvent(remainder);
     }
+    return remainder;
+  }
 
-    // 处理最后一条消息（如果有）
-    if (currentMessage) {
-      processMessage(currentMessage);
+  function processEvent(event: string) {
+    const dataLines: string[] = [];
+    event.split("\n").forEach((rawLine) => {
+      const line = rawLine.trimEnd();
+      if (line.startsWith("data:")) {
+        dataLines.push(line.slice(5).trimStart());
+      } else if (line.trim() && !line.startsWith(":")) {
+        dataLines.push(line.trim());
+      }
+    });
+
+    const data = dataLines.join("\n").trim();
+    if (data) {
+      processMessage(data);
     }
   }
 

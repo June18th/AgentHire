@@ -72,6 +72,7 @@ public class GatherTaskEntity {
      * "update": [4, 5, 6]
      * }
      */
+    @Lob
     @Column(name = "result")
     private String result;
 

@@ -49,21 +49,64 @@ public class AgentExecutor {
     }
 
     public OcAgentState invoke(GatherTaskEntity input) {
+        SseEmitter sseEmitter = currentEmitter();
+        boolean success = false;
         try {
-            return this.compiledGraph
+            OcAgentState state = this.compiledGraph
                     .invoke(Map.of(OcAgentState.INPUT, input))
                     .orElseGet(() -> new OcAgentState(Map.of("Error", "NoDataResponse")));
+            success = true;
+            return state;
+        } catch (Exception e) {
+            String message = terminalMessage(e);
+            log.error("Agent执行失败: taskId={}", input == null ? null : input.getId(), e);
+            sendSse(sseEmitter, Map.of("cmd", "error", "info", "Agent执行失败: " + message));
+            return new OcAgentState(Map.of("Error", message));
         } finally {
-            SseEmitter sseEmitter = (SseEmitter) ReqInfoContext.getReqInfo().getContextVar(ReqInfoContext.REQ_INFO_KEY);
-            if (sseEmitter != null) {
-                try {
-                    sseEmitter.send(Map.of("cmd", "over"));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-//                sseEmitter.complete();
+            if (success) {
+                sendSse(sseEmitter, Map.of("cmd", "over"));
             }
+            completeSse(sseEmitter);
         }
+    }
+
+    private SseEmitter currentEmitter() {
+        ReqInfoContext.ReqInfo reqInfo = ReqInfoContext.getReqInfo();
+        if (reqInfo == null) {
+            return null;
+        }
+        Object emitter = reqInfo.getContextVar(ReqInfoContext.REQ_INFO_KEY);
+        return emitter instanceof SseEmitter sseEmitter ? sseEmitter : null;
+    }
+
+    private void sendSse(SseEmitter sseEmitter, Map<String, Object> data) {
+        if (sseEmitter == null) {
+            return;
+        }
+        try {
+            sseEmitter.send(data);
+        } catch (IOException e) {
+            log.warn("同步 Agent 终止信息给前端失败: {}", data, e);
+        }
+    }
+
+    private void completeSse(SseEmitter sseEmitter) {
+        if (sseEmitter == null) {
+            return;
+        }
+        try {
+            sseEmitter.complete();
+        } catch (RuntimeException e) {
+            log.warn("关闭 Agent SSE 连接失败", e);
+        }
+    }
+
+    private String terminalMessage(Exception e) {
+        String message = e.getMessage();
+        if (message == null || message.isBlank()) {
+            return e.getClass().getSimpleName();
+        }
+        return message;
     }
 
     public class GraphBuilder {

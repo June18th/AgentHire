@@ -304,7 +304,7 @@ public class GatherAiAgent {
             String text = HttpUtil.get(url, CharsetUtil.CHARSET_UTF_8);
             Document document = Jsoup.parse(text);
             Element table = document.select("table").first();
-            String ans = table.html().trim();
+            String ans = table == null ? document.body().text() : table.html().trim();
             if (log.isDebugEnabled()) {
                 // 一行打印
                 log.debug("获取到的表格内容为：{}", ans.replaceAll("\n", ""));

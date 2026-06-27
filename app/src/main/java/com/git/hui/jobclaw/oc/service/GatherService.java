@@ -199,8 +199,9 @@ public class GatherService implements JobInfoPersistService {
                     data.setToProcess(DraftProcessEnum.UNPROCESS.getValue());
                     data.setCreateTime(existing.getCreateTime());
                     data.setUpdateTime(new Date());
+                    data.autoInitVal();
                     // 保存更新后的记录
-                    draftRepository.save(existing);
+                    draftRepository.save(data);
                 }
                 updateList.add(data);
             }
