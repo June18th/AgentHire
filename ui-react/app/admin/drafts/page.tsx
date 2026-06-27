@@ -1,5 +1,7 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { FileSearch, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -22,7 +24,31 @@ import {
 
 const PAGE_SIZE = 10
 
+function sanitizeDraftIds(value: string | null) {
+    if (!value) {
+        return ""
+    }
+
+    return Array.from(
+        new Set(
+            value
+                .split(",")
+                .map((item) => item.trim())
+                .filter((item) => /^\d+$/.test(item))
+        )
+    ).join(",")
+}
+
 export default function DraftsPage() {
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const linkedDraftIds = useMemo(() => sanitizeDraftIds(searchParams.get("draftIds")), [searchParams])
+    const sourceTaskId = searchParams.get("sourceTaskId") || ""
+    const linkedDraftIdList = useMemo(() => linkedDraftIds ? linkedDraftIds.split(",") : [], [linkedDraftIds])
+    const initialFilters = useMemo<DraftListQuery>(
+        () => linkedDraftIds ? { draftIds: linkedDraftIds } : {},
+        [linkedDraftIds]
+    )
     const [drafts, setDrafts] = useState<DraftItem[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -30,7 +56,7 @@ export default function DraftsPage() {
     const [isAddingNew, setIsAddingNew] = useState(false)
     const [page, setPage] = useState(1)
     const [total, setTotal] = useState(0)
-    const [filters, setFilters] = useState<DraftListQuery>({})
+    const [filters, setFilters] = useState<DraftListQuery>(initialFilters)
     const [selectedIds, setSelectedIds] = useState<number[]>([])
     const [publishLoading, setPublishLoading] = useState(false)
     const [publishOneLoadingId, setPublishOneLoadingId] = useState<number | null>(null)
@@ -39,6 +65,24 @@ export default function DraftsPage() {
     const [recruitmentTypes, setRecruitmentTypes] = useState<GlobalConfigItemValue[]>([]);
     const [recruitmentTarget, setRecruitmentTarget] = useState<GlobalConfigItemValue[]>([]);
     const [processStates, setProcessStates] = useState<GlobalConfigItemValue[]>([]);
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+    // AIDEV-NOTE: AI-GENERATED task link filter
+    useEffect(() => {
+        setFilters((prev) => {
+            if (linkedDraftIds) {
+                return prev.draftIds === linkedDraftIds ? prev : { ...prev, draftIds: linkedDraftIds }
+            }
+            if (!prev.draftIds) {
+                return prev
+            }
+            const next = { ...prev }
+            delete next.draftIds
+            return next
+        })
+        setSelectedIds([])
+        setPage(1)
+    }, [linkedDraftIds])
 
     const fetchData = async (params: DraftListQuery = {}) => {
         setLoading(true)
@@ -69,6 +113,14 @@ export default function DraftsPage() {
         }
         setFilters((prev) => ({ ...prev, [key]: value }))
         setPage(1)
+    }
+
+    const clearTaskDraftFilter = () => {
+        const params = new URLSearchParams(searchParams.toString())
+        params.delete("draftIds")
+        params.delete("sourceTaskId")
+        const query = params.toString()
+        router.replace(query ? `/admin/drafts?${query}` : "/admin/drafts")
     }
 
     const handleDelete = async (id: number) => {
@@ -230,6 +282,40 @@ export default function DraftsPage() {
                         {publishLoading ? "发布中..." : "同步职位"}
                     </Button>
                 </div>
+                {linkedDraftIds && (
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-blue-200 bg-white text-blue-600">
+                                <FileSearch className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="font-medium">
+                                    {sourceTaskId ? `来自采集任务 #${sourceTaskId}` : "来自采集任务"}
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                                    <span className="text-blue-700">仅显示 {linkedDraftIdList.length} 条关联草稿</span>
+                                    {linkedDraftIdList.slice(0, 8).map((id) => (
+                                        <span key={id} className="rounded-md bg-white px-1.5 py-0.5 font-medium text-blue-700">
+                                            #{id}
+                                        </span>
+                                    ))}
+                                    {linkedDraftIdList.length > 8 && (
+                                        <span className="text-blue-700">+{linkedDraftIdList.length - 8}</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                            onClick={clearTaskDraftFilter}
+                        >
+                            <X className="h-3.5 w-3.5" />
+                            查看全部
+                        </Button>
+                    </div>
+                )}
                 {/* 只让表格区域可横向滚动 */}
                 <div className="bg-white rounded-lg shadow overflow-x-auto">
                     <Table className="min-w-[1600px] table-fixed text-sm">
@@ -327,7 +413,7 @@ export default function DraftsPage() {
                         </PaginationItem>
                         <PaginationItem>
                             <span className="text-sm text-muted-foreground">
-                                第 {page} /{Math.ceil(total / PAGE_SIZE)} 页
+                                第 {page} /{totalPages} 页
                             </span>
                         </PaginationItem>
                         <PaginationItem>

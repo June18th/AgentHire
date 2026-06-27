@@ -34,12 +34,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => {
     if (response.data.code == 100403003) {
+      const message = isBlankErrorMessage(response.data.msg)
+        ? "未登录或登录已过期，请重新登录"
+        : response.data.msg;
       // 清除本地缓存的登录信息
       if (typeof window !== "undefined") {
         localStorage.removeItem("oc-token");
         localStorage.removeItem("oc-user");
       }
-      return Promise.reject(new Error(response.data.msg || "未登录"));
+      return Promise.reject(new Error(message));
     }
     return response;
   },
@@ -610,6 +613,7 @@ export async function reRunTask(taskId: number): Promise<boolean> {
 export interface DraftListQuery {
   page?: number;
   size?: number;
+  draftIds?: string;
   companyName?: string;
   companyType?: string;
   jobLocation?: string;

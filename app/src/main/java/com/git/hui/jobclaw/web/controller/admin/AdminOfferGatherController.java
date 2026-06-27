@@ -4,7 +4,6 @@ import com.git.hui.jobclaw.agents.AgentExecutor;
 import com.git.hui.jobclaw.agents.OcAgentState;
 import com.git.hui.jobclaw.components.async.AsyncUtil;
 import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
-import com.git.hui.jobclaw.constants.gather.GatherModelEnum;
 import com.git.hui.jobclaw.constants.gather.GatherTargetTypeEnum;
 import com.git.hui.jobclaw.constants.gather.GatherTaskStateEnum;
 import com.git.hui.jobclaw.constants.user.LoginConstants;
@@ -16,7 +15,6 @@ import com.git.hui.jobclaw.gather.model.GatherTaskSaveBo;
 import com.git.hui.jobclaw.gather.service.GatherTaskService;
 import com.git.hui.jobclaw.gather.service.OfferGatherService;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
-import com.git.hui.jobclaw.core.utils.json.StringBaseEnum;
 import com.git.hui.jobclaw.core.apis.PageListVo;
 import com.git.hui.jobclaw.web.model.req.GatherReq;
 import com.git.hui.jobclaw.web.model.req.GatherTaskSearchReq;
@@ -107,10 +105,6 @@ public class AdminOfferGatherController {
         GatherTargetTypeEnum type = IntBaseEnum.getEnumByCode(GatherTargetTypeEnum.class, req.getType());
         if (type == null) {
             req.setType(null);
-        }
-        GatherModelEnum model = StringBaseEnum.getEnumByCode(GatherModelEnum.class, req.getModel());
-        if (model == null) {
-            req.setModel(null);
         }
         return gatherTaskService.searchList(req);
     }

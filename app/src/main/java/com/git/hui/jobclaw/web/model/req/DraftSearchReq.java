@@ -3,6 +3,9 @@ package com.git.hui.jobclaw.web.model.req;
 import com.git.hui.jobclaw.core.apis.PageReq;
 import lombok.Data;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * 草稿列表查询
  *
@@ -15,6 +18,10 @@ public class DraftSearchReq extends PageReq {
      * 主键
      */
     private Long id;
+    /**
+     * 多个草稿主键，逗号分隔
+     */
+    private String draftIds;
     /**
      * 公司名称
      */
@@ -59,4 +66,17 @@ public class DraftSearchReq extends PageReq {
      * 1 表示这条数据待处理
      */
     private Integer toProcess;
+
+    // AIDEV-NOTE: AI-GENERATED task draft filter
+    public List<Long> parseDraftIds() {
+        if (draftIds == null || draftIds.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(draftIds.split(","))
+                .map(String::trim)
+                .filter(item -> !item.isEmpty() && item.matches("\\d+"))
+                .map(Long::parseLong)
+                .distinct()
+                .toList();
+    }
 }

@@ -3,7 +3,6 @@ package com.git.hui.jobclaw.gather.service;
 import cn.hutool.core.util.CharsetUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.http.HttpUtil;
-import com.git.hui.jobclaw.constants.gather.GatherModelEnum;
 import com.git.hui.jobclaw.constants.gather.GatherModelTypeEnum;
 import com.git.hui.jobclaw.gather.model.GatherOcDraftBo;
 import com.git.hui.jobclaw.gather.model.ModelSelectReq;
@@ -104,7 +103,7 @@ public class GatherAiAgent {
     }
 
     // 传入数据太长，导致解析的结果被截断的场景时，转用下面的 gatherByAutoSplit 调用方法
-    public List<GatherOcDraftBo> gatherByText(GatherModelEnum model, String text) {
+    public List<GatherOcDraftBo> gatherByText(String model, String text) {
         ArrayList<GatherOcDraftBo> list = this.ocAiModelContext.chatClient(ModelSelectReq.of(model, GatherModelTypeEnum.CHAT_MODEL))
                 .prompt(text)
                 .tools(new CrawlerTools())
@@ -115,7 +114,7 @@ public class GatherAiAgent {
     }
 
     // 适用于图片中的数据条目较小的场景，大模型可以一次将结果全部返回
-    public List<GatherOcDraftBo> gatherByImg(GatherModelEnum model, MimeType type, byte[] bytes) {
+    public List<GatherOcDraftBo> gatherByImg(String model, MimeType type, byte[] bytes) {
         String rid = UUID.randomUUID().toString();
         Media media = Media.builder().mimeType(type)
                 .data(bytes)
@@ -142,7 +141,7 @@ public class GatherAiAgent {
      * @param bytes
      * @return
      */
-    public List<GatherOcDraftBo> gatherByFile(GatherModelEnum model, MimeType type, byte[] bytes) {
+    public List<GatherOcDraftBo> gatherByFile(String model, MimeType type, byte[] bytes) {
         String rid = UUID.randomUUID().toString();
         Media media = Media.builder().mimeType(type)
                 .data(bytes)
@@ -168,7 +167,7 @@ public class GatherAiAgent {
      * @param text
      * @return
      */
-    public List<GatherOcDraftBo> gatherByAutoSplit(GatherModelEnum model, String text) {
+    public List<GatherOcDraftBo> gatherByAutoSplit(String model, String text) {
         return autoContinueChat(model, null, text);
     }
 
@@ -180,7 +179,7 @@ public class GatherAiAgent {
      * @param bytes
      * @return
      */
-    public List<GatherOcDraftBo> gatherByImgAutoSplit(GatherModelEnum model, MimeType type, byte[] bytes) {
+    public List<GatherOcDraftBo> gatherByImgAutoSplit(String model, MimeType type, byte[] bytes) {
         String rid = UUID.randomUUID().toString();
         Media media = Media.builder().mimeType(type)
                 .data(bytes)
@@ -194,7 +193,7 @@ public class GatherAiAgent {
      * 针对大模型响应结果截断的场景，进行多轮对话，尝试获取完整的返回
      * 实现原理：基于 chatModel, 借助 ChatMemory 自动实现多轮对话，
      */
-    private List<GatherOcDraftBo> autoContinueChat(GatherModelEnum model, Media media, String text) {
+    private List<GatherOcDraftBo> autoContinueChat(String model, Media media, String text) {
         // 创建 memory 实例，保存上下文
         ChatMemory chatMemory = MessageWindowChatMemory.builder().maxMessages(MAX_CHAT_CNT).build();
         String chatId = RandomUtil.randomString(6);

@@ -4,12 +4,15 @@ import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.constants.gather.GatherModelEnum;
 import com.git.hui.jobclaw.constants.gather.GatherModelTypeEnum;
+import com.git.hui.jobclaw.core.providers.ModelConfig;
+import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.gather.model.ModelSelectReq;
 import com.git.hui.jobclaw.gather.service.ai.impl.AbsOcChatModelApi;
 import com.git.hui.jobclaw.core.utils.json.StringBaseEnum;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Component;
@@ -26,16 +29,28 @@ public class OcAiModelContext {
 
     private final List<OcChatModelApi> list;
 
+    private final ModelProviders modelProviders;
+
     /**
      * 注入
      *
      * @param list
      */
-    public OcAiModelContext(List<OcChatModelApi> list) {
+    public OcAiModelContext(List<OcChatModelApi> list, ModelProviders modelProviders) {
         this.list = list;
+        this.modelProviders = modelProviders;
     }
 
     public ChatClient chatClient(ModelSelectReq req) {
+        if (req.providerModel()) {
+            ModelConfig.ModelInfo modelInfo = modelProviders.getGlobalModelInfo(req.model());
+            ChatModel chatModel = (ChatModel) modelProviders.getGlobalModel(req.model(), toModelType(req.type()));
+            log.info("当前选中的后台模型为：{}#{}", modelInfo.getProvider(), modelInfo.getModelName());
+            return ChatClient.builder(chatModel)
+                    .defaultSystem(OcChatModelApi.GATHER_SYSTEM_PROMPT)
+                    .defaultOptions(ChatOptions.builder().model(modelInfo.getModelName()).build())
+                    .build();
+        }
         for (OcChatModelApi api : list) {
             ChatClient client = api.chatClient(req);
             if (client != null) {
@@ -47,6 +62,12 @@ public class OcAiModelContext {
     }
 
     public Pair<ChatModel, String> model(ModelSelectReq req) {
+        if (req.providerModel()) {
+            ModelConfig.ModelInfo modelInfo = modelProviders.getGlobalModelInfo(req.model());
+            ChatModel chatModel = (ChatModel) modelProviders.getGlobalModel(req.model(), toModelType(req.type()));
+            log.info("当前选中的后台模型为：{}#{}", modelInfo.getProvider(), modelInfo.getModelName());
+            return Pair.of(chatModel, modelInfo.getModelName());
+        }
         for (OcChatModelApi api : list) {
             Pair<ChatModel, String> model = api.model(req);
             if (model != null) {
@@ -71,9 +92,13 @@ public class OcAiModelContext {
      */
     public ChatClient getMainChatClient() {
         try {
-            return chatClient(new ModelSelectReq(StringBaseEnum.getEnumByCode(GatherModelEnum.class, mainModel), GatherModelTypeEnum.CHAT_MODEL));
+            return chatClient(ModelSelectReq.of(StringBaseEnum.getEnumByCode(GatherModelEnum.class, mainModel), GatherModelTypeEnum.CHAT_MODEL));
         } catch (Exception e) {
             return ((AbsOcChatModelApi) list.get(0)).chatClient();
         }
+    }
+
+    private ModelConfig.ModelType toModelType(GatherModelTypeEnum type) {
+        return type == GatherModelTypeEnum.IMAGE_MODEL ? ModelConfig.ModelType.VISION : ModelConfig.ModelType.TEXT;
     }
 }

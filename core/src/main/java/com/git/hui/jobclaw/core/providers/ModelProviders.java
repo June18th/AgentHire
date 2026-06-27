@@ -41,6 +41,10 @@ public class ModelProviders {
      */
     public Map<ModelConfig.ModelInfo, Model> modelCache;
 
+    private record ResolvedModel(AiUserPreferenceProperties.ProviderConfig providerConfig,
+                                 ModelConfig.ModelInfo modelInfo) {
+    }
+
 
     /**
      * key = 接口风格，modelProvider.apiStyle();
@@ -104,26 +108,56 @@ public class ModelProviders {
             return getModel(DEFAULT_PREFERENCE, modelType);
         }
 
+        ResolvedModel resolved = resolveModel(preferModel, preference.getProviders(), true);
+        return buildModel(userId, resolved);
+    }
+
+    /**
+     * 直接从全局后台供应商配置中按 provider#modelName 获取模型。
+     */
+    public Model getGlobalModel(String modelSelection, ModelConfig.ModelType requiredType) {
+        ResolvedModel resolved = resolveModel(modelSelection, null, true);
+        assertCompatibleModelType(modelSelection, resolved.modelInfo().getType(), requiredType);
+        return buildModel(DEFAULT_PREFERENCE, resolved);
+    }
+
+    /**
+     * 直接解析全局后台供应商配置中的模型信息。
+     */
+    public ModelConfig.ModelInfo getGlobalModelInfo(String modelSelection) {
+        return resolveModel(modelSelection, null, true).modelInfo();
+    }
+
+    private ResolvedModel resolveModel(String modelSelection,
+                                       Map<String, AiUserPreferenceProperties.ProviderConfig> userProviders,
+                                       boolean fallbackGlobalProvider) {
+        if (StringUtils.isBlank(modelSelection) || !modelSelection.contains("#")) {
+            throw new RuntimeException("模型配置格式错误，应为 provider#modelName");
+        }
         // 解析获取 provider + modelName
-        var cell = preferModel.split("#");
+        var cell = modelSelection.split("#", 2);
+        if (cell.length != 2 || StringUtils.isBlank(cell[0]) || StringUtils.isBlank(cell[1])) {
+            throw new RuntimeException("模型配置格式错误，应为 provider#modelName");
+        }
         String provider = cell[0];
         String modelName = cell[1];
 
-        // 根据provider来构建 ModelInfo的基础配置
-        var providerInfo = preference.getProviders() == null ? null : preference.getProviders().get(provider);
+        // 根据 provider 来构建 ModelInfo 的基础配置
+        var providerInfo = userProviders == null ? null : userProviders.get(provider);
+        if (providerInfo == null && fallbackGlobalProvider) {
+            providerInfo = aiUserPreferenceProperties.getProviders() == null ? null : aiUserPreferenceProperties.getProviders().get(provider);
+        }
         if (providerInfo == null) {
-            // 从全局兜底的厂商配置中进行获取
-            providerInfo = aiUserPreferenceProperties.getProviders().get(provider);
-            if (providerInfo == null) {
-                throw new RuntimeException("未找到厂商配置: " + provider);
-            }
+            throw new RuntimeException("未找到厂商配置: " + provider);
+        }
+        if (providerInfo.getModels() == null) {
+            throw new RuntimeException("厂商未配置模型: " + provider);
         }
         var modelInfoOpt = providerInfo.getModels().stream().filter(s -> s.getName().equals(modelName)).findFirst();
         if (modelInfoOpt.isEmpty()) {
             throw new RuntimeException("未找到模型配置: " + modelName);
         }
         var modelInfo = modelInfoOpt.get();
-
 
         ModelConfig.ModelInfo personModelInfo = ModelConfig.ModelInfo.builder()
                 .provider(provider)
@@ -138,8 +172,15 @@ public class ModelProviders {
                 .inputPricePerMillionTokens(modelInfo.getInputPricePerMillionTokens())
                 .outputPricePerMillionTokens(modelInfo.getOutputPricePerMillionTokens())
                 .build();
-        cacheManager.put(CURRENT_MODEL_CACHE, userId, personModelInfo);
 
+        return new ResolvedModel(providerInfo, personModelInfo);
+    }
+
+    private Model buildModel(String userId, ResolvedModel resolved) {
+        var providerInfo = resolved.providerConfig();
+        var personModelInfo = resolved.modelInfo();
+
+        cacheManager.put(CURRENT_MODEL_CACHE, userId, personModelInfo);
 
         // 检查缓存
         if (modelCache.containsKey(personModelInfo)) {
@@ -155,5 +196,18 @@ public class ModelProviders {
         var model = modelProvider.model(personModelInfo);
         modelCache.put(personModelInfo, model);
         return model;
+    }
+
+    private void assertCompatibleModelType(String modelSelection,
+                                           ModelConfig.ModelType actualType,
+                                           ModelConfig.ModelType requiredType) {
+        boolean compatible = switch (requiredType) {
+            case TEXT -> actualType == ModelConfig.ModelType.TEXT || actualType == ModelConfig.ModelType.VISION;
+            case VISION -> actualType == ModelConfig.ModelType.VISION;
+            default -> actualType == requiredType;
+        };
+        if (!compatible) {
+            throw new RuntimeException("模型类型不匹配: " + modelSelection + " 需要 " + requiredType + "，实际为 " + actualType);
+        }
     }
 }

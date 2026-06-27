@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.configs.service.CommonDictService;
-import com.git.hui.jobclaw.constants.gather.GatherModelEnum;
 import com.git.hui.jobclaw.constants.gather.GatherTargetTypeEnum;
 import com.git.hui.jobclaw.gather.model.GatherFileBo;
 import com.git.hui.jobclaw.gather.model.GatherOcDraftBo;
@@ -23,7 +22,6 @@ import com.git.hui.jobclaw.oc.dao.entity.OcDraftEntity;
 import com.git.hui.jobclaw.oc.service.GatherService;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
-import com.git.hui.jobclaw.core.utils.json.StringBaseEnum;
 import com.git.hui.jobclaw.web.model.req.GatherReq;
 import com.git.hui.jobclaw.web.model.res.GatherVo;
 import com.google.common.base.Joiner;
@@ -166,7 +164,7 @@ public class OfferGatherService {
     public GatherVo gatherInfo(GatherReq req, GatherFileBo file) throws IOException {
         GatherTargetTypeEnum targetTypeEnum = IntBaseEnum.getEnumByCode(GatherTargetTypeEnum.class, req.type());
         Assert.notNull(targetTypeEnum, "不支持的gather类型");
-        GatherModelEnum model = StringBaseEnum.getEnumByCode(GatherModelEnum.class, req.model());
+        String model = req.model();
         Function<GatherReq, List<GatherOcDraftBo>> func = switch (targetTypeEnum) {
             case TEXT -> gatherByText(model, req.content());
             case HTML_TEXT -> gatherByHtmlText(model, req.content());
@@ -202,7 +200,7 @@ public class OfferGatherService {
         }
 
         // 获取用户选中的模型
-        GatherModelEnum model = StringBaseEnum.getEnumByCode(GatherModelEnum.class, req.model());
+        String model = req.model();
 
         List<OcDraftEntity> insert = new ArrayList<>();
         List<OcDraftEntity> update = new ArrayList<>();
@@ -236,7 +234,7 @@ public class OfferGatherService {
      *
      * @return
      */
-    private Function<GatherReq, List<GatherOcDraftBo>> gatherByText(GatherModelEnum model, String txt) {
+    private Function<GatherReq, List<GatherOcDraftBo>> gatherByText(String model, String txt) {
         if (commonDictService.prodEnv() && StringUtils.isBlank(txt)) {
             // 生产环境，传入了空字符串，不做任何处理
             return (s) -> List.of();
@@ -249,7 +247,7 @@ public class OfferGatherService {
         }
     }
 
-    private Function<GatherReq, List<GatherOcDraftBo>> gatherByHtmlText(GatherModelEnum model, String text) {
+    private Function<GatherReq, List<GatherOcDraftBo>> gatherByHtmlText(String model, String text) {
         if (commonDictService.prodEnv() && StringUtils.isBlank(text)) {
             // 生产环境，传入了空字符串，不做任何处理
             return (s) -> List.of();
@@ -261,7 +259,7 @@ public class OfferGatherService {
         };
     }
 
-    private Function<GatherReq, List<GatherOcDraftBo>> gatherByHttpUrl(GatherModelEnum model, String filePath) {
+    private Function<GatherReq, List<GatherOcDraftBo>> gatherByHttpUrl(String model, String filePath) {
         if (!filePath.matches(".*https?://[\\w.-]+(?:\\.[\\w\\.-]+)+[/\\w\\.-]*.*")) {
             throw new BizException(StatusEnum.UNEXPECT_ERROR, "请输入包含合法url地址的文本");
         }
@@ -472,7 +470,7 @@ public class OfferGatherService {
         }
     }
 
-    private Function<GatherReq, List<GatherOcDraftBo>> gatherByImg(GatherModelEnum model, GatherFileBo file) throws IOException {
+    private Function<GatherReq, List<GatherOcDraftBo>> gatherByImg(String model, GatherFileBo file) throws IOException {
         byte[] bytes;
         MimeType type;
         if (file == null && commonDictService.prodEnv()) {

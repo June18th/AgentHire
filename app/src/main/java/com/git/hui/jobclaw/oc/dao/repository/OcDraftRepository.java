@@ -70,6 +70,10 @@ public interface OcDraftRepository extends JpaRepository<OcDraftEntity, Long>, J
             if (req.getId() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("id"), req.getId()));
             }
+            List<Long> draftIds = req.parseDraftIds();
+            if (!draftIds.isEmpty()) {
+                predicates.add(root.get("id").in(draftIds));
+            }
             if (req.getCompanyName() != null && !req.getCompanyName().isEmpty()) {
                 predicates.add(criteriaBuilder.like(root.get("companyName"), "%" + req.getCompanyName() + "%"));
             }
