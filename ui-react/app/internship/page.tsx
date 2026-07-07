@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, type MouseEvent } from "react";
 import { useLoginModal } from "@/hooks/useLoginModal";
-import { Search, Lock } from "lucide-react";
+import { CheckCircle2, FilePlus2, Search, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ToastAction } from "@/components/ui/toast";
 import {
   Pagination,
   PaginationContent,
@@ -37,10 +38,15 @@ import {
   GlobalConfigItemValue,
   getUserDetail,
 } from "@/lib/api";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLoginUser } from "@/hooks/useLoginUser";
 import { getConfigValue } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
+import {
+  fetchApplicationsByJobIds,
+  saveJobApplication,
+  type JobApplicationStatus,
+} from "@/lib/job-application-api";
 
 interface JobOffer {
   id: string | number;
@@ -59,9 +65,22 @@ interface JobOffer {
   referralCode: string;
   notes: string;
   locked?: boolean;
+  applicationId?: number;
+  applicationStatus?: JobApplicationStatus;
+  applicationStatusDesc?: string;
+  applicationTerminal?: boolean;
 }
 
 const ALL_TAG = "-1";
+const QUICK_STATUS_OPTIONS: Array<{ value: JobApplicationStatus; label: string }> = [
+  { value: "INTERESTED", label: "感兴趣" },
+  { value: "PREPARING", label: "准备投递" },
+  { value: "SUBMITTED", label: "已投递" },
+];
+
+function jobStatusLabel(status?: string) {
+  return QUICK_STATUS_OPTIONS.find((item) => item.value === status)?.label || status || "已加入";
+}
 
 export default function HomePage() {
   const { toast } = useToast();
@@ -84,7 +103,9 @@ export default function HomePage() {
   const [locked, setLocked] = useState(false);
   const [online, setOnline] = useState(1);
   const [queryParams, setQueryParams] = useState<any>({});
+  const [quickSavingId, setQuickSavingId] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setLoginOpen } = useLoginModal();
   const { userInfo, setUserInfo } = useLoginUser();
 
@@ -104,6 +125,18 @@ export default function HomePage() {
     getConfigValue("oc", "RecruitmentTargetEnum").then(setRecruitmentTarget);
   }, []);
 
+  useEffect(() => {
+    const companyName = searchParams.get("companyName") || "";
+    if (!companyName) {
+      return;
+    }
+
+    setCurrentPage(1);
+    setSearchFilters((prev) =>
+      prev.companyName === companyName ? prev : { ...prev, companyName }
+    );
+  }, [searchParams]);
+
   // 请求岗位数据（带分页）
   const loadJobList = (params: any = {}, page = currentPage) => {
     if (!params.recruitmentType) {
@@ -116,7 +149,7 @@ export default function HomePage() {
       size: itemsPerPage,
       ...params,
     })
-      .then((data: JobListResponse) => {
+      .then(async (data: JobListResponse) => {
         const mapped = data.list.map((item: any) => ({
           id: item.id,
           companyName: item.companyName,
@@ -137,10 +170,33 @@ export default function HomePage() {
           notes: item.remarks,
         }));
         setLocked(data.locked);
-        setFilteredOffers(mapped);
         setTotal(data.total);
         console.log("当前在线人数:", data.online);
         setOnline(data.online ? data.online : 1);
+        if (!userInfo || data.locked || mapped.length === 0) {
+          setFilteredOffers(mapped);
+          return;
+        }
+        try {
+          const applications = await fetchApplicationsByJobIds(mapped.map((item) => item.id));
+          const applicationByJobId = new Map(applications.map((item) => [String(item.jobId), item]));
+          setFilteredOffers(
+            mapped.map((offer) => {
+              const application = applicationByJobId.get(String(offer.id));
+              return application
+                ? {
+                    ...offer,
+                    applicationId: application.id,
+                    applicationStatus: application.currentStatus,
+                    applicationStatusDesc: application.currentStatusDesc,
+                    applicationTerminal: application.terminal,
+                  }
+                : offer;
+            })
+          );
+        } catch {
+          setFilteredOffers(mapped);
+        }
       })
       .catch((err: any) => {
         console.error("获取岗位数据失败", err);
@@ -149,7 +205,7 @@ export default function HomePage() {
 
   useEffect(() => {
     handleSearch();
-  }, [currentPage, searchFilters]);
+  }, [currentPage, searchFilters, userInfo]);
 
   const handleSearch = () => {
     const params = {
@@ -186,6 +242,76 @@ export default function HomePage() {
     });
     setQueryParams({});
     setCurrentPage(1);
+    if (searchParams.get("companyName")) {
+      router.replace("/internship");
+    }
+  };
+
+  const handleQuickAddApplication = async (
+    event: MouseEvent<HTMLButtonElement>,
+    offer: JobOffer,
+    status: JobApplicationStatus
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (locked) {
+      if (!userInfo) {
+        setLoginOpen(true);
+      } else {
+        router.push("/user");
+      }
+      return;
+    }
+    if (!userInfo) {
+      toast({ title: "请先登录", description: "登录后可以把岗位加入我的投递记录。" });
+      setLoginOpen(true);
+      return;
+    }
+
+    const savingKey = `${offer.id}-${status}`;
+    setQuickSavingId(savingKey);
+    try {
+      const saved = await saveJobApplication({
+        jobId: Number(offer.id),
+        companyName: offer.companyName,
+        position: offer.position,
+        applyUrl: offer.relatedLinks || offer.recruitmentNotice,
+        currentStatus: status,
+        deadline: offer.deadline,
+        source: "internship-list",
+        remark: offer.referralCode ? `内推码：${offer.referralCode}` : undefined,
+      });
+      setFilteredOffers((current) =>
+        current.map((item) =>
+          String(item.id) === String(offer.id)
+            ? {
+                ...item,
+                applicationId: saved.id,
+                applicationStatus: saved.currentStatus,
+                applicationStatusDesc: saved.currentStatusDesc,
+                applicationTerminal: saved.terminal,
+              }
+            : item
+        )
+      );
+      toast({
+        title: "已加入我的投递",
+        description: `${offer.companyName} / ${jobStatusLabel(status)}`,
+        action: (
+          <ToastAction altText="查看投递" onClick={() => router.push(`/applications?applicationId=${saved.id}`)}>
+            查看
+          </ToastAction>
+        ),
+      });
+    } catch (err) {
+      toast({
+        title: "加入投递失败",
+        description: err instanceof Error ? err.message : "请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setQuickSavingId(null);
+    }
   };
 
   const totalPages = Math.ceil(total / itemsPerPage);
@@ -201,6 +327,15 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50">
       {/* Search Filters */}
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-5 py-4">
+          <div>
+            <div className="text-base font-semibold text-blue-900">实习投递台账</div>
+            <div className="mt-1 text-sm text-blue-700">把实习岗位加入记录，持续跟踪投递、笔试、面试和跟进事件。</div>
+          </div>
+          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => router.push("/applications")}>
+            我的投递
+          </Button>
+        </div>
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
             <Input
@@ -343,7 +478,7 @@ export default function HomePage() {
 
         {/* Job Listings Table */}
         <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <Table className="min-w-[1200px] table-fixed">
+          <Table className="min-w-[1350px] table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-32 break-words">公司名称</TableHead>
@@ -358,6 +493,7 @@ export default function HomePage() {
                 {/* <TableHead className="w-20 break-words">投递进度</TableHead> */}
                 <TableHead className="w-24 break-words">更新时间</TableHead>
                 <TableHead className="w-24 break-words">投递截止</TableHead>
+                <TableHead className="w-40 break-words">投递状态</TableHead>
                 <TableHead className="w-32 break-words">相关链接</TableHead>
                 <TableHead className="w-32 break-words">招聘公告</TableHead>
                 <TableHead className="w-24 break-words">内推码</TableHead>
@@ -441,6 +577,47 @@ export default function HomePage() {
                   </TableCell>
                   <TableCell className="break-words w-24">
                     {offer.deadline}
+                  </TableCell>
+                  <TableCell className="break-words w-40">
+                    {offer.applicationStatus ? (
+                      <div className="grid gap-2">
+                        <Badge variant="secondary" className="w-fit rounded-md">
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                          {offer.applicationStatusDesc || jobStatusLabel(offer.applicationStatus)}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-fit bg-transparent"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            router.push(`/applications?applicationId=${offer.applicationId}`);
+                          }}
+                        >
+                          查看投递
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid gap-1.5">
+                        <div className="text-xs text-gray-500">未加入</div>
+                        <div className="flex flex-wrap gap-1">
+                          {QUICK_STATUS_OPTIONS.map((option) => (
+                            <Button
+                              key={option.value}
+                              size="sm"
+                              variant="outline"
+                              className="h-7 gap-1 px-2 text-xs bg-transparent"
+                              disabled={quickSavingId === `${offer.id}-${option.value}`}
+                              onClick={(event) => handleQuickAddApplication(event, offer, option.value)}
+                            >
+                              <FilePlus2 className="h-3 w-3" />
+                              {option.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="break-words w-32">
                     <a

@@ -61,7 +61,7 @@ npx tsc -b && npm run copy-assets
 ![](https://cdn.nlark.com/yuque/0/2025/png/12564477/1760538864082-89333a9f-5128-4e36-a9d4-132c19c08f1f.png)
 
 ### 2.配置MCP
-在配置文件中 `application-ai.yml`中开启 mcp
+在配置文件中 `application-{profile}.yml`中开启 mcp
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1755857504366-f1fe34ae-e97a-4e2b-b07f-a9c47420ec10.png)

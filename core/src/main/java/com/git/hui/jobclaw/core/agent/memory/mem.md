@@ -366,7 +366,7 @@ userProfile:
     - 保持向后兼容（可通过配置开关启用/禁用）
 
 - [x] **1.4 添加配置项**
-  - 文件：[application.yml](file:///d:/Workspace/hui/project/JobClaw/app/src/main/resources/application.yml)
+  - 文件：[application.yml](file:///d:/Workspace/hui/project/JobClaw/backend/src/main/resources/application.yml)
   - 内容：添加 `agent.context.window` 配置节
   - 启用：在 [JobClawConfiguration.java](file:///d:/Workspace/hui/project/JobClaw/core/src/main/java/com/git/hui/jobclaw/core/JobClawConfiguration.java) 中添加 `@EnableConfigurationProperties`
 

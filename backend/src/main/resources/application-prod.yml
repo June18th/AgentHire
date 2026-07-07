@@ -1,0 +1,56 @@
+spring:
+  ai:
+    zhipuai:
+      # https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys
+      # api-key 使用你自己申请的进行替换；如果为了安全考虑，可以通过启动参数进行设置
+      api-key: ${zhipuai-api-key:${ZHIPUAI_API_KEY:}}
+      multi-model: GLM-4V-Flash
+      chat:
+        options:
+          model: GLM-4-Flash
+    spark:
+      # https://console.xfyun.cn/services/cbm
+      # api-key 使用你自己申请的进行替换；如果为了安全考虑，可以通过启动参数进行设置
+      base-url: https://spark-api-open.xf-yun.com/v1/chat/completions
+      api-key: ${spark-api-key:${SPARK_API_KEY:}}
+      # 这里存储的是基于OpenAI-Starter的大模型交互的配置
+      openai-client: true # ture 表示使用OpenAI的client来实现讯飞大模型交互； false 则表示使用自定义的 client 实现讯飞大模型交互
+      openai-base-url: https://spark-api-open.xf-yun.com
+      chat:
+        options:
+          model: lite
+    openai:
+      # openai chatgpt 大模型
+      api-key: ${openai-api-key:${OPENAI_API_KEY:}}
+    dashscope:
+      # 阿里的百炼大模型
+      # https://bailian.console.aliyun.com/tab=model#/api-key
+      api-key: ${dashscope-api-key:${DASHSCOPE_API_KEY:}}
+      # 多模态的图片推理模型
+      multi-model: qwen-omni-turbo
+      chat:
+        options:
+          model: qwen-plus-2025-09-11
+    mcp:
+      client:
+        #  使用本地的mcp server，通过进程通信，我们这里演示的是使用 selenium 来实现网页数据抓取
+        stdio:
+          servers-configuration: ${MCP_SERVERS_CONFIG:classpath:mcp-servers-prod.json}
+        # 如果想要体验 MCP Server，请将下面的 false 改成 true
+        enabled: false
+        name: 求职派MCP
+        version: 1.0.0
+        request-timeout: 30s
+        # 注意，这里使用的是异步，因此代码中获取的也应该是异步的 McpAsyncClient
+        type: async
+---
+spring:
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: ${DATABASE_LIQUIBASE_ENABLED:true} # 当实际使用的数据库不支持 liquibase 时，将这个参数设置为 false
+  datasource:
+    url: jdbc:mysql://${DATABASE_HOST:localhost}:${DATABASE_PORT:3306}/${jobclaw.database.name}?createDatabaseIfNotExist=true&useUnicode=true&allowPublicKeyRetrieval=true&autoReconnect=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+

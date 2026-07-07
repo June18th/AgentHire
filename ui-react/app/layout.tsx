@@ -1,13 +1,10 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import "./globals.css"
 import { LoginUserProvider } from "@/hooks/useLoginUser"
 import { LoginModalProvider } from "@/hooks/useLoginModal"
 import { Toaster } from "@/components/ui/toaster"
 import AppLayout from "@/components/layout/AppLayout"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "求职派 - 职位招聘平台",
@@ -28,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className="font-sans" suppressHydrationWarning>
         <LoginUserProvider>
           <LoginModalProvider>
             <AppLayout>

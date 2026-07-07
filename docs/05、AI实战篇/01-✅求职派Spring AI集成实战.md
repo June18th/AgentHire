@@ -25,7 +25,7 @@
 ```
 
 
-在配置文件 application-ai.yml 中，添加ai配置
+在配置文件 application-{profile}.yml 中，添加ai配置
 
 ```yaml
 spring:

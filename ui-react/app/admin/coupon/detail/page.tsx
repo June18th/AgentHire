@@ -218,8 +218,9 @@ export default function CouponDetailPage() {
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
-                    onClick={() => handlePageChange(pagination.page - 1)}
-                    disabled={pagination.page === 1}
+                    onClick={() => pagination.page > 1 && handlePageChange(pagination.page - 1)}
+                    className={pagination.page === 1 ? "pointer-events-none opacity-50" : undefined}
+                    aria-disabled={pagination.page === 1}
                   />
                 </PaginationItem>
                 {Array.from(
@@ -238,11 +239,18 @@ export default function CouponDetailPage() {
                 ))}
                 <PaginationItem>
                   <PaginationNext
-                    onClick={() => handlePageChange(pagination.page + 1)}
-                    disabled={
-                      pagination.page >=
-                      Math.ceil(pagination.total / pagination.size)
+                    onClick={() => {
+                      const totalPages = Math.ceil(pagination.total / pagination.size);
+                      if (pagination.page < totalPages) {
+                        handlePageChange(pagination.page + 1);
+                      }
+                    }}
+                    className={
+                      pagination.page >= Math.ceil(pagination.total / pagination.size)
+                        ? "pointer-events-none opacity-50"
+                        : undefined
                     }
+                    aria-disabled={pagination.page >= Math.ceil(pagination.total / pagination.size)}
                   />
                 </PaginationItem>
               </PaginationContent>

@@ -888,6 +888,9 @@ public class FeiShuBotChannel extends AbsStreamChannel<ChatbotMessageEx> {
 - 基于飞书 EventDispatcher 处理事件
 - `StreamCardManager` 管理飞书流式卡片生命周期
 - 支持图片、文件、富文本等多种消息类型
+- 事件订阅需要启用 `im.message.receive_v1`，机器人发送文本需要 `im:message:send_as_bot`
+- 流式卡片创建与更新依赖 `cardkit:card:write`，缺失时会 fallback 到普通文本回复
+- 每条入站消息创建独立流式卡片，并通过短期消息去重避免飞书重投导致重复响应
 
 ---
 
@@ -1141,7 +1144,7 @@ public enum ChannelEnum {
 }
 ```
 
-**Step 4**: 在 `app` 模块中引入依赖
+**Step 4**: 在 `backend` 模块中引入依赖
 
 ```xml
 <dependency>
@@ -1322,6 +1325,8 @@ try {
 | 权限控制 | 基础 | Scope 四级 | Scope 四级 |
 | 心跳机制 | ✅ | ✅ | ✅ |
 | 媒体下载 | ✅ 自动 | ✅ 自动 | ✅ 自动 |
+
+飞书流式卡片的最小权限组合是 `im:message:send_as_bot` 和 `cardkit:card:write`。排障时优先看日志中的 `Raw event received`、`Inbound message accepted`、`Create streaming card success`、`Heartbeat context refreshed` 和 `Stream response completed`，这几条能覆盖事件到达、入站转换、卡片创建、心跳上下文和 Agent 输出完成。
 
 ---
 

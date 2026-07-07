@@ -1,0 +1,41 @@
+package com.git.hui.jobclaw.user.dao.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import lombok.Data;
+import lombok.experimental.Accessors;
+
+import java.util.Date;
+
+@Data
+@Accessors(chain = true)
+@Entity(name = "rbac_permission")
+public class RbacPermissionEntity {
+    @Id
+    private Long id;
+
+    @Column(name = "permission_code")
+    private String permissionCode;
+
+    @Column(name = "permission_name")
+    private String permissionName;
+
+    @Column(name = "resource")
+    private String resource;
+
+    @Column(name = "action")
+    private String action;
+
+    @Column(name = "intro")
+    private String intro;
+
+    @Column(name = "state")
+    private Integer state;
+
+    @Column(name = "create_time")
+    private Date createTime;
+
+    @Column(name = "update_time")
+    private Date updateTime;
+}

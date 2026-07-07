@@ -36,8 +36,9 @@ function getCookie(name: string): string | null {
 const LoginUserContext = createContext<{
     userInfo: { userId: number; role: number; nickname?: string; avatar?: string } | null,
     setUserInfo: (u: any) => void,
+    updateLocalUser: (u: Partial<{ userId: number; role: number; nickname?: string; avatar?: string }>) => void,
     logout: () => void
-}>({ userInfo: null, setUserInfo: () => { }, logout: () => { } });
+}>({ userInfo: null, setUserInfo: () => { }, updateLocalUser: () => { }, logout: () => { } });
 
 export function useLoginUser() {
     return useContext(LoginUserContext);
@@ -129,8 +130,19 @@ export function LoginUserProvider({ children }: { children: React.ReactNode }) {
 
     };
 
+    const updateLocalUser = (patch: Partial<{ userId: number; role: number; nickname?: string; avatar?: string }>) => {
+        setUserInfo((current) => {
+            if (!current) return current;
+            const next = { ...current, ...patch, timestamp: Date.now() };
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('oc-user', JSON.stringify(next));
+            }
+            return next;
+        });
+    };
+
     return (
-        <LoginUserContext.Provider value={{ userInfo, setUserInfo, logout }}>
+        <LoginUserContext.Provider value={{ userInfo, setUserInfo, updateLocalUser, logout }}>
             {children}
         </LoginUserContext.Provider>
     );

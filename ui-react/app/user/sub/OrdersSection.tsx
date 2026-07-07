@@ -102,8 +102,9 @@ export default function OrdersSection({
               <TableCell>
                 {item.status === 0 && (
                   <Button
-                    variant="promotion"
+                    variant="default"
                     size="xs"
+                    className="bg-amber-500 text-white hover:bg-amber-600"
                     onClick={async () => {
                       await handleCouponSubmit(
                         item.level,
@@ -117,7 +118,7 @@ export default function OrdersSection({
                 )}
                 {item.status === 1 && (
                   <Button
-                    variant="share"
+                    variant="secondary"
                     size="xs"
                     onClick={() => handleMarkFailed(item.payId)}
                   >

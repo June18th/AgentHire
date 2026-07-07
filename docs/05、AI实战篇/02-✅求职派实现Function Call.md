@@ -108,7 +108,7 @@ public List<GatherOcDraftBo> gatherByText(String text) {
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1753783368554-f7ff5a88-4727-4084-9856-bc31da8462d4.png)
 
 ### 4.开启日志，验证结果
-在配置文件 `application-ai.yml` 中，打开ai交互日志，方便观察过程（大模型交互通过SimpleLoggerAdvisor 实现的日志输出）
+在配置文件 `application-{profile}.yml` 中，打开ai交互日志，方便观察过程（大模型交互通过SimpleLoggerAdvisor 实现的日志输出）
 
 ```yaml
 logging:

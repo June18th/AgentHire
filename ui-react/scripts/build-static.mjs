@@ -14,6 +14,12 @@ const excludedTopLevel = new Set(["node_modules", ".next", ".next-build", "out"]
 
 await access(nodeModulesDir, constants.R_OK)
 
+if (process.platform === "win32") {
+    await rm(outputDir, { recursive: true, force: true })
+    await runNextBuild(projectRoot)
+    process.exit(0)
+}
+
 const workRoot = await mkdtemp(path.join(os.tmpdir(), "jobclaw-ui-build-"))
 
 try {
@@ -31,7 +37,8 @@ try {
     })
 
     // AIDEV-NOTE: AI-GENERATED isolated Next build.
-    await symlink(nodeModulesDir, path.join(workRoot, "node_modules"), "dir")
+    const nodeModulesLinkType = process.platform === "win32" ? "junction" : "dir"
+    await symlink(nodeModulesDir, path.join(workRoot, "node_modules"), nodeModulesLinkType)
 
     await runNextBuild(workRoot)
 
@@ -42,10 +49,10 @@ try {
 }
 
 function runNextBuild(cwd) {
-    const nextBin = path.join(cwd, "node_modules", ".bin", "next")
+    const nextCli = path.join(cwd, "node_modules", "next", "dist", "bin", "next")
 
     return new Promise((resolve, reject) => {
-        const child = spawn(nextBin, ["build"], {
+        const child = spawn(process.execPath, [nextCli, "build"], {
             cwd,
             stdio: "inherit",
             env: {

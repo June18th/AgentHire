@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.configuration.ConfigurationManager;
 import org.springframework.core.io.Resource;
 
+import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -57,6 +58,9 @@ public abstract class AbsStreamChannel<T> extends AbsChannel<T> {
             var map = aiCardStatus.get(key);
             if (map != null) {
                 map.remove(cardId);
+                if (map.isEmpty()) {
+                    aiCardStatus.remove(key, map);
+                }
             }
         }
 
@@ -67,12 +71,11 @@ public abstract class AbsStreamChannel<T> extends AbsChannel<T> {
             if (map == null) {
                 return null;
             }
-            for (Map.Entry<String, AiCardState> entry : map.entrySet()) {
-                if (entry.getValue().status == AiCardStatus.INIT) {
-                    return entry.getKey();
-                }
-            }
-            return null;
+            return map.entrySet().stream()
+                    .filter(entry -> entry.getValue() != null && entry.getValue().status() == AiCardStatus.INIT)
+                    .max(Comparator.comparingLong(entry -> entry.getValue().updateTime() == null ? 0L : entry.getValue().updateTime()))
+                    .map(Map.Entry::getKey)
+                    .orElse(null);
         }
     }
 }

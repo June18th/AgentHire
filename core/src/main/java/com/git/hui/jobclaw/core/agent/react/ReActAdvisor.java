@@ -117,7 +117,9 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
         }
 
         log.warn("[ReAct] Max iterations ({}) reached", maxIterations);
-        return firstResponse;
+        ChatClientResponse maxIterationResponse = buildMaxIterationResponse(request);
+        notifyComplete(maxIterations, maxIterationResponse.chatResponse().getResult().getOutput().getText(), chatId);
+        return maxIterationResponse;
     }
 
     /**
@@ -325,6 +327,17 @@ public class ReActAdvisor implements CallAdvisor, StreamAdvisor {
         AssistantMessage msg = AssistantMessage.builder()
                 .content(sb.toString())
                 .properties(Map.of("toolResult", true))
+                .build();
+        ChatResponse chatResponse = new ChatResponse(List.of(new Generation(msg)));
+        return ChatClientResponse.builder()
+                .chatResponse(chatResponse)
+                .context(request.context())
+                .build();
+    }
+
+    private ChatClientResponse buildMaxIterationResponse(ChatClientRequest request) {
+        AssistantMessage msg = AssistantMessage.builder()
+                .content("这次 Agent 连续调用工具次数过多，已经自动停止。请把问题描述得更具体一些，例如限定城市、岗位、毕业年份或只询问一个方向，我会重新为你处理。")
                 .build();
         ChatResponse chatResponse = new ChatResponse(List.of(new Generation(msg)));
         return ChatClientResponse.builder()

@@ -1,0 +1,43 @@
+services:
+  jobclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      additional_contexts:
+        maven-local-repo: ${MAVEN_LOCAL_REPO:-./build/maven-empty-repo}
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+    image: jobclaw:local
+    container_name: jobclaw
+    env_file:
+      - .env
+    ports:
+      - "8087:8087"
+      - "8099:8099"
+    environment:
+      TZ: "Asia/Shanghai"
+      JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Shanghai"
+      SPRING_PROFILES_ACTIVE: "dev"
+      JOBCLAW_SERVER_PORT: "8087"
+      JOBCLAW_SITE_WEBSITE_HOST: "http://localhost"
+      JOBCLAW_SITE_AUTO_OPEN: "false"
+      JOBCLAW_DATABASE_NAME: "${JOBCLAW_DATABASE_NAME:-jobclaw-my}"
+      AGENT_WORKSPACE: "file:/app/workspace/"
+      JOBCLAW_IMG_ABS_TMP_PATH: "/app/workspace/storage/"
+      JOBCLAW_IMG_CDN_HOST: "http://localhost:8087"
+      AGENT_TOOL_PLAYWRIGHT_ENABLED: "false"
+      AGENT_MCP_CLIENT_ENABLED: "false"
+      AGENT_CHANNEL_WECHAT_CLAWBOT_ENABLED: "true"
+      AGENT_CHANNEL_DINGDING_ENABLED: "true"
+      AGENT_CHANNEL_FEISHU_ENABLED: "true"
+      SPRING_AUTOCONFIGURE_EXCLUDE: "org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiChatAutoConfiguration,org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiEmbeddingAutoConfiguration,org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiImageAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAgentAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAsyncToolCallingManagerAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAudioSpeechAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAudioTranscriptionAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeChatAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeEmbeddingAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeImageAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeRerankAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeVideoAutoConfiguration"
+    volumes:
+      - ./workspace:/app/workspace
+      - ./backend/src/main/resources/application-private.yml:/app/config/application-private.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8087/actuator/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped

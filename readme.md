@@ -22,7 +22,7 @@ IM 渠道层
 - `agents/`：承载可插拔业务 Agent，例如身份采集、岗位抓取、岗位推荐。
 - `providers/`：隔离智谱、OpenAI 兼容、阿里、Anthropic 等模型接入。
 - `plugins/`：提供 Playwright、职位库检索等工具能力。
-- `app/`：组装所有模块，并保留 Web 管理、职位库、草稿、用户、支付、MCP Server 等应用域。
+- `backend/`：组装所有模块，并保留 Web 管理、职位库、草稿、用户、支付、MCP Server 等应用域。
 
 更完整的当前架构说明见 [求职派 OpenClaw 式多 Agent 架构总览](docs/03、架构篇/00-✅求职派OpenClaw式多Agent架构总览.md)。
 
@@ -41,15 +41,23 @@ IM 渠道层
 
 ```text
 JobClaw/
-├── app/                     # Spring Boot 主应用，组装所有模块
-├── core/                    # Agent Runtime 核心抽象、路由、事件、模型、记忆
-├── channels/                # 微信、钉钉、飞书等消息入口
-├── providers/               # 大模型 Provider 接入
-├── plugins/                 # 工具插件
-├── agents/                  # 业务 Agent
-├── ui-react/                # Next.js 前端
-└── docs/                    # 项目文档与语雀导出资料
+├── backend/      # Spring Boot 主应用，组装所有模块
+├── core/         # Agent Runtime 核心抽象、路由、事件、模型、记忆
+├── channels/     # 微信、钉钉、飞书等消息入口
+├── providers/    # 大模型 Provider 接入
+├── plugins/      # 工具插件
+├── agents/       # 业务 Agent
+├── ui-react/     # Next.js 前端
+└── docs/         # 项目文档与语雀导出资料
 ```
+
+## 当前工程状态
+
+- V2 已将旧主应用模块 `app/` 迁移到 `backend/`，根 POM 当前只声明 `backend`、`core`、`channels`、`providers`、`plugins`、`agents`。
+- 本地后端默认使用 H2，端口 `8087`；前端开发服务默认端口 `8088`。
+- 前端/后端分离是推荐工作流，`backend/src/main/resources/static/` 为空是预期行为。
+- Docker 默认保持轻量，只启动 `mysql`、`jobclaw`、`jobclaw-web`、`jobclaw-gateway`；Redis、Kafka、Elasticsearch、MinIO 按需叠加。
+- 更详细的迁移状态和后续收口项见 [工程状态说明](docs/project-status.md)。
 
 ## 后端启动
 
@@ -61,7 +69,7 @@ cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db
 # 在 .env 中设置 JOBCLAW_DATABASE_NAME=jobclaw-my
 # 大模型 API Key 在后台「LLM供应商」页面配置
 
-./mvnw spring-boot:run -pl app
+./mvnw spring-boot:run -pl backend
 ```
 
 默认访问地址：`http://localhost:8087`
@@ -74,6 +82,8 @@ cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db
 ./mvnw test -Dtest=ExcelLoadTest
 ```
 
+`.mvn/maven.config` 会把 Maven 本地仓库和 Java 临时目录收敛到项目内的 `workspace/.m2/repository` 与 `build/tmp`，避免依赖用户级临时目录权限。
+
 ## 前端启动
 
 ```bash
@@ -81,10 +91,25 @@ cd ui-react
 pnpm install
 pnpm dev
 pnpm build
-pnpm run deploy
 ```
 
-`pnpm run deploy` 会把静态产物复制到 `app/src/main/resources/static/`。
+推荐使用 [前后端分离部署说明](docs/frontend-backend-split.md)。`pnpm run deploy:legacy-spring-static` 只在明确需要把前端静态产物打进 Spring Boot jar 时使用。
+
+## Docker 快速启动
+
+默认本地 Docker 只启动轻量服务：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
+```
+
+也可以使用脚本：
+
+```powershell
+.\build\docker-split.ps1
+```
+
+可选中间件按需叠加，详见 [Docker 运行说明](docs/docker.md)。
 
 ## IM 系统命令
 
@@ -98,6 +123,7 @@ pnpm run deploy
 ## 文档
 
 - [首次启动指南](docs/getting-started.md)
+- [工程状态说明](docs/project-status.md)
 - [OpenClaw 式多 Agent 架构总览](docs/03、架构篇/00-✅求职派OpenClaw式多Agent架构总览.md)
 - [语雀知识库导出目录](docs/yuque-export-index.md)
 - [迭代计划](docs/plan.md)

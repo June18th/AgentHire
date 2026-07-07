@@ -65,7 +65,7 @@ AbsChannel.processMessage()
 | 校招采集 Agent | `JobFetchAgent` | 文件解析、图片 OCR、URL 抓取、文本提取、岗位草稿生成 |
 | 推荐 Agent | `JobRecommendAgent` | 基于用户画像和职位库做实时召回、排序和推荐 |
 | 用户画像 Agent | `identity-collector-agent` | 偏好存储、行为记录、画像信息采集；向量检索是画像能力的扩展方向 |
-| 校招信息管理 Agent | `app/oc`、`app/gather`、`app/agents` | 职位 CRUD、去重/更新、过期清理、草稿清洗与发布 |
+| 校招信息管理 Agent | `backend/oc`、`backend/gather`、`backend/agents` | 职位 CRUD、去重/更新、过期清理、草稿清洗与发布 |
 | 偏好设置 Agent | `PreferenceSettingBizAgent` | 通过自然语言管理模型、API Key 和渠道偏好 |
 | 任务提醒 Agent | `TaskBizAgent` | 调度一次性或周期性任务 |
 | 通用聊天 Agent | `CustomChatBizAgent`、`SimpleDefaultBizAgent` | 兜底问答和通用对话 |
@@ -105,7 +105,7 @@ JobClaw/
 ├── agents/       # 独立业务 Agent
 ├── providers/    # 模型 Provider
 ├── plugins/      # 工具能力
-├── app/          # Web/Admin/职位数据/用户/支付/MCP Server
+├── backend/      # Web/Admin/职位数据/用户/支付/MCP Server
 └── ui-react/     # 前端
 ```
 
@@ -117,6 +117,6 @@ JobClaw/
 | 新增一个可对话业务角色 | `agents/{new-agent}` |
 | 新接一个模型厂商 | `providers/{new-provider}` |
 | 新增一个可被模型调用的工具 | `plugins/{new-plugin}` |
-| 新增后台职位数据流程 | `app/src/main/java/com/git/hui/jobclaw/` |
+| 新增后台职位数据流程 | `backend/src/main/java/com/git/hui/jobclaw/` |
 
 这样才能保持这张图表达的主线：入口归入口，网关归网关，对话管理归核心内核，业务 Agent 只处理业务，工具和模型能力独立扩展。

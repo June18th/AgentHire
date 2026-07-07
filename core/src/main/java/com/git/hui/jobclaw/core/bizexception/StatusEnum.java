@@ -38,6 +38,7 @@ public enum StatusEnum {
     FORBID_ERROR_MIXED(100_403_002, "无权限:%s"),
     FORBID_NOTLOGIN(100_403_003, "未登录"),
     FORBID_VIP_INFO(100_403_004, "这是会员专享内容哦~"),
+    RATE_LIMITED(100_429_001, "请求过于频繁"),
 
     // 全局，数据不存在
     RECORDS_NOT_EXISTS(100_404_001, "记录不存在:%s"),

@@ -28,7 +28,7 @@
 
 
 ### 3.添加AI配置
-在`application-ai.yml`配置文件中，添加上讯飞和OpenAi的apiKey
+在`application-{profile}.yml`配置文件中，添加上讯飞和OpenAi的apiKey
 
 :::success
 说明：即便没有实际引用openAi，也需要配置对应的ApiKey，否则项目会启动失败

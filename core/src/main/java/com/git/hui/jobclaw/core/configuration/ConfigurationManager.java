@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -54,6 +55,19 @@ public class ConfigurationManager implements CommandLineRunner {
 
     @Transactional
     public void updateProperties(Map<String, Object> keyValues) {
+        updateProperties(keyValues, true);
+    }
+
+    /**
+     * Persist runtime state without rebinding all configuration beans.
+     * AIDEV-NOTE: avoid config refresh for heartbeat writes
+     */
+    @Transactional
+    public void updatePropertiesSilently(Map<String, Object> keyValues) {
+        updateProperties(keyValues, false);
+    }
+
+    private void updateProperties(Map<String, Object> keyValues, boolean publishEvent) {
         // 为了避免刷新配置之后，立马取配置拿不到最新的情况，我们先主动写入缓存中
         // 与之搭配的，应该使用下面的 getProperty 获取配置
         cachedConfig.putAll(keyValues);
@@ -74,7 +88,9 @@ public class ConfigurationManager implements CommandLineRunner {
             }
         });
 
-        eventPublisher.publishEvent(new GlobalEnvConfigChangedEvent(this, keyValues));
+        if (publishEvent) {
+            eventPublisher.publishEvent(new GlobalEnvConfigChangedEvent(this, keyValues));
+        }
     }
 
     public String getProperty(String key) {
@@ -125,6 +141,7 @@ public class ConfigurationManager implements CommandLineRunner {
     // 缓存已加载的配置,用于动态刷新时对比
     private final Map<String, Object> cachedConfig = new ConcurrentHashMap<>();
     private static final String PROPERTY_SOURCE_NAME = "GlobalEnvConfig";
+    private static final String MASKED_CONFIG_VALUE = "******";
 
 
     @Override
@@ -160,13 +177,29 @@ public class ConfigurationManager implements CommandLineRunner {
 
             // 打印加载的配置(脱敏)
             if (log.isInfoEnabled()) {
-                properties.forEach((key, value) -> log.info("[GlobalEnvConfig] Loaded: {} = {}", key, value));
+                properties.forEach((key, value) -> log.info("[GlobalEnvConfig] Loaded: {} = {}", key, maskSensitiveConfigValue(key, value)));
             }
             // 从数据库中加载完配置，触发一次刷新
             this.autoRefreshConfig(true);
         } catch (Exception e) {
             log.error("[GlobalEnvConfig] Failed to load configuration from database", e);
         }
+    }
+
+    private Object maskSensitiveConfigValue(String key, Object value) {
+        if (key == null) {
+            return value;
+        }
+        String normalizedKey = key.toLowerCase(Locale.ROOT);
+        if (normalizedKey.contains("api-key")
+                || normalizedKey.contains("apikey")
+                || normalizedKey.contains("secret")
+                || normalizedKey.contains("password")
+                || normalizedKey.contains("token")
+                || normalizedKey.contains("heartbeat")) {
+            return MASKED_CONFIG_VALUE;
+        }
+        return value;
     }
 
     public void autoRefreshConfig(boolean force) {
@@ -225,8 +258,8 @@ public class ConfigurationManager implements CommandLineRunner {
             if (oldValue == null || !oldValue.equals(newValue)) {
                 log.info("[GlobalEnvConfig] Config changed: {} = {} -> {}",
                         key,
-                        oldValue,
-                        newValue);
+                        maskSensitiveConfigValue(key, oldValue),
+                        maskSensitiveConfigValue(key, newValue));
                 return true;
             }
         }

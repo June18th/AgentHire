@@ -17,7 +17,9 @@ import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.lark.oapi.core.request.EventReq;
 import com.lark.oapi.core.utils.Jsons;
+import com.lark.oapi.event.CustomEventHandler;
 import com.lark.oapi.event.EventDispatcher;
 import com.lark.oapi.service.cardkit.v1.model.ContentCardElementReq;
 import com.lark.oapi.service.cardkit.v1.model.ContentCardElementReqBody;
@@ -34,8 +36,11 @@ import com.lark.oapi.service.im.v1.model.CreateMessageReqBody;
 import com.lark.oapi.service.im.v1.model.CreateMessageResp;
 import com.lark.oapi.service.im.v1.model.GetMessageResourceReq;
 import com.lark.oapi.service.im.v1.model.GetMessageResourceResp;
+import com.lark.oapi.service.im.v1.model.P1MessageReceivedV1;
+import com.lark.oapi.service.im.v1.model.P1MessageReceivedV1Data;
 import com.lark.oapi.service.im.v1.model.P1MessageReadV1;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
+import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1Data;
 import com.lark.oapi.ws.Client;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -47,10 +52,14 @@ import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -69,6 +78,9 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
      * key = robotId, value = 构建AICard用于流式返回的卡片管理
      */
     private final Map<String, StreamCardManager> cardManagers = new ConcurrentHashMap<>();
+    private final Map<String, Client> feishuClients = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Long> inboundMessageDedup = new ConcurrentHashMap<>();
+    private static final long INBOUND_DEDUP_WINDOW_MS = 10 * 60 * 1000L;
 
     public FeiShuBotChannel(Resource agentWorkspace,
                             ChannelRegistry channelRegistry,
@@ -136,6 +148,12 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             if (StringUtils.isBlank(account.getOwnerJobClawUserId())) {
                 account.setOwnerJobClawUserId(ownUserId);
             }
+            String appId = config.getAppId();
+            if (feishuClients.containsKey(appId)) {
+                this.channelRegistry.refreshChannelHeartBeatInfoIgnoreNull(ownUserId, name(), buildHeartBeatCallback(ownUserId));
+                log.info("[FeiShu] Feishu bot channel already started for user: {} - {}", ownUserId, appId);
+                return;
+            }
 
             EventDispatcher eventDispatcher = EventDispatcher.newBuilder("", "")
                     .onP1MessageReadV1(new ImService.P1MessageReadV1Handler() {
@@ -144,38 +162,16 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
 
                         }
                     })
-                    .onP2MessageReceiveV1(new ImService.P2MessageReceiveV1Handler() {
+                    .onCustomizedEvent("message", new CustomEventHandler() {
                         @Override
-                        public void handle(P2MessageReceiveV1 event) throws Exception {
-                            // 接收对象说明： https://open.feishu.cn/document/server-docs/im-v1/message/events/receive
-                            log.info("[ onP2MessageReceiveV1 access ], data: {}", Jsons.DEFAULT.toJson(event.getEvent()));
-
-                            var eventData = event.getEvent();
-                            // 1. 获取发送者 open_id（必须，用来指定发给谁）
-                            String openId = eventData.getSender().getSenderId().getOpenId();
-
-                            // 2. 获取消息 ID（可选，用于“回复消息”，不填就是直接发新消息）
-                            String messageId = eventData.getMessage().getMessageId();
-
-                            // 3. 创建流式卡片
-                            var cardManager = cardManagers.get(config.getAppId());
-                            String cardId = aiCardStatus.getActiveAiCard(account.getAppId(), openId);
-                            if (cardId == null) {
-                                cardId = cardManager.initStreamAiCardId(openId);
-                                aiCardStatus.startAiCard(account.getAppId(), openId, cardId);
-                            }
-
-                            // 4. 上报消息
-                            var content = eventData.getMessage().getContent();
-                            var ex = new ChatbotMessageEx()
-                                    .setRobotId(account.getAppId())
-                                    .setAiCardId(cardId)
-                                    .setOpenId(openId)
-                                    .setMessageId(messageId)
-                                    .setMsgType(eventData.getMessage().getMessageType())
-                                    .setChatType(eventData.getMessage().getChatType())
-                                    .setContent(content);
-                            processMessage(MsgWrapper.<ChatbotMessageEx>builder().jobClawUserId(ownUserId).msg(ex).build());
+                        public void handle(EventReq eventReq) {
+                            handleRawFeiShuEvent(ownUserId, account, appId, "message", eventReq);
+                        }
+                    })
+                    .onCustomizedEvent("im.message.receive_v1", new CustomEventHandler() {
+                        @Override
+                        public void handle(EventReq eventReq) {
+                            handleRawFeiShuEvent(ownUserId, account, appId, "im.message.receive_v1", eventReq);
                         }
                     })
                     .build();
@@ -186,14 +182,146 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                     .build();
             this.cardManagers.put(config.getAppId(), new StreamCardManager((com.git.hui.jobclaw.channels.FeiShuBotProperties.FeiShuBotAccount) config));
             feishuClient.start();
+            this.feishuClients.put(appId, feishuClient);
 
             // 刷新心跳配置
             this.channelRegistry.refreshChannelHeartBeatInfoIgnoreNull(ownUserId, name(), buildHeartBeatCallback(ownUserId));
-            log.info("[FeiShu] Feishu bot channel started for user: {} - {}", ownUserId, account.getAppId());
+            log.info("[FeiShu] Feishu bot channel started for user: {} - {}, eventTypes=message,im.message.receive_v1",
+                    ownUserId, account.getAppId());
         } catch (Exception e) {
             log.error("[FeiShu] Failed to start Feishu bot channel for user: {}", ownUserId, e);
             throw new RuntimeException("Failed to initialize Feishu channel", e);
         }
+    }
+
+    private void handleRawFeiShuEvent(String ownUserId, FeiShuBotProperties.FeiShuBotAccount account, String appId,
+                                      String eventType, EventReq eventReq) {
+        String payload = readEventPayload(eventReq);
+        log.info("[FeiShu] Raw event received. appId={}, eventType={}, messageId={}",
+                appId, eventType, extractRawEventMessageId(payload));
+        if (log.isDebugEnabled()) {
+            log.debug("[FeiShu] Raw event payload. appId={}, eventType={}, payload={}",
+                    appId, eventType, abbreviatePayload(payload));
+        }
+        try {
+            ChatbotMessageEx msg = switch (eventType) {
+                case "message" -> toChatbotMessage(Jsons.DEFAULT.fromJson(payload, P1MessageReceivedV1.class).getEvent(), appId);
+                case "im.message.receive_v1" -> toChatbotMessage(Jsons.DEFAULT.fromJson(payload, P2MessageReceiveV1.class).getEvent(), appId);
+                default -> null;
+            };
+            handleInboundMessage(ownUserId, account, appId, msg);
+        } catch (Exception e) {
+            log.error("[FeiShu] Failed to handle raw event. appId={}, eventType={}, payload={}",
+                    appId, eventType, abbreviatePayload(payload), e);
+        }
+    }
+
+    private String readEventPayload(EventReq eventReq) {
+        if (eventReq == null) {
+            return "";
+        }
+        if (StringUtils.isNotBlank(eventReq.getPlain())) {
+            return eventReq.getPlain();
+        }
+        byte[] body = eventReq.getBody();
+        return body == null ? "" : new String(body, StandardCharsets.UTF_8);
+    }
+
+    private String abbreviatePayload(String payload) {
+        return StringUtils.abbreviate(StringUtils.defaultString(payload), 2000);
+    }
+
+    private String extractRawEventMessageId(String payload) {
+        try {
+            JsonObject root = Jsons.DEFAULT.fromJson(payload, JsonObject.class);
+            if (root == null || !root.has("event")) {
+                return "";
+            }
+            JsonObject event = root.getAsJsonObject("event");
+            if (event.has("message")) {
+                JsonObject message = event.getAsJsonObject("message");
+                return message.has("message_id") ? message.get("message_id").getAsString() : "";
+            }
+            return event.has("open_message_id") ? event.get("open_message_id").getAsString() : "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private void handleInboundMessage(String ownUserId, FeiShuBotProperties.FeiShuBotAccount account, String appId, ChatbotMessageEx msg) {
+        if (msg == null || StringUtils.isBlank(msg.getOpenId())) {
+            log.warn("[FeiShu] Invalid inbound message event. appId={}, msg={}", appId, Jsons.DEFAULT.toJson(msg));
+            return;
+        }
+        if (isDuplicateInboundMessage(appId, msg.getMessageId())) {
+            log.info("[FeiShu] Duplicate inbound message skipped. appId={}, messageId={}", appId, msg.getMessageId());
+            return;
+        }
+        var cardManager = cardManagers.get(appId);
+        String cardId = null;
+        if (account.isStream()) {
+            // AIDEV-NOTE: isolate each inbound Feishu reply
+            // AIDEV-NOTE: fallback when cardkit is unavailable
+            if (cardManager == null) {
+                log.warn("[FeiShu] Streaming card manager missing, continue without aiCard. appId={}, openId={}", appId, msg.getOpenId());
+            } else {
+                cardId = cardManager.initStreamAiCardId(msg.getOpenId());
+                if (StringUtils.isNotBlank(cardId)) {
+                    aiCardStatus.startAiCard(appId, msg.getOpenId(), cardId);
+                } else {
+                    log.warn("[FeiShu] Streaming card unavailable, continue without aiCard. appId={}, openId={}", appId, msg.getOpenId());
+                }
+            }
+        }
+        msg.setAiCardId(cardId);
+        log.info("[FeiShu] Inbound message accepted. appId={}, openId={}, messageId={}, msgType={}, chatType={}, aiCardId={}",
+                appId, msg.getOpenId(), msg.getMessageId(), msg.getMsgType(), msg.getChatType(), cardId);
+        processMessage(MsgWrapper.<ChatbotMessageEx>builder().jobClawUserId(ownUserId).msg(msg).build());
+    }
+
+    private boolean isDuplicateInboundMessage(String appId, String messageId) {
+        if (StringUtils.isBlank(messageId)) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        inboundMessageDedup.entrySet().removeIf(entry -> now - entry.getValue() > INBOUND_DEDUP_WINDOW_MS);
+        return inboundMessageDedup.putIfAbsent(appId + ":" + messageId, now) != null;
+    }
+
+    private ChatbotMessageEx toChatbotMessage(P2MessageReceiveV1Data eventData, String appId) {
+        if (eventData == null || eventData.getSender() == null || eventData.getSender().getSenderId() == null
+                || eventData.getMessage() == null) {
+            return null;
+        }
+        return new ChatbotMessageEx()
+                .setRobotId(appId)
+                .setOpenId(eventData.getSender().getSenderId().getOpenId())
+                .setMessageId(eventData.getMessage().getMessageId())
+                .setMsgType(eventData.getMessage().getMessageType())
+                .setChatType(eventData.getMessage().getChatType())
+                .setContent(eventData.getMessage().getContent());
+    }
+
+    private ChatbotMessageEx toChatbotMessage(P1MessageReceivedV1Data eventData, String appId) {
+        if (eventData == null) {
+            return null;
+        }
+        String msgType = eventData.getMsgType();
+        String content = switch (StringUtils.defaultString(msgType)) {
+            case "text" -> JsonUtil.toStr(Map.of("text", StringUtils.defaultString(eventData.getTextWithoutAtBot(), eventData.getText())));
+            case "image" -> JsonUtil.toStr(Map.of("image_key", StringUtils.defaultString(eventData.getImageKey())));
+            case "file", "sticker" -> JsonUtil.toStr(Map.of(
+                    "file_key", StringUtils.defaultString(eventData.getFileKey()),
+                    "file_name", StringUtils.defaultString(eventData.getTitle(), "feishu-file")));
+            default -> JsonUtil.toStr(Map.of("text", StringUtils.defaultString(eventData.getText())));
+        };
+        return new ChatbotMessageEx()
+                .setRobotId(appId)
+                .setOpenId(eventData.getOpenId())
+                .setMessageId(eventData.getOpenMessageId())
+                .setMsgType(msgType)
+                .setChatType(eventData.getChatType())
+                .setContent(content);
     }
 
     @Override
@@ -340,12 +468,21 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
         var msg = wrapper.getMsg();
         String type = "group".equals(msg.getChatType()) ? "group" : "im";
         var prefix = buildHeartBeatKey(wrapper.getJobClawUserId(), msg.getRobotId(), type);
-        // 如果存在配置，则不进行更新
-        if (!force && configurationManager.getProperty(prefix) != null) {
-            return false;
+        String oldValue = configurationManager.getProperty(prefix);
+        if (!force && StringUtils.isNotBlank(oldValue)) {
+            var oldResponse = JsonUtil.toObj(oldValue, ChannelResponseMessage.class);
+            var oldInput = oldResponse != null && oldResponse.getPassThrough() != null
+                    ? oldResponse.getPassThrough().get("input")
+                    : null;
+            ChatbotMessageEx oldMsg = oldInput instanceof ChatbotMessageEx
+                    ? (ChatbotMessageEx) oldInput
+                    : JsonUtil.toObj(JsonUtil.toStr(oldInput), ChatbotMessageEx.class);
+            if (oldMsg != null && StringUtils.equals(oldMsg.getMessageId(), msg.getMessageId())) {
+                return false;
+            }
         }
 
-        // 保存配置
+        // AIDEV-NOTE: keep Feishu heartbeat context fresh
         var response = ChannelResponseMessage.builder()
                 .jobClawUserId(wrapper.getJobClawUserId())
                 .toUserId(msg.getOpenId())
@@ -353,7 +490,8 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                 .passThrough(Map.of("input", msg))
                 .build();
         String value = JsonUtil.toStr(response);
-        configurationManager.updateProperties(Map.of(prefix, value));
+        configurationManager.updatePropertiesSilently(Map.of(prefix, value));
+        log.info("[FeiShu] Heartbeat context refreshed. key={}, messageId={}", prefix, msg.getMessageId());
         return true;
     }
 
@@ -401,9 +539,17 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             return false;
         }
 
-        ChatbotMessageEx originalMsg = (ChatbotMessageEx) msg.getPassThrough().get("input");
+        if (msg.getPassThrough() == null || !(msg.getPassThrough().get("input") instanceof ChatbotMessageEx originalMsg)) {
+            log.warn("[FeiShu] Missing original Feishu message context, toUserId={}", msg.getToUserId());
+            return false;
+        }
+
         // 流式返回的场景
         var cardManager = cardManagers.get(originalMsg.getRobotId());
+        if (cardManager == null) {
+            log.warn("[FeiShu] Missing card manager for robotId={}", originalMsg.getRobotId());
+            return false;
+        }
         var stream = msg.getStreamContents();
         String feiShuOpenId = originalMsg.getOpenId();
         String cardId = originalMsg.getAiCardId();
@@ -417,8 +563,16 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             }
 
             if (StringUtils.isBlank(cardId)) {
-                var content = stream.blockLast();
-                return cardManager.directReply(originalMsg.getOpenId(), content.content(), ResponseType.TEXT);
+                String content = stream
+                        .filter(cell -> cell != null && StringUtils.isNotBlank(cell.content()))
+                        .map(LlmRspCell::content)
+                        .collectList()
+                        .map(parts -> String.join("", parts))
+                        .block();
+                if (StringUtils.isBlank(content)) {
+                    content = "我刚才没有生成出有效回复，请你再发一次或换个说法试试。";
+                }
+                return cardManager.directReply(originalMsg.getOpenId(), content, ResponseType.TEXT);
             } else {
                 StringBuilder thinking = new StringBuilder();
                 StringBuilder content = new StringBuilder();
@@ -426,18 +580,28 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                 StringBuilder toolResultInfo = new StringBuilder();
                 String finalCardId = cardId;
                 stream.doOnNext(response -> {
+                            if (response == null) {
+                                return;
+                            }
                             if (log.isDebugEnabled()) {
                                 log.debug("[FeiShu] Received response chunk: {}", response);
                             }
+                            boolean thinkingChanged = false;
+                            boolean contentChanged = false;
+                            boolean toolInfoChanged = false;
+                            boolean toolResultChanged = false;
                             if (StringUtils.isNotBlank(response.thinking())) {
                                 thinking.append(response.thinking());
+                                thinkingChanged = true;
                             }
                             if (StringUtils.isNotBlank(response.tool())) {
                                 toolInfo.append(response.tool()).append("\n");
+                                toolInfoChanged = true;
                                 log.info("[FeiShu] Tool call detected: {}", response.tool());
                             }
                             if (StringUtils.isNotBlank(response.toolResult())) {
                                 toolResultInfo.append(response.toolResult()).append("\n");
+                                toolResultChanged = true;
                                 log.info("[FeiShu] Tool result received, length={}", response.toolResult().length());
                             }
                             if (!StringUtils.isEmpty(response.content())) {
@@ -447,16 +611,19 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                                 }
 
                                 content.append(response.content());
+                                contentChanged = true;
                             }
                             // 更新工具调用信息
-                            if (toolInfo.length() > 0) {
+                            if (toolInfoChanged) {
                                 cardManager.updateStreamingCard(finalCardId, toolInfo.toString(), StreamCardUpdateContentType.TOOL_REQ);
                             }
                             // 更新工具执行结果
-                            if (toolResultInfo.length() > 0) {
+                            if (toolResultChanged) {
                                 cardManager.updateStreamingCard(finalCardId, toolResultInfo.toString(), StreamCardUpdateContentType.TOOL_RSP);
                             }
-                            cardManager.updateStreamingCard(finalCardId, thinking.toString(), content.toString(), false);
+                            if (thinkingChanged || contentChanged) {
+                                cardManager.updateStreamingCard(finalCardId, thinking.toString(), content.toString(), false);
+                            }
                             aiCardStatus.answerAiCard(originalMsg.robotId, feiShuOpenId, finalCardId);
                         })
                         .doOnError(error -> {
@@ -468,7 +635,12 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                         .doOnComplete(() -> {
                             log.info("[FeiShu] Stream response completed for cardId: {}, total length: {}", finalCardId, content.length());
                             // 流式响应完成，标记卡片为结束状态
-                            cardManager.updateStreamingCard(finalCardId, thinking.toString(), content.toString(), true);
+                            String finalContent = content.toString();
+                            if (StringUtils.isBlank(finalContent)) {
+                                log.warn("[FeiShu] Stream response completed with blank content for cardId: {}", finalCardId);
+                                finalContent = "我刚才没有生成出有效回复，请你再发一次或换个说法试试。";
+                            }
+                            cardManager.updateStreamingCard(finalCardId, thinking.toString(), finalContent, true);
                             aiCardStatus.finishAiCard(originalMsg.robotId, feiShuOpenId, finalCardId);
                         }).subscribe();
             }
@@ -480,7 +652,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             }
 
             if (StringUtils.isBlank(cardId)) {
-                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), msg.getJobClawUserId());
+                cardId = aiCardStatus.getActiveAiCard(originalMsg.getRobotId(), feiShuOpenId);
                 if (cardId != null) {
                     cardManager.updateStreamingCard(cardId, "", content, true);
                     aiCardStatus.finishAiCard(originalMsg.getRobotId(), feiShuOpenId, cardId);
@@ -559,10 +731,14 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
     }
 
     public static class StreamCardManager {
+        private static final long STREAM_CARD_UPDATE_INTERVAL_MS = 500L;
+        private static final int STREAM_CARD_UPDATE_MIN_DELTA_CHARS = 24;
 
         private com.lark.oapi.Client client;
         // 每个卡片的计数序号，用于更新卡片时传入这个序号，要求单调递增
         private Map<String, Integer> aiCardSeq = new ConcurrentHashMap<>();
+        // AIDEV-NOTE: throttle high-frequency Feishu card updates
+        private Map<String, StreamCardUpdateState> updateStates = new ConcurrentHashMap<>();
 
         private com.git.hui.jobclaw.channels.FeiShuBotProperties.FeiShuBotAccount account;
 
@@ -576,6 +752,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             if (cardId != null) {
                 if (directReply(receiveId, cardId, ResponseType.CARD)) {
                     aiCardSeq.put(cardId, 0);
+                    updateStates.put(cardId, new StreamCardUpdateState());
                     return cardId;
                 }
             }
@@ -597,10 +774,17 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             // 调用接口发送消息
             try {
                 CreateMessageResp resp = client.im().message().create(req);
+                if (resp == null || !resp.success() || resp.getData() == null || StringUtils.isBlank(resp.getData().getMessageId())) {
+                    log.warn("[FeiShu] Direct reply failed. receiveId={}, type={}, response={}",
+                            receiveId, type.type, Jsons.DEFAULT.toJson(resp));
+                    return false;
+                }
+                log.info("[FeiShu] Direct reply success. receiveId={}, type={}, messageId={}",
+                        receiveId, type.type, resp.getData().getMessageId());
                 if (log.isDebugEnabled()) {
                     log.debug("[FeiShu] Direct reply success: {}", resp.getData().getMessageId());
                 }
-                return resp.success();
+                return true;
             } catch (Exception e) {
                 log.error("[FeiShu] Direct reply error", e);
                 return false;
@@ -689,6 +873,11 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
 
                 CreateCardResp resp = client.cardkit().v1().card().create(req);
                 // 从返回里拿 card_id
+                if (resp == null || !resp.success() || resp.getData() == null || StringUtils.isBlank(resp.getData().getCardId())) {
+                    log.warn("[FeiShu] Create streaming card failed: {}", Jsons.DEFAULT.toJson(resp));
+                    return null;
+                }
+                log.info("[FeiShu] Create streaming card success. cardId={}", resp.getData().getCardId());
                 return resp.getData().getCardId();
             } catch (Exception e) {
                 log.error("[FeiShu] Create streaming card error", e);
@@ -697,14 +886,17 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
         }
 
         private void updateStreamingCard(String cardId, String thinking, String content, boolean finish) {
+            if (StringUtils.isBlank(cardId)) {
+                return;
+            }
             if (StringUtils.isBlank(content)) {
                 if (StringUtils.isBlank(thinking)) {
                     return;
                 }
                 thinking = "> " + thinking.trim().replaceAll("\n", "\n> ");
-                updateStreamingCard(cardId, thinking, StreamCardUpdateContentType.THINKING);
+                updateStreamingCard(cardId, thinking, StreamCardUpdateContentType.THINKING, finish);
             } else {
-                updateStreamingCard(cardId, content, StreamCardUpdateContentType.CONTENT);
+                updateStreamingCard(cardId, content, StreamCardUpdateContentType.CONTENT, finish);
             }
             if (finish) {
                 completeCard(cardId);
@@ -712,8 +904,15 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
         }
 
         private void updateStreamingCard(String cardId, String content, StreamCardUpdateContentType type) {
+            updateStreamingCard(cardId, content, type, false);
+        }
+
+        private void updateStreamingCard(String cardId, String content, StreamCardUpdateContentType type, boolean force) {
             try {
-                if (StringUtils.isEmpty(content)) {
+                if (StringUtils.isBlank(cardId) || StringUtils.isEmpty(content)) {
+                    return;
+                }
+                if (!shouldUpdateCard(cardId, type, content, force)) {
                     return;
                 }
 
@@ -730,12 +929,46 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                         .build();
 
                 ContentCardElementResp resp = client.cardkit().v1().cardElement().content(req);
+                if (resp == null || !resp.success()) {
+                    log.warn("[FeiShu] Update streaming card failed. cardId={}, type={}, response={}",
+                            cardId, type.key, Jsons.DEFAULT.toJson(resp));
+                    return;
+                }
+                recordCardUpdate(cardId, type, content);
                 if (log.isDebugEnabled()) {
-                    log.debug("[FeiShu] Update streaming card success: {}", Jsons.DEFAULT.toJson(resp));
+                    log.debug("[FeiShu] Update streaming card success. cardId={}, type={}, seq={}",
+                            cardId, type.key, seq);
                 }
             } catch (Exception e) {
                 log.error("[FeiShu] Update streaming card error", e);
             }
+        }
+
+        private boolean shouldUpdateCard(String cardId, StreamCardUpdateContentType type, String content, boolean force) {
+            StreamCardUpdateState state = updateStates.computeIfAbsent(cardId, key -> new StreamCardUpdateState());
+            String updateKey = type.key;
+            String previousContent = state.lastContentByElement.get(updateKey);
+            if (Objects.equals(previousContent, content)) {
+                state.duplicateSkipCount.incrementAndGet();
+                return false;
+            }
+            if (force || previousContent == null) {
+                return true;
+            }
+
+            long now = System.currentTimeMillis();
+            long lastAt = state.lastUpdateAtByElement.getOrDefault(updateKey, 0L);
+            int previousLength = previousContent.length();
+            int deltaChars = Math.abs(content.length() - previousLength);
+            if (now - lastAt < STREAM_CARD_UPDATE_INTERVAL_MS && deltaChars < STREAM_CARD_UPDATE_MIN_DELTA_CHARS) {
+                state.throttleSkipCount.incrementAndGet();
+                return false;
+            }
+            return true;
+        }
+
+        private void recordCardUpdate(String cardId, StreamCardUpdateContentType type, String content) {
+            updateStates.computeIfAbsent(cardId, key -> new StreamCardUpdateState()).record(type.key, content);
         }
 
         private void autoCloseThinkingHeader(String cardId) {
@@ -744,6 +977,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
         }
 
         private void completeCard(String cardId) {
+            StreamCardUpdateState updateState = updateStates.get(cardId);
             // 设置卡片更新完成
             // 流式更新卡片内容
             int seq = incrSeq(cardId);
@@ -775,7 +1009,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                                         }
                                     }
                                     """)
-                            .uuid("a0d69e20-1dd1-458b-k525-dfeca4015204")
+                            .uuid(UUID.randomUUID().toString())
                             .sequence(seq)
                             .build())
                     .build();
@@ -783,6 +1017,17 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             // 发起请求
             try {
                 SettingsCardResp resp = client.cardkit().v1().card().settings(req);
+                if (resp == null || !resp.success()) {
+                    log.warn("[FeiShu] Complete streaming card failed. cardId={}, response={}",
+                            cardId, Jsons.DEFAULT.toJson(resp));
+                }
+                if (updateState != null) {
+                    log.info("[FeiShu] Stream card update metrics. cardId={}, updates={}, duplicateSkips={}, throttleSkips={}",
+                            cardId,
+                            updateState.updateCount.get(),
+                            updateState.duplicateSkipCount.get(),
+                            updateState.throttleSkipCount.get());
+                }
                 if (log.isDebugEnabled()) {
                     log.debug("[FeiShu] Complete streaming card success: {}", Jsons.DEFAULT.toJson(resp));
                 }
@@ -790,6 +1035,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                 log.error("[FeiShu] Complete streaming card error", e);
             } finally {
                 removeSeq(cardId);
+                updateStates.remove(cardId);
             }
         }
 
@@ -802,6 +1048,20 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
 
         private void removeSeq(String cardId) {
             aiCardSeq.remove(cardId);
+        }
+
+        private static class StreamCardUpdateState {
+            private final Map<String, Long> lastUpdateAtByElement = new ConcurrentHashMap<>();
+            private final Map<String, String> lastContentByElement = new ConcurrentHashMap<>();
+            private final AtomicInteger updateCount = new AtomicInteger();
+            private final AtomicInteger duplicateSkipCount = new AtomicInteger();
+            private final AtomicInteger throttleSkipCount = new AtomicInteger();
+
+            private void record(String elementId, String content) {
+                updateCount.incrementAndGet();
+                lastUpdateAtByElement.put(elementId, System.currentTimeMillis());
+                lastContentByElement.put(elementId, content);
+            }
         }
 
 

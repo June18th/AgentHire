@@ -1,7 +1,8 @@
 "use client"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { FileSearch, X } from "lucide-react"
+import { DatabaseZap, ExternalLink, FileSearch, X } from "lucide-react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -39,15 +40,24 @@ function sanitizeDraftIds(value: string | null) {
     ).join(",")
 }
 
+function sanitizeNumberParam(value: string | null) {
+    return value && /^\d+$/.test(value) ? value : ""
+}
+
 export default function DraftsPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const linkedDraftIds = useMemo(() => sanitizeDraftIds(searchParams.get("draftIds")), [searchParams])
-    const sourceTaskId = searchParams.get("sourceTaskId") || ""
+    const sourceTaskId = useMemo(() => sanitizeNumberParam(searchParams.get("sourceTaskId")), [searchParams])
+    const sourceId = useMemo(() => sanitizeNumberParam(searchParams.get("sourceId")), [searchParams])
     const linkedDraftIdList = useMemo(() => linkedDraftIds ? linkedDraftIds.split(",") : [], [linkedDraftIds])
     const initialFilters = useMemo<DraftListQuery>(
-        () => linkedDraftIds ? { draftIds: linkedDraftIds } : {},
-        [linkedDraftIds]
+        () => ({
+            ...(linkedDraftIds ? { draftIds: linkedDraftIds } : {}),
+            ...(sourceId ? { sourceId: Number(sourceId) } : {}),
+            ...(sourceTaskId ? { sourceTaskId: Number(sourceTaskId) } : {}),
+        }),
+        [linkedDraftIds, sourceId, sourceTaskId]
     )
     const [drafts, setDrafts] = useState<DraftItem[]>([])
     const [loading, setLoading] = useState(false)
@@ -67,22 +77,39 @@ export default function DraftsPage() {
     const [processStates, setProcessStates] = useState<GlobalConfigItemValue[]>([]);
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+    const hasSourceContext = Boolean(linkedDraftIds || sourceId || sourceTaskId)
+
     // AIDEV-NOTE: AI-GENERATED task link filter
     useEffect(() => {
         setFilters((prev) => {
+            const next = { ...prev }
             if (linkedDraftIds) {
-                return prev.draftIds === linkedDraftIds ? prev : { ...prev, draftIds: linkedDraftIds }
+                next.draftIds = linkedDraftIds
+            } else {
+                delete next.draftIds
             }
-            if (!prev.draftIds) {
+            if (sourceId) {
+                next.sourceId = Number(sourceId)
+            } else {
+                delete next.sourceId
+            }
+            if (sourceTaskId) {
+                next.sourceTaskId = Number(sourceTaskId)
+            } else {
+                delete next.sourceTaskId
+            }
+            if (
+                prev.draftIds === next.draftIds &&
+                prev.sourceId === next.sourceId &&
+                prev.sourceTaskId === next.sourceTaskId
+            ) {
                 return prev
             }
-            const next = { ...prev }
-            delete next.draftIds
             return next
         })
         setSelectedIds([])
         setPage(1)
-    }, [linkedDraftIds])
+    }, [linkedDraftIds, sourceId, sourceTaskId])
 
     const fetchData = async (params: DraftListQuery = {}) => {
         setLoading(true)
@@ -119,6 +146,7 @@ export default function DraftsPage() {
         const params = new URLSearchParams(searchParams.toString())
         params.delete("draftIds")
         params.delete("sourceTaskId")
+        params.delete("sourceId")
         const query = params.toString()
         router.replace(query ? `/admin/drafts?${query}` : "/admin/drafts")
     }
@@ -282,7 +310,7 @@ export default function DraftsPage() {
                         {publishLoading ? "发布中..." : "同步职位"}
                     </Button>
                 </div>
-                {linkedDraftIds && (
+                {hasSourceContext && (
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                         <div className="flex min-w-0 items-center gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-blue-200 bg-white text-blue-600">
@@ -290,10 +318,12 @@ export default function DraftsPage() {
                             </div>
                             <div className="min-w-0">
                                 <div className="font-medium">
-                                    {sourceTaskId ? `来自采集任务 #${sourceTaskId}` : "来自采集任务"}
+                                    {sourceTaskId ? `来自采集任务 #${sourceTaskId}` : sourceId ? `来自采集源 #${sourceId}` : "来自采集链路"}
                                 </div>
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                                    <span className="text-blue-700">仅显示 {linkedDraftIdList.length} 条关联草稿</span>
+                                    <span className="text-blue-700">
+                                        {linkedDraftIds ? `仅显示 ${linkedDraftIdList.length} 条关联草稿` : "按来源/任务筛选草稿"}
+                                    </span>
                                     {linkedDraftIdList.slice(0, 8).map((id) => (
                                         <span key={id} className="rounded-md bg-white px-1.5 py-0.5 font-medium text-blue-700">
                                             #{id}
@@ -305,26 +335,45 @@ export default function DraftsPage() {
                                 </div>
                             </div>
                         </div>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
-                            onClick={clearTaskDraftFilter}
-                        >
-                            <X className="h-3.5 w-3.5" />
-                            查看全部
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {sourceId && (
+                                <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50">
+                                    <Link href={`/admin/sources/detail?id=${sourceId}`}>
+                                        <DatabaseZap className="h-3.5 w-3.5" />
+                                        来源 #{sourceId}
+                                    </Link>
+                                </Button>
+                            )}
+                            {sourceTaskId && (
+                                <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 border-blue-200 bg-white text-blue-700 hover:bg-blue-50">
+                                    <Link href={`/admin/entry?tab=tasks${sourceId ? `&sourceId=${sourceId}` : ""}`}>
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                        任务队列
+                                    </Link>
+                                </Button>
+                            )}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-blue-200 bg-white text-blue-700 hover:bg-blue-50"
+                                onClick={clearTaskDraftFilter}
+                            >
+                                <X className="h-3.5 w-3.5" />
+                                查看全部
+                            </Button>
+                        </div>
                     </div>
                 )}
                 {/* 只让表格区域可横向滚动 */}
                 <div className="bg-white rounded-lg shadow overflow-x-auto">
-                    <Table className="min-w-[1600px] table-fixed text-sm">
+                    <Table className="min-w-[1720px] table-fixed text-sm">
                         <TableHeader className="bg-blue-50">
                             <TableRow>
                                 <TableHead className="whitespace-nowrap text-center text-blue-600">
                                     <input type="checkbox" checked={checkSelectAll()}
                                         onChange={e => handleSelectAll(e.target.checked)} />
                                 </TableHead>
+                                <TableHead className="whitespace-nowrap text-center text-blue-600">来源</TableHead>
                                 <TableHead className="whitespace-nowrap text-center text-blue-600">公司名称</TableHead>
                                 <TableHead className="whitespace-nowrap text-center text-blue-600">公司类型</TableHead>
                                 <TableHead className="whitespace-nowrap text-center text-blue-600">所属行业</TableHead>
@@ -342,15 +391,37 @@ export default function DraftsPage() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={13}>加载中...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={14}>加载中...</TableCell></TableRow>
                             ) : error ? (
-                                <TableRow><TableCell colSpan={13} className="text-red-600">{error}</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={14} className="text-red-600">{error}</TableCell></TableRow>
                             ) : drafts?.length === 0 ? (
-                                <TableRow><TableCell colSpan={13}>暂无数据</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={14}>暂无数据</TableCell></TableRow>
                             ) : (
                                 drafts.map((draft) => (
                                     <TableRow key={draft.id}>
                                         <TableCell className="whitespace-nowrap text-center"><input type="checkbox" disabled={draft.toProcess == 1} checked={selectedIds.includes(draft.id)} onChange={e => handleSelectOne(draft.id, e.target.checked)} /></TableCell>
+                                        <TableCell className="whitespace-nowrap text-center">
+                                            <div className="flex justify-center gap-1.5">
+                                                {draft.sourceId ? (
+                                                    <Button asChild size="sm" variant="outline" className="h-7 gap-1 border-blue-100 bg-blue-50 px-2 text-xs text-blue-700 hover:bg-blue-100">
+                                                        <Link href={`/admin/sources/detail?id=${draft.sourceId}`}>
+                                                            <DatabaseZap className="h-3 w-3" />
+                                                            #{draft.sourceId}
+                                                        </Link>
+                                                    </Button>
+                                                ) : (
+                                                    <span className="text-content-muted">-</span>
+                                                )}
+                                                {draft.sourceTaskId && (
+                                                    <Button asChild size="sm" variant="outline" className="h-7 gap-1 border-slate-200 bg-white px-2 text-xs text-slate-700 hover:bg-slate-50">
+                                                        <Link href={`/admin/entry?tab=tasks${draft.sourceId ? `&sourceId=${draft.sourceId}` : ""}`}>
+                                                            <ExternalLink className="h-3 w-3" />
+                                                            任务
+                                                        </Link>
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="whitespace-nowrap text-center max-w-[320px] truncate break-all" title={draft.companyName}>{draft.companyName}</TableCell>
                                         <TableCell className="whitespace-nowrap text-center"><Badge variant="secondary">{draft.companyType}</Badge></TableCell>
                                         <TableCell className="whitespace-nowrap text-center max-w-[320px] truncate break-all" title={draft.companyIndustry}>{draft.companyIndustry}</TableCell>

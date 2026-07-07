@@ -112,9 +112,9 @@ public class AiUserPreferenceProperties {
         private String vision;
 
         /**
-         * 文本模型配置，格式: provider#modelName (如: zhipu#GLM-4.7-Flash)
+         * 文本模型配置，格式: provider#modelName (如: zhipu#glm-4.7)
          */
-        @JsonPropertyDescription("文本模型配置，格式: provider#modelName (如: zhipu#GLM-4.7-Flash)")
+        @JsonPropertyDescription("文本模型配置，格式: provider#modelName (如: zhipu#glm-4.7)")
         private String text;
 
         @JsonPropertyDescription("TTS 模型配置，格式: provider#modelName (如: zhipu#xxx)")

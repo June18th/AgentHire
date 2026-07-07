@@ -1,0 +1,258 @@
+name: jobclaw-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "7"
+
+x-restart: &default-restart
+  restart: unless-stopped
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: jobclaw-prod-mysql
+    mem_limit: ${MYSQL_MEM_LIMIT:-1g}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+08:00 --log-timestamps=SYSTEM
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-jobclaw}
+      TZ: Asia/Shanghai
+    volumes:
+      - jobclaw-prod-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+    logging: *default-logging
+    <<: *default-restart
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: jobclaw-prod-redis
+    mem_limit: ${REDIS_MEM_LIMIT:-256m}
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+    environment:
+      TZ: Asia/Shanghai
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - jobclaw-prod-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10s
+    logging: *default-logging
+    <<: *default-restart
+
+  kafka:
+    image: apache/kafka:3.9.1
+    container_name: jobclaw-prod-kafka
+    mem_limit: ${KAFKA_MEM_LIMIT:-1g}
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENERS: "INTERNAL://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: "${KAFKA_NUM_PARTITIONS:-3}"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "1"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      TZ: Asia/Shanghai
+    volumes:
+      - jobclaw-prod-kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null"]
+      interval: 10s
+      timeout: 8s
+      retries: 18
+      start_period: 40s
+    logging: *default-logging
+    <<: *default-restart
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.5
+    container_name: jobclaw-prod-elasticsearch
+    mem_limit: ${ELASTICSEARCH_MEM_LIMIT:-1g}
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "${ELASTICSEARCH_JAVA_OPTS:--Xms512m -Xmx512m -Duser.timezone=Asia/Shanghai}"
+      TZ: Asia/Shanghai
+    volumes:
+      - jobclaw-prod-elasticsearch-data:/usr/share/elasticsearch/data
+      - ./docker/elasticsearch/log4j2.properties:/usr/share/elasticsearch/config/log4j2.properties:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null"]
+      interval: 10s
+      timeout: 8s
+      retries: 18
+      start_period: 40s
+    logging: *default-logging
+    <<: *default-restart
+
+  minio:
+    image: minio/minio:latest
+    container_name: jobclaw-prod-minio
+    mem_limit: ${MINIO_MEM_LIMIT:-512m}
+    command: server /data --console-address ":9001"
+    environment:
+      TZ: Asia/Shanghai
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+    volumes:
+      - jobclaw-prod-minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    logging: *default-logging
+    <<: *default-restart
+
+  jobclaw:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+      additional_contexts:
+        maven-local-repo: ${MAVEN_LOCAL_REPO:-./build/maven-empty-repo}
+      args:
+        MAVEN_PROFILE: prod
+    image: jobclaw-api:prod
+    container_name: jobclaw-prod-api
+    mem_limit: ${JOBCLAW_API_MEM_LIMIT:-1g}
+    env_file:
+      - ${JOBCLAW_ENV_FILE:-.env.production}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: "${JOBCLAW_JAVA_TOOL_OPTIONS:--Duser.timezone=Asia/Shanghai -XX:MaxRAMPercentage=75.0}"
+      SPRING_PROFILES_ACTIVE: "prod"
+      JOBCLAW_SERVER_PORT: "8087"
+      JOBCLAW_SITE_WEBSITE_HOST: "${JOBCLAW_SITE_WEB_SITE_URL:?JOBCLAW_SITE_WEB_SITE_URL is required}"
+      JOBCLAW_SITE_WEB_SITE_URL: "${JOBCLAW_SITE_WEB_SITE_URL:?JOBCLAW_SITE_WEB_SITE_URL is required}"
+      JOBCLAW_SITE_AUTO_OPEN: "false"
+      JOBCLAW_DATABASE_NAME: "${MYSQL_DATABASE:-jobclaw}"
+      DATABASE_HOST: mysql
+      DATABASE_PORT: "3306"
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}"
+      DATABASE_LIQUIBASE_ENABLED: "true"
+      JOBCLAW_REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      REDIS_DATABASE: "${REDIS_DATABASE:-0}"
+      JOBCLAW_MQ_ENABLED: "true"
+      JOBCLAW_MQ_PROVIDER: "kafka"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      JOBCLAW_SEARCH_ES_ENABLED: "true"
+      ELASTICSEARCH_ENDPOINT: "http://elasticsearch:9200"
+      JOBCLAW_SEARCH_ES_INDEX: "${JOBCLAW_SEARCH_ES_INDEX:-jobclaw_oc_job}"
+      JOBCLAW_IMG_STORAGE_TYPE: "minio"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}"
+      MINIO_BUCKET: "${MINIO_BUCKET:-jobclaw}"
+      JOBCLAW_IMG_CDN_HOST: "${JOBCLAW_SITE_WEB_SITE_URL:?JOBCLAW_SITE_WEB_SITE_URL is required}"
+      AGENT_WORKSPACE: "file:/app/workspace/"
+      JOBCLAW_IMG_ABS_TMP_PATH: "/app/workspace/storage/"
+      AGENT_TOOL_PLAYWRIGHT_ENABLED: "${AGENT_TOOL_PLAYWRIGHT_ENABLED:-false}"
+      AGENT_MCP_CLIENT_ENABLED: "${AGENT_MCP_CLIENT_ENABLED:-false}"
+      AGENT_CHANNEL_WECHAT_CLAWBOT_ENABLED: "${AGENT_CHANNEL_WECHAT_CLAWBOT_ENABLED:-false}"
+      AGENT_CHANNEL_DINGDING_ENABLED: "${AGENT_CHANNEL_DINGDING_ENABLED:-false}"
+      AGENT_CHANNEL_FEISHU_ENABLED: "${AGENT_CHANNEL_FEISHU_ENABLED:-false}"
+      SPRING_AUTOCONFIGURE_EXCLUDE: "org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiChatAutoConfiguration,org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiEmbeddingAutoConfiguration,org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiImageAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAgentAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAsyncToolCallingManagerAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAudioSpeechAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAudioTranscriptionAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeChatAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeEmbeddingAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeImageAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeRerankAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeVideoAutoConfiguration"
+    volumes:
+      - jobclaw-prod-workspace:/app/workspace
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8087/actuator/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 70s
+    logging: *default-logging
+    <<: *default-restart
+
+  jobclaw-web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+    image: jobclaw-web:prod
+    container_name: jobclaw-prod-web
+    mem_limit: ${JOBCLAW_WEB_MEM_LIMIT:-128m}
+    depends_on:
+      jobclaw:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    logging: *default-logging
+    <<: *default-restart
+
+  jobclaw-gateway:
+    image: nginx:1.27-alpine
+    container_name: jobclaw-prod-gateway
+    mem_limit: ${JOBCLAW_GATEWAY_MEM_LIMIT:-128m}
+    depends_on:
+      jobclaw-web:
+        condition: service_healthy
+      jobclaw:
+        condition: service_healthy
+    ports:
+      - "${JOBCLAW_PUBLIC_PORT:-80}:80"
+    volumes:
+      - ./docker/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    logging: *default-logging
+    <<: *default-restart
+
+volumes:
+  jobclaw-prod-mysql-data:
+  jobclaw-prod-redis-data:
+  jobclaw-prod-kafka-data:
+  jobclaw-prod-elasticsearch-data:
+  jobclaw-prod-minio-data:
+  jobclaw-prod-workspace:

@@ -38,7 +38,7 @@
         <developer/>
     </developers>
     <modules>
-        <module>app</module>
+        <module>backend</module>
         <module>core</module>
         <module>channels</module>
         <module>providers</module>
@@ -130,10 +130,6 @@
             <resource>
                 <directory>src/main/resources</directory>
             </resource>
-            <resource>
-                <directory>src/main/resources-env/${env}</directory>
-                <filtering>true</filtering>
-            </resource>
         </resources>
         <plugins>
             <plugin>
@@ -152,6 +148,7 @@
                         <source>21</source>
                         <target>21</target>
                         <release>21</release>
+                        <proc>full</proc>
                         <compilerArgs>
                             <arg>-parameters</arg>
                         </compilerArgs>
@@ -172,6 +169,7 @@
                         <includes>
                             <include>**/*Test.java</include>
                         </includes>
+                        <argLine>-Djava.io.tmpdir=${maven.multiModuleProjectDirectory}/build/tmp</argLine>
                     </configuration>
                 </plugin>
             </plugins>
@@ -179,3 +177,5 @@
     </build>
 
 </project>
+
+

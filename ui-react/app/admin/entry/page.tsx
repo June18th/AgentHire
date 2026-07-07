@@ -1,12 +1,14 @@
 "use client"
 
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertCircle,
   CheckCircle2,
   ClipboardList,
   Copy,
+  DatabaseZap,
   ExternalLink,
   FileSpreadsheet,
   FileText,
@@ -51,6 +53,8 @@ interface TaskQueryState {
   page: number
   size: number
   taskId: string
+  sourceId: string
+  runnerType: string
   model: string
   type: string
   state: string
@@ -85,6 +89,9 @@ interface TaskDraftResult {
   msg: string
   insertDraftIds: number[]
   updateDraftIds: number[]
+  unchangedDraftIds: number[]
+  skipDraftIds: number[]
+  failedItems: string[]
 }
 
 interface StoredUserInfo {
@@ -268,16 +275,45 @@ function toDraftIdList(value: unknown) {
   )
 }
 
+function toFailedItemList(value: unknown) {
+  const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : []
+  return source
+    .map((item) => {
+      if (typeof item === "string" || typeof item === "number") {
+        return String(item).trim()
+      }
+      if (isRecord(item)) {
+        const title = item.title ?? item.position ?? item.name ?? item.reason ?? item.msg
+        return title === undefined || title === null ? JSON.stringify(item) : String(title).trim()
+      }
+      return ""
+    })
+    .filter(Boolean)
+}
+
+function emptyTaskDraftResult(raw = ""): TaskDraftResult {
+  return {
+    parsed: false,
+    raw,
+    msg: "",
+    insertDraftIds: [],
+    updateDraftIds: [],
+    unchangedDraftIds: [],
+    skipDraftIds: [],
+    failedItems: [],
+  }
+}
+
 function parseTaskDraftResult(result?: string | null): TaskDraftResult {
   const raw = result?.trim() || ""
   if (!raw) {
-    return { parsed: false, raw: "", msg: "", insertDraftIds: [], updateDraftIds: [] }
+    return emptyTaskDraftResult()
   }
 
   try {
     const parsed = JSON.parse(raw) as unknown
     if (!isRecord(parsed)) {
-      return { parsed: false, raw, msg: "", insertDraftIds: [], updateDraftIds: [] }
+      return emptyTaskDraftResult(raw)
     }
     return {
       parsed: true,
@@ -285,14 +321,22 @@ function parseTaskDraftResult(result?: string | null): TaskDraftResult {
       msg: typeof parsed.msg === "string" ? parsed.msg : "",
       insertDraftIds: toDraftIdList(parsed.insertDraftIds ?? parsed.insert),
       updateDraftIds: toDraftIdList(parsed.updateDraftIds ?? parsed.update),
+      unchangedDraftIds: toDraftIdList(parsed.unchangedDraftIds ?? parsed.unchanged),
+      skipDraftIds: toDraftIdList(parsed.skipDraftIds ?? parsed.skip),
+      failedItems: toFailedItemList(parsed.failedItems ?? parsed.failed),
     }
   } catch {
-    return { parsed: false, raw, msg: "", insertDraftIds: [], updateDraftIds: [] }
+    return emptyTaskDraftResult(raw)
   }
 }
 
 function getTaskDraftIds(result: TaskDraftResult) {
-  return Array.from(new Set([...result.insertDraftIds, ...result.updateDraftIds]))
+  return Array.from(new Set([
+    ...result.insertDraftIds,
+    ...result.updateDraftIds,
+    ...result.unchangedDraftIds,
+    ...result.skipDraftIds,
+  ]))
 }
 
 function buildDraftListHref(taskId: number, draftIds: number[]) {
@@ -303,16 +347,19 @@ function buildDraftListHref(taskId: number, draftIds: number[]) {
   return `/admin/drafts?${params.toString()}`
 }
 
-function DraftChangeLine({ label, ids, tone }: { label: string; ids: number[]; tone: "insert" | "update" }) {
+function DraftChangeLine({ label, ids, tone }: { label: string; ids: number[]; tone: "insert" | "update" | "unchanged" | "skip" }) {
   if (ids.length === 0) {
     return null
   }
 
   const visibleIds = ids.slice(0, 5)
   const hiddenCount = ids.length - visibleIds.length
-  const toneClass = tone === "insert"
-    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-    : "border-blue-200 bg-blue-50 text-blue-700"
+  const toneClass = {
+    insert: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    update: "border-blue-200 bg-blue-50 text-blue-700",
+    unchanged: "border-slate-200 bg-slate-50 text-slate-600",
+    skip: "border-amber-200 bg-amber-50 text-amber-700",
+  }[tone]
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -331,9 +378,35 @@ function DraftChangeLine({ label, ids, tone }: { label: string; ids: number[]; t
   )
 }
 
+function FailedResultLine({ items }: { items: string[] }) {
+  if (items.length === 0) {
+    return null
+  }
+
+  const visibleItems = items.slice(0, 2)
+  const hiddenCount = items.length - visibleItems.length
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Badge variant="outline" className="h-6 rounded-md border-rose-200 bg-rose-50 px-2 text-rose-700">
+        失败 {items.length}
+      </Badge>
+      {visibleItems.map((item, index) => (
+        <span key={`${item}-${index}`} className="max-w-[120px] truncate rounded-md bg-rose-50 px-1.5 py-0.5 text-xs font-medium text-rose-700" title={item}>
+          {item}
+        </span>
+      ))}
+      {hiddenCount > 0 && (
+        <span className="text-xs text-content-tertiary">+{hiddenCount}</span>
+      )}
+    </div>
+  )
+}
+
 function TaskResultView({ task }: { task: TaskListItem }) {
   const result = parseTaskDraftResult(task.result)
   const draftIds = getTaskDraftIds(result)
+  const hasStructuredResult = draftIds.length > 0 || result.failedItems.length > 0
 
   if (!result.raw) {
     return <span className="text-sm text-content-muted">未返回</span>
@@ -352,7 +425,10 @@ function TaskResultView({ task }: { task: TaskListItem }) {
       <div className="space-y-1.5">
         <DraftChangeLine label="新增草稿" ids={result.insertDraftIds} tone="insert" />
         <DraftChangeLine label="更新草稿" ids={result.updateDraftIds} tone="update" />
-        {draftIds.length === 0 && (
+        <DraftChangeLine label="无变化" ids={result.unchangedDraftIds} tone="unchanged" />
+        <DraftChangeLine label="跳过" ids={result.skipDraftIds} tone="skip" />
+        <FailedResultLine items={result.failedItems} />
+        {!hasStructuredResult && (
           <span className="line-clamp-2 text-sm text-content-secondary" title={result.msg || result.raw}>
             {result.msg && result.msg !== "success" ? result.msg : "未生成草稿"}
           </span>
@@ -375,6 +451,8 @@ function buildTaskParams(taskQuery: TaskQueryState) {
     page: taskQuery.page,
     size: taskQuery.size,
     taskId: taskQuery.taskId ? Number(taskQuery.taskId) : undefined,
+    sourceId: taskQuery.sourceId ? Number(taskQuery.sourceId) : undefined,
+    runnerType: taskQuery.runnerType !== ALL_VALUE ? taskQuery.runnerType : undefined,
     model: taskQuery.model !== ALL_VALUE ? taskQuery.model : undefined,
     type: taskQuery.type !== ALL_VALUE ? Number(taskQuery.type) : undefined,
     state: taskQuery.state !== ALL_VALUE ? Number(taskQuery.state) : undefined,
@@ -407,6 +485,7 @@ function isLocalhost() {
 
 export default function EntryPage() {
   // AIDEV-NOTE: AI-GENERATED admin entry polish
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<EntryTab>("entry")
   const [aiType, setAiType] = useState("")
   const [aiModel, setAiModel] = useState("")
@@ -420,6 +499,8 @@ export default function EntryPage() {
     page: 1,
     size: PAGE_SIZE,
     taskId: "",
+    sourceId: "",
+    runnerType: ALL_VALUE,
     model: ALL_VALUE,
     type: ALL_VALUE,
     state: ALL_VALUE,
@@ -479,6 +560,14 @@ export default function EntryPage() {
     localStorage.setItem("oc-user", JSON.stringify(nextUser))
     setUserInfo(nextUser)
   }, [setUserInfo])
+
+  useEffect(() => {
+    setTab(searchParams.get("tab") === "tasks" ? "tasks" : "entry")
+    const nextSourceId = searchParams.get("sourceId") || ""
+    if (nextSourceId) {
+      setTaskQuery((current) => ({ ...current, page: 1, sourceId: nextSourceId }))
+    }
+  }, [searchParams])
 
   useEffect(() => {
     let active = true
@@ -614,6 +703,8 @@ export default function EntryPage() {
       page: 1,
       size: PAGE_SIZE,
       taskId: "",
+      sourceId: "",
+      runnerType: ALL_VALUE,
       model: ALL_VALUE,
       type: ALL_VALUE,
       state: ALL_VALUE,
@@ -698,18 +789,18 @@ export default function EntryPage() {
                     <ClipboardList className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-xl font-semibold leading-7 text-content-primary">数据录入中心</h1>
-                    <p className="text-xs text-content-tertiary">职位线索投料、采集任务跟踪、历史任务重跑</p>
+                    <h1 className="text-xl font-semibold leading-7 text-content-primary">采集工作台</h1>
+                    <p className="text-xs text-content-tertiary">新建投料、采集任务跟踪、草稿审核前置处理</p>
                   </div>
                 </div>
                 <TabsList className="h-10 rounded-lg border border-surface-border bg-slate-50 p-1 shadow-none">
                   <TabsTrigger value="entry" className="h-8 gap-1.5 rounded-md px-3 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                     <ClipboardList className="h-3.5 w-3.5" />
-                    投料入口
+                    新建投料
                   </TabsTrigger>
                   <TabsTrigger value="tasks" className="h-8 gap-1.5 rounded-md px-3 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                     <RefreshCcw className="h-3.5 w-3.5" />
-                    任务队列
+                    采集任务
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -978,8 +1069,8 @@ export default function EntryPage() {
               <div className="border-b border-surface-border px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-semibold text-content-primary">采集任务队列</h2>
-                    <p className="mt-1 text-sm text-content-tertiary">共 {taskTotal} 条任务，当前第 {taskQuery.page} / {totalPages} 页</p>
+                    <h2 className="text-base font-semibold text-content-primary">采集任务</h2>
+                    <p className="mt-1 text-sm text-content-tertiary">共 {taskTotal} 条任务，结果按新增、更新、无变化、跳过和失败分类展示</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" className="h-10 gap-2" onClick={resetTaskFilters}>
@@ -1005,6 +1096,25 @@ export default function EntryPage() {
                       onChange={(event) => setTaskQuery((current) => ({ ...current, taskId: event.target.value, page: 1 }))}
                     />
                   </div>
+                  <div className="relative">
+                    <DatabaseZap className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-muted" />
+                    <Input
+                      placeholder="来源 ID"
+                      className="h-10 w-36 bg-white pl-9"
+                      value={taskQuery.sourceId}
+                      onChange={(event) => setTaskQuery((current) => ({ ...current, sourceId: event.target.value, page: 1 }))}
+                    />
+                  </div>
+                  <Select value={taskQuery.runnerType} onValueChange={(value) => setTaskQuery((current) => ({ ...current, runnerType: value, page: 1 }))}>
+                    <SelectTrigger className="h-10 w-36 bg-white">
+                      <SelectValue placeholder="全部作业" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_VALUE}>全部作业</SelectItem>
+                      <SelectItem value="draft_only">Admin 投料</SelectItem>
+                      <SelectItem value="agent">Agent 作业</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Select value={taskQuery.model} onValueChange={(value) => setTaskQuery((current) => ({ ...current, model: value, page: 1 }))}>
                     <SelectTrigger className="h-10 w-48 bg-white">
                       <SelectValue placeholder="全部模型" />
@@ -1051,6 +1161,7 @@ export default function EntryPage() {
                     <TableHeader className="bg-slate-50">
                       <TableRow className="hover:bg-slate-50">
                         <TableHead className="w-24 text-content-secondary">ID</TableHead>
+                        <TableHead className="w-28 text-content-secondary">来源</TableHead>
                         <TableHead className="w-32 text-content-secondary">类型</TableHead>
                         <TableHead className="w-32 text-content-secondary">模型</TableHead>
                         <TableHead className="w-32 text-content-secondary">状态</TableHead>
@@ -1063,7 +1174,7 @@ export default function EntryPage() {
                     <TableBody>
                       {taskLoading ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="h-32 text-center text-content-tertiary">
+                          <TableCell colSpan={9} className="h-32 text-center text-content-tertiary">
                             <span className="inline-flex items-center gap-2">
                               <Loader2 className="h-4 w-4 animate-spin" />
                               加载任务中
@@ -1072,13 +1183,13 @@ export default function EntryPage() {
                         </TableRow>
                       ) : taskError ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="h-32 text-center text-rose-600">
+                          <TableCell colSpan={9} className="h-32 text-center text-rose-600">
                             {taskError}
                           </TableCell>
                         </TableRow>
                       ) : taskList.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="h-32 text-center text-content-tertiary">
+                          <TableCell colSpan={9} className="h-32 text-center text-content-tertiary">
                             暂无采集任务
                           </TableCell>
                         </TableRow>
@@ -1091,6 +1202,18 @@ export default function EntryPage() {
                           return (
                             <TableRow key={task.taskId} className="bg-white">
                               <TableCell className="font-medium text-content-primary">#{task.taskId}</TableCell>
+                              <TableCell>
+                                {task.sourceId ? (
+                                  <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100">
+                                    <Link href={`/admin/sources/detail?id=${task.sourceId}`}>
+                                      <DatabaseZap className="h-3.5 w-3.5" />
+                                      #{task.sourceId}
+                                    </Link>
+                                  </Button>
+                                ) : (
+                                  <span className="text-sm text-content-muted">-</span>
+                                )}
+                              </TableCell>
                               <TableCell>
                                 <Badge variant="outline" className={cn("gap-1.5", visual.className)}>
                                   <TypeIcon className="h-3.5 w-3.5" />

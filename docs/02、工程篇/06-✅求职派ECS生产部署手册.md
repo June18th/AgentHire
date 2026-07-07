@@ -233,9 +233,9 @@ function run() {
 启动脚本中，默认使用的是prod环境，在prod环境中，使用MySql作为数据库存储；我们现在介绍使用MySql 和 不是用MySql 两种场景的修改方案
 
 #### 3.1 MySql作为数据源
-在使用MySql作为数据源时，我们只需要修改`prod/application-dal.yml`配置文件即可
+在使用MySql作为数据源时，我们只需要修改`application-prod.yml`配置文件即可
 
-+ 进入配置文件 `vim app/src/main/resources-env/prod/application-dal.yml`
++ 进入配置文件 `vim backend/src/main/resources/application-prod.yml`
 + 修改 username
 + 修改 password
 
@@ -258,9 +258,9 @@ function run() {
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1758782652770-c88a5754-fb76-4807-beca-292c72514aa5.png)
 
-**step2: 修改数据源配置文件 prod/application-dal.yml**
+**step2: 修改数据源配置文件 application-prod.yml**
 
-+ 进入配置文件 `vim app/src/main/resources-env/prod/application-dal.yml`
++ 进入配置文件 `vim backend/src/main/resources/application-prod.yml`
 + 替换为下面类似的配置
 
 ```yaml
@@ -295,7 +295,7 @@ spring:
 
 
 ### 4.支付配置修改
-求职派集成了微信支付，我们在开发环境，实际上是关闭了微信支付的，你可以在 `dev/application-pay.yml`中关注到 `wx.pay.enable = false`
+求职派集成了微信支付，我们在开发环境，实际上是关闭了微信支付的，你可以在 `dev/application-prod.yml`中关注到 `wx.pay.enable = false`
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1758782971561-3cd17d2f-7d54-49c9-a67b-4326255aab87.png)
@@ -304,7 +304,7 @@ spring:
 
 **step1：上传证书**
 
-将支付证书相关文件，放在项目的 ` app/src/main/resource/cert `目录下
+将支付证书相关文件，放在项目的 ` backend/src/main/resource/cert `目录下
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1758783097384-84243f9c-4c79-43b4-9a6b-6e01a5cdc251.png)
@@ -312,9 +312,9 @@ spring:
 
 **step2: 修改支付配置**
 
-修改pord环境中的支付配置 **prod/application-pay.yml**
+修改pord环境中的支付配置 **application-prod.yml**
 
-+ 进入配置文件 `vim app/src/main/resources-env/prod/application-pay.yml`
++ 进入配置文件 `vim backend/src/main/resources/application-prod.yml`
 + 替换为下面类似的配置
 
 ```yaml
@@ -350,7 +350,7 @@ wx:
 在服务器的启动时，ai密钥配置有多种方案，下面介绍几种常见的
 
 #### 5.1 写入配置文件
-简单直接方案，直接在 prod/application-ai.yml 配置文件中，维护上真实的api-key
+简单直接方案，直接在 application-prod.yml 配置文件中，维护上真实的api-key
 
 ```yaml
 spring:
@@ -433,7 +433,7 @@ source ~/.bashrc
 + 基于技术派的静默登录（即技术派登录了，求职派就会自动登录；依赖于一级域名下的cookie共享方案）
 + 基于微信公众号的验证码登录
 
-对于微信公众号验证码登录的场景，我们需要修改 `prod/application-oc.yml`中的 `oc.site.login-qr-img`
+对于微信公众号验证码登录的场景，我们需要修改 `application-prod.yml`中的 `oc.site.login-qr-img`
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1758784786983-1565ddb4-8f79-4733-9132-2bbb22cf8cc9.png)

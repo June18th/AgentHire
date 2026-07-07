@@ -10,6 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   getUserDetail,
   updateUserDetail,
+  uploadUserAvatar,
   getRechargeList,
   UserSaveReq,
   submitUserInterest,
@@ -29,6 +30,8 @@ import {
 import { QRCodeCanvas } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import { getConfigValue } from "@/lib/config";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import { useLoginUser } from "@/hooks/useLoginUser";
 import {
   GlobalConfigItemValue,
   toPay,
@@ -57,9 +60,11 @@ const newUserInitValue: UserSaveReq = {
 
 export default function UserPage() {
   const { toast } = useToast();
+  const { userInfo: loginUserInfo, updateLocalUser } = useLoginUser();
   const [userInfo, setUserInfo] = useState<any>(null);
   const [activeMenu, setActiveMenu] = useState("vip");
   const [form, setForm] = useState<UserSaveReq>(newUserInitValue);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [intro, setIntro] = useState<any>({});
   // 推荐职位相关
   const [recommendedJobs, setRecommendedJobs] = useState<any[]>([]);
@@ -106,10 +111,14 @@ export default function UserPage() {
   };
 
   useEffect(() => {
+    if (!loginUserInfo) {
+      return;
+    }
+
     getConfigValue("recharge", "vipPrice").then(setRechargeOptions);
     getConfigValue("user", "RechargeStatusEnum").then(setRechargeStatusOptions);
     getConfigValue("user", "RechargeLevelEnum").then(setVipOptions);
-  }, []);
+  }, [loginUserInfo]);
 
   const fetchRechargeList = async () => {
     setLoading(true);
@@ -145,6 +154,10 @@ export default function UserPage() {
   };
 
   useEffect(() => {
+    if (!loginUserInfo) {
+      return;
+    }
+
     getUserDetail().then((data) => {
       // 根据用户信息，构建vip登记
       if (data.role == 3) {
@@ -203,7 +216,7 @@ export default function UserPage() {
         intro: data.intro || "",
       });
     });
-  }, [activeMenu]);
+  }, [activeMenu, loginUserInfo]);
 
   useEffect(() => {
     if (payInfo && payInfo.prePayExpireTime) {
@@ -219,9 +232,49 @@ export default function UserPage() {
     }
   }, [payInfo]);
 
+  const syncUserProfile = (data: any) => {
+    setUserInfo((current: any) => ({ ...current, ...data }));
+    setForm((current) => ({
+      ...current,
+      userId: data.userId || current.userId,
+      displayName: data.displayName || current.displayName,
+      avatar: data.avatar || current.avatar,
+      email: data.email ?? current.email,
+      intro: data.intro ?? current.intro,
+    }));
+    updateLocalUser({
+      userId: data.userId,
+      role: data.role,
+      nickname: data.displayName,
+      avatar: data.avatar,
+    });
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    setAvatarUploading(true);
+    try {
+      const updated = await uploadUserAvatar(file);
+      syncUserProfile(updated);
+      toast({
+        title: "上传成功",
+        description: "头像已更新",
+      });
+    } catch (err) {
+      toast({
+        title: "头像上传失败",
+        description: err instanceof Error ? err.message : "请稍后重试",
+        variant: "destructive",
+      });
+      throw err;
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const handleSaveUserInfo = async () => {
     await updateUserDetail(form)
       .then((res) => {
+        syncUserProfile(res);
         console.log("保存成功");
         toast({
           title: "成功",
@@ -347,6 +400,14 @@ export default function UserPage() {
       });
   };
 
+  if (!loginUserInfo) {
+    return (
+      <AuthGuard title="请先登录" description="登录后可以访问会员中心、渠道配置、模型偏好和个人资料。">
+        <div />
+      </AuthGuard>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f7fa]">
       <div className="bg-white shadow-sm">
@@ -412,6 +473,8 @@ export default function UserPage() {
                 <ProfileSection
                   userInfo={userInfo}
                   form={form}
+                  avatarUploading={avatarUploading}
+                  handleAvatarUpload={handleAvatarUpload}
                   handleFormChange={handleFormChange}
                   handleSaveUserInfo={handleSaveUserInfo}
                 />
@@ -444,8 +507,6 @@ export default function UserPage() {
                     intro={intro}
                     activeMenu={activeMenu}
                     setIntro={setIntro}
-                    recommendedJobs={recommendedJobs}
-                    loadingJobs={loadingJobs}
                 />
               )}
             </CardContent>
@@ -531,12 +592,12 @@ export default function UserPage() {
                 />
                 <div className="flex gap-3 mt-4">
                   <Button
-                    variant="promotion"
+                    variant="default"
                     onClick={() => {
                       setCouponCode("");
                       handleCouponSubmit();
                     }}
-                    className="flex-1"
+                    className="flex-1 bg-amber-500 text-white hover:bg-amber-600"
                   >
                     直接支付
                   </Button>

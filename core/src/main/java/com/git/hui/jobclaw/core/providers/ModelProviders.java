@@ -12,13 +12,18 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * 模型提供者
+ * 模型策略上下文。
+ * <p>
+ * Spring 会自动收集所有 {@link ModelProvider} 策略实现，本类负责按 apiStyle 建立注册表，
+ * 再根据用户偏好或后台配置选择合适的策略构建模型。
+ *
  * @author YiHui
  * @date 2026/4/9
  */
@@ -39,7 +44,7 @@ public class ModelProviders {
     /**
      * 模型缓存
      */
-    public Map<ModelConfig.ModelInfo, Model> modelCache;
+    private final Map<ModelConfig.ModelInfo, Model> modelCache;
 
     private record ResolvedModel(AiUserPreferenceProperties.ProviderConfig providerConfig,
                                  ModelConfig.ModelInfo modelInfo) {
@@ -49,7 +54,7 @@ public class ModelProviders {
     /**
      * key = 接口风格，modelProvider.apiStyle();
      */
-    private Map<String, ModelProvider> providerMap;
+    private final Map<String, ModelProvider> providerMap;
 
 
     private final AiUserPreferenceProperties aiUserPreferenceProperties;
@@ -68,11 +73,15 @@ public class ModelProviders {
     @Autowired
     public ModelProviders(List<ModelProvider> list, AiUserPreferenceProperties aiUserPreferenceProperties,
                           LocalCacheManager cacheManager) {
-        this.providerMap = list.stream().collect(Collectors.toMap(ModelProvider::apiStyle, it -> it));
+        this.providerMap = Collections.unmodifiableMap(list.stream()
+                .collect(Collectors.toMap(ModelProvider::apiStyle, it -> it, (left, right) -> {
+                    throw new IllegalStateException("重复的模型提供者策略: " + left.apiStyle());
+                })));
         this.aiUserPreferenceProperties = aiUserPreferenceProperties;
         this.modelCache = new ConcurrentHashMap<>();
         this.cacheManager = cacheManager;
         cacheManager.getCache(CURRENT_MODEL_CACHE, Duration.ofMinutes(5), 5000);
+        log.info("[ModelProviders] Registered model provider strategies: {}", providerMap.keySet());
     }
 
     /**
@@ -182,20 +191,16 @@ public class ModelProviders {
 
         cacheManager.put(CURRENT_MODEL_CACHE, userId, personModelInfo);
 
-        // 检查缓存
-        if (modelCache.containsKey(personModelInfo)) {
-            return modelCache.get(personModelInfo);
-        }
+        return modelCache.computeIfAbsent(personModelInfo, modelInfo -> createModel(providerInfo.getApiStyle(), modelInfo));
+    }
 
-        // 创建新模型实例
-        var modelProvider = providerMap.get(providerInfo.getApiStyle());
+    private Model createModel(String apiStyle, ModelConfig.ModelInfo modelInfo) {
+        var modelProvider = providerMap.get(apiStyle);
         if (modelProvider == null) {
-            throw new RuntimeException("未找到模型提供者: " + providerInfo.getApiStyle());
+            throw new RuntimeException("未找到模型提供者策略: " + apiStyle
+                    + "，当前已注册: " + providerMap.keySet());
         }
-
-        var model = modelProvider.model(personModelInfo);
-        modelCache.put(personModelInfo, model);
-        return model;
+        return modelProvider.model(modelInfo);
     }
 
     private void assertCompatibleModelType(String modelSelection,

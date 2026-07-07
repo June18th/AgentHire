@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build-static.mjs",
-    "dev": "next dev",
+    "dev": "next dev -p 8088",
+    "dev:3000": "next dev -p 3000",
     "lint": "next lint",
     "start": "next start",
     "build:static": "node scripts/build-static.mjs",
-    "clean:to-spring": "rimraf ../app/src/main/resources/static",
-    "copy:to-spring": "cpx \".next-build/**/*\" ../app/src/main/resources/static/",
-    "deploy": "npm run build:static && npm run clean:to-spring && npm run copy:to-spring"
+    "clean:to-spring": "rimraf ../backend/src/main/resources/static",
+    "copy:to-spring": "cpx \".next-build/**/*\" ../backend/src/main/resources/static/",
+    "deploy:legacy-spring-static": "npm run build:static && npm run clean:to-spring && npm run copy:to-spring",
+    "deploy": "node -e \"console.error('Use Docker split deployment instead. Run: docker compose -f docker-compose.mysql.yml -f docker-compose.minio.yml -f docker-compose.frontend.yml up -d --build'); process.exit(1)\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

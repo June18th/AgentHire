@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getConfigValue } from "@/lib/config";
 import { GlobalConfigItemValue } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast"
@@ -114,14 +115,17 @@ export default function UsersPage() {
             </TableHeader>
             <TableBody>
               {users?.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-gray-400">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-gray-400">暂无数据</TableCell></TableRow>
               ) : users.map(user => (
                 <TableRow key={user.userId} className="hover:bg-gray-50">
                   <TableCell>
                     {user.userId}
                   </TableCell>
                   <TableCell>
-                    <img src={user.avatar} alt="avatar" className="w-8 h-8 rounded-full border" />
+                    <Avatar className="h-8 w-8 border">
+                      <AvatarImage src={user.avatar} alt={user.displayName || "avatar"} />
+                      <AvatarFallback>{(user.displayName || "U").slice(0, 1)}</AvatarFallback>
+                    </Avatar>
                   </TableCell>
                   <TableCell>{user.displayName}</TableCell>
                   <TableCell>

@@ -1,11 +1,8 @@
 import axios from "axios";
 
-// 根据环境设置BASE_URL， 利用了Next.js在构建时自动设置的环境变量，在执行deploy脚本时，由于会调用 next build ，NODE_ENV会被设置为'production'
-// 本地开发时使用http://localhost:8080
-// 部署时使用空字符串
-const BASE_URL = process.env.NODE_ENV === 'production' ? '' : "http://localhost:8087";
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 360000,
 });
@@ -567,6 +564,8 @@ export interface TaskListQuery {
   model?: string;
   type?: number;
   state?: number;
+  sourceId?: number;
+  runnerType?: string;
 }
 
 export interface TaskListItem {
@@ -574,6 +573,9 @@ export interface TaskListItem {
   type: number;
   model: string;
   state: number;
+  sourceId?: number;
+  sourceVersion?: number;
+  runnerType?: string;
   content: string;
   cnt: number;
   result: string;
@@ -610,10 +612,83 @@ export async function reRunTask(taskId: number): Promise<boolean> {
   throw new Error(res.data?.msg || "重跑任务失败");
 }
 
+export interface GatherSourceListQuery {
+  page?: number;
+  size?: number;
+  id?: number;
+  type?: number;
+  ownerType?: string;
+  runnerType?: string;
+  status?: string;
+  keyword?: string;
+}
+
+export interface GatherSourceItem {
+  id: number;
+  type: number;
+  title: string;
+  content: string;
+  version: number;
+  ownerType: string;
+  runnerType: string;
+  lastModel?: string;
+  status: string;
+  lastTaskId?: number;
+  lastResultSummary?: string;
+  lastRunTime?: number;
+  createTime?: number;
+  updateTime?: number;
+}
+
+export interface GatherSourceListResponse {
+  list: GatherSourceItem[];
+  hasMore: boolean;
+  page: number;
+  size: number;
+  total: number;
+}
+
+export async function fetchGatherSourceList(
+  params: GatherSourceListQuery
+): Promise<GatherSourceListResponse> {
+  const res = await api.post("/api/admin/gather/source/list", params, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "获取采集源列表失败");
+}
+
+export async function reRunGatherSource(sourceId: number, model?: string): Promise<number> {
+  const res = await api.get("/api/admin/gather/source/reRun", {
+    params: { sourceId, model },
+  });
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "重新采集失败");
+}
+
+export async function updateGatherSourceStatus(
+  sourceId: number,
+  status: string
+): Promise<GatherSourceItem> {
+  const res = await api.get("/api/admin/gather/source/status", {
+    params: { sourceId, status },
+  });
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "更新采集源状态失败");
+}
+
 export interface DraftListQuery {
   page?: number;
   size?: number;
   draftIds?: string;
+  sourceId?: number;
+  sourceTaskId?: number;
   companyName?: string;
   companyType?: string;
   jobLocation?: string;
@@ -644,6 +719,8 @@ export interface DraftItem {
   remarks: string;
   state: number;
   toProcess: number;
+  sourceId?: number;
+  sourceTaskId?: number;
   createTime: string;
   updateTime: string;
 }
@@ -728,6 +805,8 @@ export interface UserListItem {
   expireTime: number | null;
   createTime: number;
   updateTime: number;
+  roleCodes?: string[];
+  permissionCodes?: string[];
 }
 
 export interface UserListResponse {
@@ -1148,6 +1227,18 @@ export async function updateUserDetail(params: UserSaveReq) {
   throw new Error(res.data?.msg || "更新用户信息失败");
 }
 
+export async function uploadUserAvatar(file: File) {
+  const data = new FormData();
+  data.append("file", file);
+  const res = await api.post("/api/user/avatar", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "头像上传失败");
+}
+
 export async function toPay(
   rechargeLevel: number | string | String,
   vipAmount: number | string | String,
@@ -1439,4 +1530,110 @@ export async function fetchWeChatBindStatus(qrCode: string): Promise<{ success: 
     return res.data.data || { success: false };
   }
   return { success: false, message: res.data?.msg };
+}
+
+// ---------------- Web chat
+
+export interface ChatAgent {
+  agentId: string;
+  intro?: string;
+  description?: string;
+}
+
+export interface ChatSendReq {
+  message: string;
+  conversationId?: string;
+  agentId?: string;
+}
+
+export interface ChatSendResp {
+  conversationId: string;
+  fullConversationId: string;
+  agentId: string;
+  content: string;
+}
+
+export interface ChatStreamEvent {
+  type: "ready" | "chunk" | "done" | "error";
+  conversationId: string;
+  fullConversationId?: string;
+  agentId: string;
+  thinking?: string;
+  content?: string;
+  tool?: string;
+  toolResult?: string;
+  error?: string;
+}
+
+export async function fetchChatAgents(): Promise<ChatAgent[]> {
+  const res = await api.get("/api/chat/agents");
+  if (res.data && res.data.code === 0) {
+    return res.data.data || [];
+  }
+  throw new Error(res.data?.msg || "获取 Agent 列表失败");
+}
+
+export async function sendChatMessage(req: ChatSendReq): Promise<ChatSendResp> {
+  const res = await api.post("/api/chat/send", req);
+  if (res.data && res.data.code === 0) {
+    return res.data.data;
+  }
+  throw new Error(res.data?.msg || "发送消息失败");
+}
+
+export async function streamChatMessage(
+  req: ChatSendReq,
+  handlers: {
+    onEvent: (event: ChatStreamEvent) => void;
+    signal?: AbortSignal;
+  },
+): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("oc-token") : undefined;
+  const res = await fetch(`${BASE_URL}/api/chat/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...(token ? { "X-OC-TOKEN": token } : {}),
+    },
+    body: JSON.stringify(req),
+    signal: handlers.signal,
+  });
+
+  if (!res.ok || !res.body) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const flushBlock = (block: string) => {
+    const data = block
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n");
+
+    if (!data) {
+      return;
+    }
+
+    handlers.onEvent(JSON.parse(data) as ChatStreamEvent);
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || "";
+
+    blocks.forEach(flushBlock);
+    if (done) {
+      if (buffer.trim()) {
+        flushBlock(buffer);
+      }
+      break;
+    }
+  }
 }

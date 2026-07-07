@@ -249,7 +249,7 @@ public void initLocalToolCallback() {
 
 
 ### 5.使用测试
-然后启动应用，注意将 `application-ai.yaml`配置文件中` spring.ai.mcp.client.enabled = true`； 然后再提交一个http链接获取的任务看看执行效果
+然后启动应用，注意将 `application-{profile}.yml`配置文件中` spring.ai.mcp.client.enabled = true`； 然后再提交一个http链接获取的任务看看执行效果
 
 
 ![](https://cdn.nlark.com/yuque/0/2025/png/35158118/1754449172240-ff8596b7-cda0-40b8-83ca-98d0d8ebd824.png)

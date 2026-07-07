@@ -8,7 +8,7 @@ interface VipSectionProps {
   vipOptions: GlobalConfigItemValue[];
   rechargeOptions: GlobalConfigItemValue[];
   setMcpConfigDialogOpen: (tag: boolean) => void;
-  handleRecharge: (any) => void;
+  handleRecharge: (level: string | number) => void;
 }
 
 export default function VipSection({ userInfo, vipOptions, rechargeOptions, setMcpConfigDialogOpen, handleRecharge }: VipSectionProps) {
@@ -94,7 +94,7 @@ export default function VipSection({ userInfo, vipOptions, rechargeOptions, setM
               </div>
               <Button
                 className="w-full bg-gradient-to-r from-amber-500 to-rose-500 text-white hover:from-amber-600 hover:to-rose-600 shadow-md"
-                onClick={() => handleRecharge(level.value)}
+                onClick={() => handleRecharge(String(level.value))}
               >
                 立即充值
               </Button>

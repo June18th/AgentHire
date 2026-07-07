@@ -13,7 +13,7 @@
 
 这是一个包含前后端工程的项目，其中 app 目录下为后端工程，ui-react 目录下为前端工程；
 
-其中 app/目录下的后端工程，主要是以Java17 + SpringAI + SpringBoot 构建的； ui-react/目录下的前端工程，主要是以React19 + TypeScript + Tailwindcss + Nextjs + Axios 构建的。
+其中 backend/目录下的后端工程，主要是以Java17 + SpringAI + SpringBoot 构建的； ui-react/目录下的前端工程，主要是以React19 + TypeScript + Tailwindcss + Nextjs + Axios 构建的。
 
 ### 1.1 技术栈
 
@@ -155,7 +155,7 @@ AI的行为必须遵循以下规则
 - 在做任何改动之前，对本项目有不确定的内容，必须先询问我
 - 遵循项目代码规范
 - 保持在当前任务的上下文内，如果需要重开上下文，请告诉我
-- 当后端存在库表变更时，请参照现在 app/src/main/resources/db/changelog 下的实现，使用Liquibase来管理数据库表的变更记录
+- 当后端存在库表变更时，请参照现在 backend/src/main/resources/db/changelog 下的实现，使用Liquibase来管理数据库表的变更记录
 
 ### 禁止做的
 - 禁止不做任务规划就做出修改

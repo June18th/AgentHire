@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-JobClaw (求职派) — an OpenClaw-style multi-agent system for job-search scenarios. IM channels (WeChat/DingDing/FeiShu) feed into a shared agent kernel that routes messages through intent classification to pluggable business agents (identity collection, job fetching, job recommendation). The `app` module assembles everything and hosts the web admin, job data pipeline, payments, and an MCP server.
+JobClaw (求职派) — an OpenClaw-style multi-agent system for job-search scenarios. IM channels (WeChat/DingDing/FeiShu) feed into a shared agent kernel that routes messages through intent classification to pluggable business agents (identity collection, job fetching, job recommendation). The `backend` module assembles everything and hosts the web admin, job data pipeline, payments, and an MCP server.
 
 **Language**: Chinese-first codebase. Comments, commit messages, docs, and UI copy are predominantly in Chinese.
 
@@ -14,19 +14,20 @@ JobClaw (求职派) — an OpenClaw-style multi-agent system for job-search scen
 
 ```bash
 ./mvnw install -DskipTests                   # First-time build (all modules)
-./mvnw spring-boot:run -pl app               # Run dev server (H2, port 8087)
+./mvnw spring-boot:run -pl backend               # Run dev server (H2, port 8087)
 ./mvnw clean package -DskipTests             # Package all modules
 ./mvnw test                                  # Run all tests
-./mvnw test -pl app -Dtest=ExcelLoadTest     # Run a single test class
+./mvnw test -pl backend -Dtest=ExcelLoadTest     # Run a single test class
 ```
 
 ### Frontend (from ui-react/)
 
 ```bash
 pnpm install        # Install deps
-pnpm dev            # Dev server at localhost:3000
+pnpm dev            # Dev server at localhost:8088
+pnpm run dev:3000   # Fallback when 8088 is occupied
 pnpm build          # Static export to out/
-pnpm run deploy     # Build + copy static assets to app/src/main/resources/static/
+pnpm run deploy:legacy-spring-static # Legacy Spring static copy
 ```
 
 ### First-time setup
@@ -36,7 +37,7 @@ cp .env.example .env                                              # Create env c
 cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db # Copy seed DB
 # Edit .env: set JOBCLAW_DATABASE_NAME=jobclaw-my; model API keys are filled from admin
 # macOS: set MCP_SERVERS_CONFIG=classpath:mcp-servers-mac.json
-./mvnw install -DskipTests && ./mvnw spring-boot:run -pl app
+./mvnw install -DskipTests && ./mvnw spring-boot:run -pl backend
 ```
 
 ## Architecture
@@ -44,14 +45,14 @@ cp workspace/datas/jobclaw.mv.db workspace/datas/jobclaw-my.mv.db # Copy seed DB
 ### Module dependency
 
 ```
-app ──► core (shared foundation)
+backend ──► core (shared foundation)
     ──► channels/{wechat-clawbot, dingding, feishu}  ──► core
     ──► providers/{openai, zhipu, anthropic}          ──► core
     ──► plugins/{playwright, job-library}             ──► core
     ──► agents/{identity-collector, job-fetch, job-recommend} ──► core
 ```
 
-New business agents go under `agents/`, not inside `app/` — unless they are purely part of the web/admin job-data pipeline.
+New business agents go under `agents/`, not inside `backend/` — unless they are purely part of the web/admin job-data pipeline.
 
 ### Message flow (the central pipeline)
 
@@ -72,11 +73,11 @@ IM message → Channel.adaptToReceive() → ChannelReceiveMessage
 
 ### Model resolution
 
-Per-user via `ModelProviders.getModel(userId, modelType)`. Preference format: `provider#modelName` (e.g. `zhipu#glm-4.7-flash`). Provider configs live in `application.yml` under `agent.ai.providers`. Each provider module implements `ModelProvider` with an `apiStyle` key.
+Per-user via `ModelProviders.getModel(userId, modelType)`. Preference format: `provider#modelName` (e.g. `zhipu#glm-4.7`). Provider configs live in `application.yml` under `agent.ai.providers`. Each provider module implements `ModelProvider` with an `apiStyle` key.
 
-### App module business domains
+### Backend module business domains
 
-`app/src/main/java/com/git/hui/jobclaw/`:
+`backend/src/main/java/com/git/hui/jobclaw/`:
 - `agents/` — LangGraph4J job-data workflow (TaskClassify → TaskGather → DraftWasher → DraftPublish)
 - `gather/` — AI-powered job data collection (GatherAiAgent, OfferGatherService)
 - `oc/` — Job info CRUD, drafts, MCP server endpoints
@@ -102,7 +103,7 @@ Auto-triggered by `IIdentityAgent.triggerToCollectIdentity()` in `MsgRouter` whe
 
 - Java 21 (records, pattern matching, virtual threads)
 - Spring Boot 4.0.5, Spring AI 2.0.0-M4, Spring Modulith
-- LangGraph4J 1.6.0-rc4 (multi-agent workflow in `app/agents/`)
+- LangGraph4J 1.6.0-rc4 (multi-agent workflow in `backend/agents/`)
 - JPA/Hibernate with H2 (dev) or MySQL + Liquibase (test/prod)
 - JobRunr for background task scheduling (dashboard on port 8099)
 - React 19 / Next.js 15 (static export) / TailwindCSS / shadcn/ui
@@ -113,9 +114,9 @@ Runtime config can come from `.env` (never committed) or backend global config m
 - LLM provider API keys and Base URLs are configured from the admin `LLM供应商` page, not environment-variable overrides
 - `JOBCLAW_DATABASE_NAME` — H2 DB filename (default: `jobclaw`)
 - `AGENT_AI_PREFERENCE_TEXT` / `AGENT_AI_PREFERENCE_VISION` — optional default model overrides
-- `MCP_SERVERS_CONFIG` — `classpath:mcp-servers.json` (Windows) or `classpath:mcp-servers-mac.json` (macOS/Linux)
+- `MCP_SERVERS_CONFIG` — optional override for the profile-specific `mcp-servers-*.json`
 
-Maven profiles: `dev` (default, H2), `test` (MySQL + Liquibase), `prod` (MySQL + Liquibase). Environment-specific configs live under `app/src/main/resources-env/{dev,test,prod}/`.
+Spring profiles: `dev` (default, H2), `test` (MySQL + Liquibase), `prod` (MySQL + Liquibase). Environment-specific configs live in `backend/src/main/resources/application-dev.yml`, `application-test.yml`, and `application-prod.yml`.
 
 Local overrides: `application-private.yml` (git-ignored, auto-imported).
 

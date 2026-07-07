@@ -12,7 +12,7 @@ The current architecture is not a single "job collection agent". Treat it as a m
 - `agents/` contains business agents such as identity collection, job fetching, and job recommendation.
 - `providers/` isolates model-provider integrations.
 - `plugins/` exposes tool capabilities such as Playwright browsing and job-library search.
-- `app/` assembles the runtime and keeps the web/admin/job-data business domains.
+- `backend/` assembles the runtime and keeps the web/admin/job-data business domains.
 
 **Tech stack**: Java 21, Spring Boot 4.0.5, Spring AI 2.0.0-M4, Spring Modulith, LangGraph4J, JPA/Hibernate, H2/MySQL, React 19, Next.js 15, TailwindCSS, shadcn/ui
 
@@ -34,15 +34,37 @@ The current architecture is not a single "job collection agent". Treat it as a m
 pnpm install         # Install dependencies
 pnpm dev             # Dev server
 pnpm build           # Production build (static export)
-pnpm run deploy      # Build + copy to app/src/main/resources/static/
+pnpm run deploy:legacy-spring-static # Legacy build + copy to backend/src/main/resources/static/
 ```
+
+### Docker (local/dev)
+
+For the next few days, local Docker work should only build/start these services unless the user explicitly asks otherwise or a task proves more infrastructure is required:
+- `mysql`
+- `jobclaw`
+- `jobclaw-web`
+- `jobclaw-gateway`
+
+Do not build or start optional middleware by default:
+- Do not include `docker-compose.elasticsearch.yml`.
+- Do not include `docker-compose.redis.yml`.
+- Do not include `docker-compose.kafka.yml`.
+- Do not include `docker-compose.minio.yml`.
+
+Default local Docker startup should stay lightweight. If the web/gateway stack is needed, include only the MySQL and frontend compose files with the base compose file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
+```
+
+Rationale: dev defaults keep `JOBCLAW_SEARCH_ES_ENABLED=false`, `JOBCLAW_REDIS_ENABLED=false`, `JOBCLAW_MQ_ENABLED=false`, and `JOBCLAW_IMG_STORAGE_TYPE=local`.
 
 ### Configuration
 
 Runtime config can come from `.env` (copy from `.env.example`) or backend global config managed in admin pages. Key points:
 - LLM provider API keys and Base URLs are configured from the admin `LLM供应商` page, not environment-variable overrides
 - `JOBCLAW_SERVER_PORT` — defaults to 8087
-- `AGENT_AI_PREFERENCE_TEXT` / `AGENT_AI_PREFERENCE_VISION` — optional default model overrides (format: `provider#modelName`, e.g. `zhipu#glm-4.7-flash`)
+- `AGENT_AI_PREFERENCE_TEXT` / `AGENT_AI_PREFERENCE_VISION` — optional default model overrides (format: `provider#modelName`, e.g. `zhipu#glm-4.7`)
 
 Maven profiles: `dev` (default, H2), `test` (MySQL + Liquibase), `prod` (MySQL + Liquibase).
 
@@ -72,7 +94,7 @@ Full startup guide: `docs/getting-started.md`
 
 ```
 JobClaw/              (parent POM, BOM management)
-├── app/              Spring Boot application, assembles all modules
+├── backend/          Spring Boot backend application, assembles all modules
 ├── core/             Agent/Channel abstractions, routing, event bus, model providers
 ├── channels/
 │   ├── wechat-clawbot/   WeChat ClawBot channel
@@ -92,7 +114,7 @@ JobClaw/              (parent POM, BOM management)
     └── job-recommend-agent/       Job recommendation
 ```
 
-Module dependency: `app` depends on all other modules. `core` is the shared foundation that channels, providers, plugins, and agents depend on. Keep new business agents outside `app` unless they are only part of the web/admin job-data pipeline.
+Module dependency: `backend` depends on all other modules. `core` is the shared foundation that channels, providers, plugins, and agents depend on. Keep new business agents outside `backend` unless they are only part of the web/admin job-data pipeline.
 
 ### Message Flow (the core pipeline)
 
@@ -147,7 +169,7 @@ MsgRouter.onMessageResponse()
 ### Model Resolution
 
 Models are resolved per-user through `ModelProviders.getModel(userId, modelType)`:
-- User preference format: `provider#modelName` (e.g. `zhipu#glm-4.7-flash`)
+- User preference format: `provider#modelName` (e.g. `zhipu#glm-4.7`)
 - Provider configs are in `application.yml` under `agent.ai.providers`
 - Each provider module implements `ModelProvider` interface with a specific `apiStyle` key
 - Results are cached in `ModelProviders.modelCache`
@@ -161,9 +183,9 @@ The `identity-collector-agent` implements a 3-layer user profile:
 
 Collection is triggered automatically by `IIdentityAgent.triggerToCollectIdentity()` in `MsgRouter` when a user's profile is incomplete.
 
-### App Module Business Domains
+### Backend Module Business Domains
 
-`app/src/main/java/com/git/hui/jobclaw/`:
+`backend/src/main/java/com/git/hui/jobclaw/`:
 - `agents/` — LangGraph4J-based job-data workflow chain (TaskClassify, TaskGather, DraftWasher, DraftPublish)
 - `gather/` — AI-powered job data collection pipeline (GatherAiAgent, OfferGatherService)
 - `oc/` — Job info CRUD, draft management, MCP server endpoints
@@ -177,8 +199,8 @@ Each domain follows: `dao/entity/` → `dao/repository/` → `service/` → `con
 
 ### Frontend (ui-react/)
 
-Static-export Next.js app deployed to Spring Boot's `static/` directory. Uses shadcn/ui (Radix primitives). Key paths:
-- `app/` — pages: admin (jobs/drafts/users/coupons/dict), internal, internship, job, user
+Static-export Next.js app. V2 normally uses local `pnpm dev` or split Docker/Nginx deployment; copying static output into Spring Boot is legacy-only. Uses shadcn/ui (Radix primitives). Key paths:
+- `app/` inside `ui-react/` — Next.js App Router pages: admin (jobs/drafts/users/coupons/dict), internal, internship, job, user
 - `lib/api.ts` — axios-based HTTP client
 - `lib/config.ts` — global dictionary cache from backend
 - `components/ui/` — shadcn/ui components
@@ -186,8 +208,8 @@ Static-export Next.js app deployed to Spring Boot's `static/` directory. Uses sh
 Local frontend workflow:
 - The user usually has `pnpm dev` already running before asking for UI/code changes.
 - Do not start or restart the frontend dev server unless the user explicitly asks or the server is confirmed unavailable.
-- Validate frontend changes at `http://localhost:3000`; Next.js hot reload should show the latest `ui-react` source directly.
-- Do not proactively run `pnpm run deploy` or copy static export output to `app/src/main/resources/static/`. The user will deploy after confirming the localhost dev view.
+- Validate frontend changes at `http://localhost:8088`; Next.js hot reload should show the latest `ui-react` source directly. Use `pnpm run dev:3000` only when `8088` is occupied by the Docker gateway.
+- Do not proactively run `pnpm run deploy:legacy-spring-static` or copy static export output to `backend/src/main/resources/static/`. The user will deploy after confirming the localhost dev view.
 
 ## Coding Conventions
 
