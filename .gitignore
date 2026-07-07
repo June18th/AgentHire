@@ -81,6 +81,7 @@ workspace/users
 workspace/sessions
 workspace/archives
 workspace/storage/
+workspace/browser-profiles/
 workspace/.m2/
 backend/src/main/resources/application-private.yml
 backend/src/main/resources/static/

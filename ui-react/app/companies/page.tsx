@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, MapPin, Search, Sparkles } from "lucide-react";
+import { BriefcaseBusiness, Building2, MapPin, Search, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,12 +31,22 @@ function normalizeDate(value: unknown) {
   return text.includes("T") ? text.split("T")[0] : text;
 }
 
+function normalizeCity(value: unknown) {
+  const text = normalizeText(value);
+  return text.split(/[·,，、\s/]+/)[0] || "";
+}
+
 function hasInternshipType(company: CompanySummary) {
   return company.recruitmentTypes.some((type) => type.includes("实习"));
 }
 
 function hasCampusType(company: CompanySummary) {
   return company.recruitmentTypes.some((type) => !type.includes("实习"));
+}
+
+function companyJobsHref(company: CompanySummary) {
+  const companyName = encodeURIComponent(company.companyName);
+  return hasCampusType(company) ? `/?companyName=${companyName}` : `/internship?companyName=${companyName}`;
 }
 
 export default function CompaniesPage() {
@@ -137,7 +147,11 @@ export default function CompaniesPage() {
   }, [companies, keyword]);
 
   const totalJobs = companies.reduce((sum, company) => sum + company.jobCount, 0);
-  const totalLocations = new Set(companies.flatMap((company) => company.locations)).size;
+  const totalLocations = new Set(
+    companies
+      .flatMap((company) => company.locations.map(normalizeCity))
+      .filter(Boolean),
+  ).size;
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-gray-50">
@@ -198,10 +212,18 @@ export default function CompaniesPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredCompanies.map((company) => (
-              <article key={company.companyName} className="rounded-lg border bg-white p-5 shadow-sm">
+              <article
+                key={company.companyName}
+                className="rounded-lg border bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-950">{company.companyName}</h2>
+                    <Link
+                      href={companyJobsHref(company)}
+                      className="text-lg font-semibold text-gray-950 hover:text-blue-600 hover:underline"
+                    >
+                      {company.companyName}
+                    </Link>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {company.companyType ? <Badge variant="outline">{company.companyType}</Badge> : null}
                       {company.companyIndustry ? <Badge variant="secondary">{company.companyIndustry}</Badge> : null}
@@ -238,12 +260,15 @@ export default function CompaniesPage() {
                   <div className="flex shrink-0 items-center gap-2">
                     {hasCampusType(company) ? (
                       <Button asChild size="sm" variant="outline">
-                        <Link href={`/?companyName=${encodeURIComponent(company.companyName)}`}>校招</Link>
+                        <Link href={`/?companyName=${encodeURIComponent(company.companyName)}`}>
+                          <BriefcaseBusiness className="mr-1.5 h-3.5 w-3.5" />
+                          查看岗位
+                        </Link>
                       </Button>
                     ) : null}
                     {hasInternshipType(company) ? (
                       <Button asChild size="sm" variant="outline">
-                        <Link href={`/internship?companyName=${encodeURIComponent(company.companyName)}`}>实习</Link>
+                        <Link href={`/internship?companyName=${encodeURIComponent(company.companyName)}`}>实习岗位</Link>
                       </Button>
                     ) : null}
                   </div>
