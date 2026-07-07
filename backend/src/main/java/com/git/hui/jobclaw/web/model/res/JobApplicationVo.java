@@ -21,12 +21,20 @@ public class JobApplicationVo {
     private String source;
     private Integer priority;
     private String deadline;
+    private Long deadlineAt;
+    private Integer daysUntilDeadline;
+    private String deadlineRisk;
+    private Boolean followUpOverdue;
+    private String actionPriority;
+    private String suggestedNextAction;
+    private String actionReason;
     private Long submittedAt;
     private Long nextFollowUpAt;
     private String remark;
     private Integer state;
     private Long createTime;
     private Long updateTime;
+    private JobApplicationEventVo nextKeyEvent;
     private List<JobApplicationStatusLogVo> statusLogs;
     private List<JobApplicationEventVo> events;
 }

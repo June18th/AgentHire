@@ -9,6 +9,9 @@ import java.util.List;
 public interface JobApplicationEventRepository extends JpaRepository<JobApplicationEventEntity, Long> {
     List<JobApplicationEventEntity> findByApplicationIdAndUserIdOrderByEventTimeAsc(Long applicationId, Long userId);
 
+    List<JobApplicationEventEntity> findByUserIdAndApplicationIdInAndEventTypeInAndEventTimeGreaterThanEqualOrderByEventTimeAsc(
+            Long userId, List<Long> applicationIds, List<String> eventTypes, Date start);
+
     List<JobApplicationEventEntity> findByUserIdAndEventTypeInAndEventTimeBetweenOrderByEventTimeAsc(
             Long userId, List<String> eventTypes, Date start, Date end);
 }

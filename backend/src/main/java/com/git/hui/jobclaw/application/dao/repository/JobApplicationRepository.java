@@ -26,7 +26,13 @@ public interface JobApplicationRepository extends JpaRepository<JobApplicationEn
 
     Optional<JobApplicationEntity> findFirstByUserIdAndJobIdAndStateNotOrderByIdDesc(Long userId, Long jobId, Integer state);
 
+    List<JobApplicationEntity> findByUserIdAndStateNot(Long userId, Integer state);
+
     List<JobApplicationEntity> findByUserIdAndJobIdInAndStateNot(Long userId, List<Long> jobIds, Integer state);
+
+    List<JobApplicationEntity> findByUserIdAndIdInAndStateNot(Long userId, List<Long> ids, Integer state);
+
+    List<JobApplicationEntity> findByUserIdAndStateNotAndCurrentStatusNotIn(Long userId, Integer state, List<String> currentStatuses);
 
     default PageListVo<JobApplicationEntity> findList(Long userId, JobApplicationSearchReq req) {
         Specification<JobApplicationEntity> spec = (root, query, criteriaBuilder) -> {
