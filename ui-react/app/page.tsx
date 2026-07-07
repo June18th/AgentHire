@@ -3,7 +3,7 @@ import { useState, type MouseEvent } from "react";
 
 import { useCallback, useEffect } from "react";
 import { useLoginModal } from "@/hooks/useLoginModal";
-import { CheckCircle2, FilePlus2, Search, Lock } from "lucide-react";
+import { CalendarDays, CheckCircle2, ExternalLink, FilePlus2, FileText, Lock, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -45,7 +45,12 @@ import { getConfigValue } from "@/lib/config";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchApplicationsByJobIds,
+  fetchJobApplicationBrief,
+  JOB_APPLICATIONS_CHANGED_EVENT,
   saveJobApplication,
+  type JobApplicationBrief,
+  type JobApplicationEvent,
+  type JobApplicationItem,
   type JobApplicationStatus,
 } from "@/lib/job-application-api";
 
@@ -83,6 +88,77 @@ function jobStatusLabel(status?: string) {
   return QUICK_STATUS_OPTIONS.find((item) => item.value === status)?.label || status || "已加入";
 }
 
+function actionPriorityLabel(priority?: string) {
+  if (priority === "A") return "A";
+  if (priority === "B") return "B";
+  if (priority === "C") return "C";
+  return "-";
+}
+
+function actionPriorityClass(priority?: string) {
+  if (priority === "A") return "border-red-200 bg-red-50 text-red-700";
+  if (priority === "B") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (priority === "C") return "border-blue-200 bg-blue-50 text-blue-700";
+  return "border-gray-200 bg-gray-50 text-gray-600";
+}
+
+function actionHint(item: JobApplicationItem) {
+  const suggested = item.suggestedNextAction?.trim();
+  if (suggested) return suggested;
+  if (item.followUpOverdue) return "跟进已到期，建议先处理并记录结果。";
+  if (["INTERESTED", "PREPARING"].includes(item.currentStatus)) return "建议确认岗位匹配度并准备投递材料。";
+  return "建议更新投递状态并确认下一步。";
+}
+
+function briefEventTypeLabel(type?: string) {
+  if (type === "WRITTEN_TEST") return "笔试";
+  if (type === "INTERVIEW") return "面试";
+  if (type === "HR") return "HR";
+  if (type === "OFFER") return "Offer";
+  return type || "日程";
+}
+
+function briefEventUrgencyLabel(urgency?: string) {
+  if (urgency === "TODAY") return "今天";
+  if (urgency === "TOMORROW") return "明天";
+  if (urgency === "THIS_WEEK") return "本周";
+  if (urgency === "PAST") return "待复盘";
+  if (urgency === "LATER") return "后续";
+  return "";
+}
+
+function briefEventUrgencyClass(urgency?: string) {
+  if (urgency === "TODAY") return "border-red-200 bg-red-50 text-red-700";
+  if (urgency === "TOMORROW") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (urgency === "THIS_WEEK") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (urgency === "PAST") return "border-slate-200 bg-slate-50 text-slate-600";
+  return "border-emerald-200 bg-emerald-50 text-emerald-700";
+}
+
+function briefEventTitle(event: JobApplicationEvent) {
+  return event.eventTitle?.trim() || briefEventTypeLabel(event.eventType);
+}
+
+function briefEventSubject(event: JobApplicationEvent) {
+  if (event.companyName || event.position) {
+    return [event.companyName, event.position].filter(Boolean).join(" / ");
+  }
+  return briefEventTitle(event);
+}
+
+function formatBriefEventTime(timestamp?: number) {
+  if (!timestamp) return "待定";
+  const date = new Date(timestamp);
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const eventStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayDiff = Math.round((eventStart - todayStart) / 86400000);
+  const time = date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (dayDiff === 0) return `今天 ${time}`;
+  if (dayDiff === 1) return `明天 ${time}`;
+  return `${date.getMonth() + 1}/${date.getDate()} ${time}`;
+}
+
 export default function HomePage() {
   const { toast } = useToast();
   const [currentView, setCurrentView] = useState<"frontend" | "admin">(
@@ -106,6 +182,7 @@ export default function HomePage() {
   const [online, setOnline] = useState(1);
   const [queryParams, setQueryParams] = useState<any>({});
   const [quickSavingId, setQuickSavingId] = useState<string | null>(null);
+  const [applicationBrief, setApplicationBrief] = useState<JobApplicationBrief | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setLoginOpen } = useLoginModal();
@@ -208,6 +285,33 @@ export default function HomePage() {
   useEffect(() => {
     handleSearch()
   }, [currentPage, searchFilters, userInfo]);
+
+  const loadApplicationBrief = useCallback(() => {
+    if (!userInfo) {
+      setApplicationBrief(null);
+      return;
+    }
+    fetchJobApplicationBrief(6)
+      .then((brief) => {
+        setApplicationBrief(brief);
+      })
+      .catch(() => {
+        setApplicationBrief(null);
+      });
+  }, [userInfo]);
+
+  useEffect(() => {
+    loadApplicationBrief();
+  }, [loadApplicationBrief]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const listener = () => loadApplicationBrief();
+    window.addEventListener(JOB_APPLICATIONS_CHANGED_EVENT, listener);
+    return () => {
+      window.removeEventListener(JOB_APPLICATIONS_CHANGED_EVENT, listener);
+    };
+  }, [loadApplicationBrief]);
 
   const handleSearch = () => {
     const params = {
@@ -319,6 +423,18 @@ export default function HomePage() {
 
   const totalPages = Math.ceil(total / itemsPerPage);
   const paginatedOffers = filteredOffers; // 直接用接口返回的分页数据
+  const actionItems = applicationBrief?.topActions || [];
+  const upcomingEvents = applicationBrief?.upcomingEvents || [];
+  const applicationActionCount = applicationBrief?.actionCount ?? actionItems.length;
+  const briefMetrics = applicationBrief
+    ? [
+        { label: "A级优先", value: applicationBrief.priorityA, className: "text-red-600" },
+        { label: "逾期跟进", value: applicationBrief.overdueFollowUps, className: "text-red-600" },
+        { label: "今日日程", value: applicationBrief.todayEvents, className: "text-emerald-600" },
+        { label: "今日截止", value: applicationBrief.dueToday, className: "text-amber-600" },
+        { label: "待跟进", value: applicationBrief.staleSubmitted, className: "text-blue-600" },
+      ]
+    : [];
 
   if (currentView === "admin" && userInfo?.role === 3) {
     // 使用 userInfo 判断
@@ -335,10 +451,126 @@ export default function HomePage() {
             <div className="text-base font-semibold text-blue-900">秋招投递台账</div>
             <div className="mt-1 text-sm text-blue-700">把感兴趣的岗位加入记录，持续跟踪笔试、面试、Offer 和跟进事件。</div>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => router.push("/applications")}>
-            我的投递
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="gap-2 bg-white" onClick={() => router.push("/calendar")}>
+              <CalendarDays className="h-4 w-4" />
+              日历
+            </Button>
+            <Button variant="outline" className="gap-2 bg-white" onClick={() => router.push("/materials")}>
+              <FileText className="h-4 w-4" />
+              材料
+            </Button>
+            <Button className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={() => router.push("/applications")}>
+              <FilePlus2 className="h-4 w-4" />
+              我的投递
+            </Button>
+          </div>
         </div>
+
+        {userInfo ? (
+          <div className="mb-4 rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-content-primary">今日行动</h2>
+                <p className="mt-1 text-xs text-content-tertiary">
+                  {applicationBrief?.summary || "优先处理 A 级事项，再回到岗位库继续筛选。"}
+                </p>
+              </div>
+              <Badge variant="outline" className="rounded-md">
+                {applicationActionCount} 项
+              </Badge>
+            </div>
+            {briefMetrics.length ? (
+              <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+                {briefMetrics.map((metric) => (
+                  <div key={metric.label} className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
+                    <div className={`text-lg font-semibold ${metric.className}`}>{metric.value}</div>
+                    <div className="text-xs text-content-tertiary">{metric.label}</div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {upcomingEvents.length ? (
+              <div className="mb-3 rounded-md border border-emerald-100 bg-emerald-50/60 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-emerald-900">
+                    <CalendarDays className="h-4 w-4" />
+                    未来 7 天关键日程
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-emerald-700 hover:text-emerald-800"
+                    onClick={() => router.push("/calendar")}
+                  >
+                    日历
+                  </Button>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                  {upcomingEvents.slice(0, 3).map((event) => (
+                    <button
+                      key={event.id || `${event.applicationId}-${event.eventTime}-${event.eventType}`}
+                      type="button"
+                      className="rounded-md border border-emerald-100 bg-white p-3 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50"
+                      onClick={() =>
+                        event.applicationId
+                          ? router.push(`/applications?applicationId=${event.applicationId}`)
+                          : router.push("/calendar")
+                      }
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className="rounded-md border-emerald-200 bg-emerald-50 text-emerald-700">
+                          {briefEventTypeLabel(event.eventType)}
+                        </Badge>
+                        {briefEventUrgencyLabel(event.eventUrgency) ? (
+                          <Badge variant="outline" className={`rounded-md ${briefEventUrgencyClass(event.eventUrgency)}`}>
+                            {briefEventUrgencyLabel(event.eventUrgency)}
+                          </Badge>
+                        ) : null}
+                        <span className="shrink-0 text-xs text-content-tertiary">{formatBriefEventTime(event.eventTime)}</span>
+                      </div>
+                      <div className="mt-2 truncate text-sm font-medium text-content-primary">{briefEventSubject(event)}</div>
+                      <div className="mt-1 truncate text-xs text-content-secondary">{briefEventTitle(event)}</div>
+                      {event.suggestedPreparation ? (
+                        <div className="mt-1 line-clamp-2 text-xs leading-5 text-content-tertiary">{event.suggestedPreparation}</div>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {actionItems.length ? (
+              <div className="grid gap-2 lg:grid-cols-3">
+                {actionItems.slice(0, 3).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`rounded-md border p-3 text-left transition-colors hover:bg-gray-50 ${
+                      item.followUpOverdue ? "border-red-200 bg-red-50/60" : "border-surface-border bg-white"
+                    }`}
+                    onClick={() => router.push(`/applications?applicationId=${item.id}`)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <Badge variant="outline" className={`rounded-md ${actionPriorityClass(item.actionPriority)}`}>
+                        {actionPriorityLabel(item.actionPriority)}
+                      </Badge>
+                      <ExternalLink className="h-4 w-4 shrink-0 text-content-tertiary" />
+                    </div>
+                    <div className="mt-2 truncate text-sm font-medium text-content-primary">
+                      {item.companyName} / {item.position}
+                    </div>
+                    <div className="mt-1 line-clamp-2 text-xs leading-5 text-content-secondary">{actionHint(item)}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed border-surface-border p-4 text-center text-sm text-content-tertiary">
+                暂无需要优先处理的投递事项。
+              </div>
+            )}
+          </div>
+        ) : null}
+
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
             <Input

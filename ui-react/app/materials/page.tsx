@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
+  AlertTriangle,
+  BriefcaseBusiness,
   CheckCircle2,
   Clipboard,
   ExternalLink,
@@ -22,6 +24,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useLoginUser } from "@/hooks/useLoginUser"
 import { useToast } from "@/hooks/use-toast"
+import {
+  fetchJobApplicationActionItems,
+  type JobApplicationItem,
+} from "@/lib/job-application-api"
 
 const MATERIAL_KIND_OPTIONS = [
   { value: "portfolio", label: "作品集" },
@@ -129,6 +135,16 @@ function formatTime(value?: number) {
   })
 }
 
+function formatDateOnly(value?: number | string) {
+  if (!value) return ""
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 function safeExternalUrl(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return ""
@@ -138,6 +154,41 @@ function safeExternalUrl(value: string) {
 
 function materialKindLabel(kind: MaterialKind) {
   return MATERIAL_KIND_OPTIONS.find((item) => item.value === kind)?.label || kind
+}
+
+function actionPriorityLabel(priority?: string) {
+  if (priority === "A") return "A"
+  if (priority === "B") return "B"
+  if (priority === "C") return "C"
+  return "-"
+}
+
+function actionPriorityClass(priority?: string) {
+  if (priority === "A") return "border-red-200 bg-red-50 text-red-700"
+  if (priority === "B") return "border-amber-200 bg-amber-50 text-amber-700"
+  if (priority === "C") return "border-blue-200 bg-blue-50 text-blue-700"
+  return "border-surface-border bg-surface-muted text-content-tertiary"
+}
+
+function deadlineRiskLabel(risk?: string) {
+  const labels: Record<string, string> = {
+    EXPIRED: "已过截止",
+    DUE_TODAY: "今天截止",
+    DUE_SOON: "临近截止",
+    THIS_WEEK: "本周截止",
+    NORMAL: "截止正常",
+    UNKNOWN: "截止未知",
+    NONE: "无截止",
+  }
+  return risk ? labels[risk] || risk : ""
+}
+
+function applicationMaterialHint(item: JobApplicationItem) {
+  const suggested = item.suggestedNextAction?.trim()
+  if (suggested) return suggested
+  if (["INTERESTED", "PREPARING"].includes(item.currentStatus)) return "建议确认简历版本、作品集链接和投递话术。"
+  if (item.followUpOverdue) return "跟进已到期，建议先准备沟通材料并记录结果。"
+  return "建议检查材料是否匹配该岗位的投递阶段。"
 }
 
 function loadMaterials(storageKey: string): MaterialsState {
@@ -165,6 +216,7 @@ export default function MaterialsPage() {
   const [resumeForm, setResumeForm] = useState(EMPTY_RESUME_FORM)
   const [linkForm, setLinkForm] = useState(EMPTY_LINK_FORM)
   const [snippetForm, setSnippetForm] = useState(EMPTY_SNIPPET_FORM)
+  const [actionItems, setActionItems] = useState<JobApplicationItem[]>([])
   const storageKey = userInfo ? `jobclaw-materials-${userInfo.userId}` : ""
   const displayName = userInfo?.nickname || `用户${userInfo?.userId || ""}`
   const userInitial = displayName.slice(0, 1) || "U"
@@ -180,9 +232,37 @@ export default function MaterialsPage() {
     localStorage.setItem(storageKey, JSON.stringify(state))
   }, [loaded, state, storageKey])
 
+  useEffect(() => {
+    if (!userInfo?.userId) return
+    let cancelled = false
+    fetchJobApplicationActionItems(8)
+      .then((items) => {
+        if (!cancelled) setActionItems(items || [])
+      })
+      .catch(() => {
+        if (!cancelled) setActionItems([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userInfo?.userId])
+
   const primaryResume = state.resumes.find((item) => item.isPrimary)
   const checkedCount = state.checklist.filter((item) => item.checked).length
   const checklistProgress = state.checklist.length ? Math.round((checkedCount / state.checklist.length) * 100) : 0
+  const materialActionItems = useMemo(() => {
+    const directMatches = actionItems.filter((item) => {
+      const suggested = item.suggestedNextAction || ""
+      return (
+        ["INTERESTED", "PREPARING"].includes(item.currentStatus) ||
+        ["EXPIRED", "DUE_TODAY", "DUE_SOON"].includes(item.deadlineRisk || "") ||
+        suggested.includes("简历") ||
+        suggested.includes("材料") ||
+        suggested.includes("投递")
+      )
+    })
+    return (directMatches.length ? directMatches : actionItems).slice(0, 5)
+  }, [actionItems])
   const recentItems = useMemo(() => {
     return [
       ...state.resumes.map((item) => ({ id: item.id, label: item.name, type: "简历", time: item.updatedAt })),
@@ -322,11 +402,12 @@ export default function MaterialsPage() {
           </div>
         </section>
 
-        <section className="mt-5 grid gap-4 lg:grid-cols-4">
+        <section className="mt-5 grid gap-4 lg:grid-cols-5">
           <SummaryBlock label="主简历" value={primaryResume?.name || "未设置"} hint={primaryResume?.targetRole || "添加后可设为默认"} />
           <SummaryBlock label="简历版本" value={`${state.resumes.length}`} hint="按岗位方向维护" />
           <SummaryBlock label="材料链接" value={`${state.links.length}`} hint="作品集 / 附件 / 证书" />
           <SummaryBlock label="检查进度" value={`${checklistProgress}%`} hint={`${checkedCount}/${state.checklist.length} 项已完成`} />
+          <SummaryBlock label="材料待办" value={`${materialActionItems.length}`} hint="来自投递行动优先级" />
         </section>
 
         <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -488,6 +569,27 @@ export default function MaterialsPage() {
             <section className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
+                  <h2 className="text-base font-semibold text-content-primary">材料关联待办</h2>
+                  <p className="mt-1 text-xs text-content-tertiary">从投递行动优先级里筛出需要准备材料的事项。</p>
+                </div>
+                <Badge variant="outline" className="rounded-md">{materialActionItems.length}</Badge>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {materialActionItems.map((item) => (
+                  <MaterialActionItem key={item.id} item={item} />
+                ))}
+                {!materialActionItems.length ? <EmptyPanel text="暂无需要优先准备材料的投递事项。" /> : null}
+              </div>
+              {actionItems.length > materialActionItems.length ? (
+                <Button asChild variant="outline" className="mt-4 w-full">
+                  <Link href="/applications">查看全部行动项</Link>
+                </Button>
+              ) : null}
+            </section>
+
+            <section className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
                   <h2 className="text-base font-semibold text-content-primary">投递前检查</h2>
                   <p className="mt-1 text-xs text-content-tertiary">每次投递前快速过一遍。</p>
                 </div>
@@ -565,4 +667,45 @@ function FormTitle({ title }: { title: string }) {
 
 function EmptyPanel({ text }: { text: string }) {
   return <div className="rounded-lg border border-dashed border-surface-border p-6 text-center text-sm text-content-tertiary">{text}</div>
+}
+
+function MaterialActionItem({ item }: { item: JobApplicationItem }) {
+  const riskText = deadlineRiskLabel(item.deadlineRisk)
+  const deadlineText = item.deadline || formatDateOnly(item.deadlineAt)
+  const followUpText = formatDateOnly(item.nextFollowUpAt)
+
+  return (
+    <div className={`rounded-lg border p-3 ${item.followUpOverdue || item.deadlineRisk === "EXPIRED" ? "border-red-200 bg-red-50/60" : "border-surface-border bg-white"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {item.actionPriority && item.actionPriority !== "NONE" ? (
+              <Badge variant="outline" className={`rounded-md ${actionPriorityClass(item.actionPriority)}`}>
+                {actionPriorityLabel(item.actionPriority)}
+              </Badge>
+            ) : null}
+            <span className="truncate text-sm font-medium text-content-primary">
+              {item.companyName} / {item.position}
+            </span>
+          </div>
+          <div className="mt-2 text-sm leading-5 text-content-secondary">{applicationMaterialHint(item)}</div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-content-tertiary">
+            {riskText ? (
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {riskText}
+              </span>
+            ) : null}
+            {deadlineText ? <span>截止：{deadlineText}</span> : null}
+            {followUpText ? <span>跟进：{followUpText}</span> : null}
+          </div>
+        </div>
+        <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+          <Link href={`/applications?applicationId=${item.id}`} title="查看投递">
+            <BriefcaseBusiness className="h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+    </div>
+  )
 }

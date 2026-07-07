@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { useLoginUser } from "@/hooks/useLoginUser"
 import { useToast } from "@/hooks/use-toast"
 import {
+  fetchJobApplicationActionItems,
   fetchJobApplicationEventsByDay,
   fetchJobApplications,
   type JobApplicationEvent,
@@ -49,6 +50,8 @@ interface CalendarItem {
   position?: string
   time?: number
   overdue?: boolean
+  eventUrgency?: string
+  suggestedPreparation?: string
 }
 
 function startOfDay(date: Date) {
@@ -113,8 +116,53 @@ function isTerminal(record: JobApplicationItem) {
   return record.terminal || ["ACCEPTED", "REJECTED", "GAVE_UP", "EXPIRED", "CLOSED"].includes(record.currentStatus)
 }
 
+function recordFollowUpOverdue(record: JobApplicationItem, fallbackDateKey: string, todayKey: string) {
+  return record.followUpOverdue ?? fallbackDateKey < todayKey
+}
+
 function eventTypeLabel(value: string) {
   return EVENT_TYPE_LABELS[value] || value || "事件"
+}
+
+function hasActionPriority(record: JobApplicationItem) {
+  return Boolean(record.actionPriority && record.actionPriority !== "NONE")
+}
+
+function actionPriorityLabel(priority?: string) {
+  if (priority === "A") return "A"
+  if (priority === "B") return "B"
+  if (priority === "C") return "C"
+  return "-"
+}
+
+function actionPriorityClass(priority?: string) {
+  if (priority === "A") return "border-red-200 bg-red-50 text-red-700"
+  if (priority === "B") return "border-amber-200 bg-amber-50 text-amber-700"
+  if (priority === "C") return "border-blue-200 bg-blue-50 text-blue-700"
+  return "border-surface-border bg-surface-muted text-content-tertiary"
+}
+
+function deadlineRiskLabel(risk?: string) {
+  const labels: Record<string, string> = {
+    EXPIRED: "已过截止",
+    DUE_TODAY: "今天截止",
+    DUE_SOON: "临近截止",
+    THIS_WEEK: "本周截止",
+    NORMAL: "截止正常",
+    UNKNOWN: "截止未知",
+    NONE: "无截止",
+  }
+  return risk ? labels[risk] || risk : ""
+}
+
+function nextStepSuggestion(record: JobApplicationItem) {
+  const suggested = record.suggestedNextAction?.trim()
+  if (suggested) return suggested
+  if (record.followUpOverdue) return "跟进时间已到期，建议先完成跟进并记录结果。"
+  if (record.nextFollowUpAt) return "按计划完成本次跟进，并记录沟通结果。"
+  if (record.deadlineRisk === "DUE_TODAY") return "今天截止，建议优先确认材料并完成投递。"
+  if (record.deadlineRisk === "DUE_SOON") return "岗位临近截止，建议尽快完成投递准备。"
+  return "保持状态更新，并确认下一步跟进计划。"
 }
 
 function buildCalendarItems(records: JobApplicationItem[], events: JobApplicationEvent[], todayKey: string) {
@@ -133,7 +181,7 @@ function buildCalendarItems(records: JobApplicationItem[], events: JobApplicatio
           applicationId: record.id,
           companyName: record.companyName,
           position: record.position,
-          overdue: deadlineKey < todayKey,
+          overdue: record.deadlineRisk === "EXPIRED" || deadlineKey < todayKey,
         })
       }
 
@@ -149,7 +197,7 @@ function buildCalendarItems(records: JobApplicationItem[], events: JobApplicatio
           companyName: record.companyName,
           position: record.position,
           time: record.nextFollowUpAt,
-          overdue: followUpKey < todayKey,
+          overdue: recordFollowUpOverdue(record, followUpKey, todayKey),
         })
       }
     }
@@ -163,9 +211,15 @@ function buildCalendarItems(records: JobApplicationItem[], events: JobApplicatio
       type: "event",
       dateKey,
       title: eventTypeLabel(event.eventType),
-      subtitle: event.eventTitle,
+      subtitle: event.companyName || event.position
+        ? [event.companyName, event.position].filter(Boolean).join(" / ")
+        : event.eventTitle,
       applicationId: event.applicationId,
+      companyName: event.companyName,
+      position: event.position,
       time: event.eventTime,
+      eventUrgency: event.eventUrgency,
+      suggestedPreparation: event.suggestedPreparation,
     })
   })
 
@@ -180,6 +234,15 @@ function itemBadgeClass(type: CalendarItemType, overdue?: boolean) {
   if (type === "deadline") return "border-amber-200 bg-amber-50 text-amber-700"
   if (type === "follow-up") return "border-emerald-200 bg-emerald-50 text-emerald-700"
   return "border-blue-200 bg-blue-50 text-blue-700"
+}
+
+function eventUrgencyLabel(urgency?: string) {
+  if (urgency === "TODAY") return "今天"
+  if (urgency === "TOMORROW") return "明天"
+  if (urgency === "THIS_WEEK") return "本周"
+  if (urgency === "PAST") return "待复盘"
+  if (urgency === "LATER") return "后续"
+  return ""
 }
 
 function getVisibleDays(anchor: Date, mode: CalendarMode) {
@@ -202,6 +265,7 @@ export default function CalendarPage() {
   const [anchorDate, setAnchorDate] = useState(() => startOfDay(new Date()))
   const [records, setRecords] = useState<JobApplicationItem[]>([])
   const [events, setEvents] = useState<JobApplicationEvent[]>([])
+  const [actionItems, setActionItems] = useState<JobApplicationItem[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedDateKey, setSelectedDateKey] = useState(() => formatDateKey(new Date()))
 
@@ -227,12 +291,14 @@ export default function CalendarPage() {
     if (!userInfo || visibleDays.length === 0) return
     setLoading(true)
     try {
-      const [recordRes, eventRes] = await Promise.all([
+      const [recordRes, eventRes, actionRes] = await Promise.all([
         fetchJobApplications({ page: 1, size: SUMMARY_SIZE }),
         fetchJobApplicationEventsByDay(dateOnlyToTime(visibleStartKey), dateOnlyToTime(visibleEndKey, true)),
+        fetchJobApplicationActionItems(20),
       ])
       setRecords(recordRes.list || [])
       setEvents(eventRes || [])
+      setActionItems(actionRes || [])
     } catch (error) {
       toast({
         title: "日历加载失败",
@@ -353,6 +419,29 @@ export default function CalendarPage() {
         </section>
 
         <aside className="grid gap-4 self-start">
+          <section className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-content-primary">行动优先级</h2>
+                <p className="mt-1 text-xs text-content-tertiary">从全部投递中筛出最该先处理的事项。</p>
+              </div>
+              <Badge variant="outline" className="rounded-md">
+                {actionItems.length}
+              </Badge>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {actionItems.slice(0, 5).map((item) => (
+                <CalendarActionItem key={item.id} item={item} />
+              ))}
+              {!actionItems.length ? <div className="text-sm text-content-tertiary">暂无高优先级行动项</div> : null}
+            </div>
+            {actionItems.length > 5 ? (
+              <Button asChild variant="outline" className="mt-3 w-full">
+                <Link href="/applications">查看全部行动项</Link>
+              </Button>
+            ) : null}
+          </section>
+
           <section className={`rounded-lg border p-4 shadow-sm ${overdueItems.length ? "border-red-200 bg-red-50/70" : "border-surface-border bg-white"}`}>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -423,12 +512,18 @@ function CalendarListItem({ item, showDate = false }: { item: CalendarItem; show
           <div className="min-w-0">
             <div className="font-medium">
               {item.title}
+              {item.type === "event" && eventUrgencyLabel(item.eventUrgency) ? (
+                <span className="ml-2 text-xs font-normal opacity-80">{eventUrgencyLabel(item.eventUrgency)}</span>
+              ) : null}
               {showDate ? <span className="ml-2 text-xs font-normal opacity-80">{item.dateKey}</span> : null}
             </div>
             <div className="mt-1 truncate text-sm opacity-90" title={item.subtitle}>
               {item.subtitle}
             </div>
             {item.time ? <div className="mt-1 text-xs opacity-80">{formatTime(item.time)}</div> : null}
+            {item.suggestedPreparation ? (
+              <div className="mt-1 line-clamp-2 text-xs leading-5 opacity-80">{item.suggestedPreparation}</div>
+            ) : null}
           </div>
         </div>
         {item.applicationId ? (
@@ -438,6 +533,41 @@ function CalendarListItem({ item, showDate = false }: { item: CalendarItem; show
             </Link>
           </Button>
         ) : null}
+      </div>
+    </div>
+  )
+}
+
+function CalendarActionItem({ item }: { item: JobApplicationItem }) {
+  const riskText = deadlineRiskLabel(item.deadlineRisk)
+  const showPriority = hasActionPriority(item)
+
+  return (
+    <div className={`rounded-md border p-3 ${item.followUpOverdue ? "border-red-200 bg-red-50/60" : "border-surface-border bg-white"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {showPriority ? (
+              <Badge variant="outline" className={`rounded-md ${actionPriorityClass(item.actionPriority)}`}>
+                {actionPriorityLabel(item.actionPriority)}
+              </Badge>
+            ) : null}
+            <span className="truncate text-sm font-medium text-content-primary">
+              {item.companyName} / {item.position}
+            </span>
+          </div>
+          <div className="mt-2 text-sm leading-5 text-content-secondary">{nextStepSuggestion(item)}</div>
+          <div className="mt-1 flex flex-wrap gap-2 text-xs text-content-tertiary">
+            {item.actionReason ? <span>{item.actionReason}</span> : null}
+            {riskText ? <span>{riskText}</span> : null}
+            {item.nextFollowUpAt ? <span>跟进：{formatDateKey(item.nextFollowUpAt)}</span> : null}
+          </div>
+        </div>
+        <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+          <Link href={`/applications?applicationId=${item.id}`} title="查看投递">
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </Button>
       </div>
     </div>
   )

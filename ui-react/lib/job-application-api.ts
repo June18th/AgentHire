@@ -1,5 +1,7 @@
 import { api } from "@/lib/api"
 
+export const JOB_APPLICATIONS_CHANGED_EVENT = "jobclaw:job-applications-changed"
+
 export type JobApplicationStatus =
   | "INTERESTED"
   | "PREPARING"
@@ -16,6 +18,9 @@ export type JobApplicationStatus =
   | "CLOSED"
 
 export type JobApplicationFollowUpScope = "PENDING" | "OVERDUE"
+export type JobApplicationDeadlineRisk = "NONE" | "UNKNOWN" | "EXPIRED" | "DUE_TODAY" | "DUE_SOON" | "THIS_WEEK" | "NORMAL" | string
+export type JobApplicationActionPriority = "A" | "B" | "C" | "NONE" | string
+export type JobApplicationEventUrgency = "UNKNOWN" | "PAST" | "TODAY" | "TOMORROW" | "THIS_WEEK" | "LATER" | string
 
 export interface JobApplicationItem {
   id: number
@@ -31,12 +36,20 @@ export interface JobApplicationItem {
   source?: string
   priority?: number
   deadline?: string
+  deadlineAt?: number
+  daysUntilDeadline?: number
+  deadlineRisk?: JobApplicationDeadlineRisk
   submittedAt?: number
   nextFollowUpAt?: number
+  followUpOverdue?: boolean
+  actionPriority?: JobApplicationActionPriority
+  suggestedNextAction?: string
+  actionReason?: string
   remark?: string
   state: number
   createTime: number
   updateTime: number
+  nextKeyEvent?: JobApplicationEvent
   statusLogs?: JobApplicationStatusLog[]
   events?: JobApplicationEvent[]
 }
@@ -55,9 +68,16 @@ export interface JobApplicationStatusLog {
 export interface JobApplicationEvent {
   id: number
   applicationId: number
+  companyName?: string
+  position?: string
+  currentStatus?: JobApplicationStatus
+  currentStatusDesc?: string
   eventType: string
   eventTitle: string
   eventTime: number
+  hoursUntilEvent?: number
+  eventUrgency?: JobApplicationEventUrgency
+  suggestedPreparation?: string
   eventResult?: string
   note?: string
   createTime: number
@@ -81,6 +101,28 @@ export interface JobApplicationListResponse {
   page: number
   size: number
   total: number
+}
+
+export interface JobApplicationBrief {
+  total: number
+  active: number
+  actionCount: number
+  priorityA: number
+  priorityB: number
+  priorityC: number
+  overdueFollowUps: number
+  dueToday: number
+  dueSoon: number
+  thisWeek: number
+  submittedAndLater: number
+  staleSubmitted: number
+  interview: number
+  offer: number
+  todayEvents: number
+  next7DayEvents: number
+  summary: string
+  upcomingEvents: JobApplicationEvent[]
+  topActions: JobApplicationItem[]
 }
 
 export interface JobApplicationSaveReq {
@@ -121,6 +163,11 @@ function unwrap<T>(data: any, fallback: string): T {
   throw new Error(data?.msg || fallback)
 }
 
+export function notifyJobApplicationsChanged() {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent(JOB_APPLICATIONS_CHANGED_EVENT))
+}
+
 export async function fetchJobApplications(params?: JobApplicationListQuery): Promise<JobApplicationListResponse> {
   const res = await api.get("/api/user/applications/list", { params })
   return unwrap<JobApplicationListResponse>(res.data, "获取投递记录失败")
@@ -131,9 +178,21 @@ export async function fetchJobApplicationDetail(id: number): Promise<JobApplicat
   return unwrap<JobApplicationItem>(res.data, "获取投递详情失败")
 }
 
+export async function fetchJobApplicationActionItems(limit = 20): Promise<JobApplicationItem[]> {
+  const res = await api.get("/api/user/applications/action-items", { params: { limit } })
+  return unwrap<JobApplicationItem[]>(res.data, "获取投递行动项失败")
+}
+
+export async function fetchJobApplicationBrief(limit = 5): Promise<JobApplicationBrief> {
+  const res = await api.get("/api/user/applications/brief", { params: { limit } })
+  return unwrap<JobApplicationBrief>(res.data, "获取求职行动简报失败")
+}
+
 export async function saveJobApplication(req: JobApplicationSaveReq): Promise<JobApplicationItem> {
   const res = await api.post("/api/user/applications/save", req)
-  return unwrap<JobApplicationItem>(res.data, "保存投递记录失败")
+  const saved = unwrap<JobApplicationItem>(res.data, "保存投递记录失败")
+  notifyJobApplicationsChanged()
+  return saved
 }
 
 export async function changeJobApplicationStatus(
@@ -142,7 +201,9 @@ export async function changeJobApplicationStatus(
   reason?: string
 ): Promise<JobApplicationItem> {
   const res = await api.post("/api/user/applications/status", { id, targetStatus, reason })
-  return unwrap<JobApplicationItem>(res.data, "更新投递状态失败")
+  const updated = unwrap<JobApplicationItem>(res.data, "更新投递状态失败")
+  notifyJobApplicationsChanged()
+  return updated
 }
 
 export async function reopenJobApplication(
@@ -151,7 +212,9 @@ export async function reopenJobApplication(
   reason?: string
 ): Promise<JobApplicationItem> {
   const res = await api.post("/api/user/applications/reopen", { id, targetStatus, reason })
-  return unwrap<JobApplicationItem>(res.data, "重新打开投递失败")
+  const reopened = unwrap<JobApplicationItem>(res.data, "重新打开投递失败")
+  notifyJobApplicationsChanged()
+  return reopened
 }
 
 export async function fetchApplicationsByJobIds(jobIds: Array<number | string>): Promise<JobApplicationItem[]> {
@@ -162,17 +225,23 @@ export async function fetchApplicationsByJobIds(jobIds: Array<number | string>):
 
 export async function completeJobApplicationFollowUp(req: JobApplicationFollowUpReq): Promise<JobApplicationItem> {
   const res = await api.post("/api/user/applications/follow-up/complete", req)
-  return unwrap<JobApplicationItem>(res.data, "完成跟进失败")
+  const updated = unwrap<JobApplicationItem>(res.data, "完成跟进失败")
+  notifyJobApplicationsChanged()
+  return updated
 }
 
 export async function deleteJobApplication(id: number): Promise<boolean> {
   const res = await api.post("/api/user/applications/delete", undefined, { params: { id } })
-  return unwrap<boolean>(res.data, "删除投递记录失败")
+  const deleted = unwrap<boolean>(res.data, "删除投递记录失败")
+  notifyJobApplicationsChanged()
+  return deleted
 }
 
 export async function saveJobApplicationEvent(req: JobApplicationEventSaveReq): Promise<JobApplicationEvent> {
   const res = await api.post("/api/user/applications/events/save", req)
-  return unwrap<JobApplicationEvent>(res.data, "保存投递事件失败")
+  const saved = unwrap<JobApplicationEvent>(res.data, "保存投递事件失败")
+  notifyJobApplicationsChanged()
+  return saved
 }
 
 export async function fetchJobApplicationEvents(applicationId: number): Promise<JobApplicationEvent[]> {

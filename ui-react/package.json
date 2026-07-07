@@ -12,7 +12,7 @@
     "clean:to-spring": "rimraf ../backend/src/main/resources/static",
     "copy:to-spring": "cpx \".next-build/**/*\" ../backend/src/main/resources/static/",
     "deploy:legacy-spring-static": "npm run build:static && npm run clean:to-spring && npm run copy:to-spring",
-    "deploy": "node -e \"console.error('Use Docker split deployment instead. Run: docker compose -f docker-compose.mysql.yml -f docker-compose.minio.yml -f docker-compose.frontend.yml up -d --build'); process.exit(1)\""
+    "deploy": "node -e \"console.error('Use Docker split deployment instead. Run from repo root: docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway'); process.exit(1)\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

@@ -18,6 +18,7 @@ import {
   changeJobApplicationStatus,
   completeJobApplicationFollowUp,
   deleteJobApplication,
+  fetchJobApplicationActionItems,
   fetchJobApplicationDetail,
   fetchJobApplicationEventsByDay,
   fetchJobApplications,
@@ -39,6 +40,7 @@ const tableHeadClass = "border-r border-surface-border bg-blue-50 px-4 py-3 text
 const tableCellClass = "border-r border-surface-border px-4 py-4 text-center align-middle last:border-r-0"
 const ACTIVE_PROCESS_STATUS = ["SUBMITTED", "WRITTEN_TEST", "INTERVIEW_1", "INTERVIEW_2", "HR_INTERVIEW", "OFFER", "ACCEPTED"]
 const INTERVIEW_PROCESS_STATUS = ["WRITTEN_TEST", "INTERVIEW_1", "INTERVIEW_2", "HR_INTERVIEW"]
+const STALE_SUBMITTED_MS = 7 * 24 * 60 * 60 * 1000
 
 const ATTENTION_OPTIONS = [
   { value: "0", label: "未标记" },
@@ -89,6 +91,20 @@ const EVENT_TYPE_OPTIONS = [
   { value: "OTHER", label: "其他" },
 ]
 
+interface EventTemplate {
+  eventType: string
+  label: string
+  title: string
+  note: string
+}
+
+const EVENT_TEMPLATES: EventTemplate[] = [
+  { eventType: "WRITTEN_TEST", label: "笔试", title: "笔试安排", note: "记录笔试时间、平台、题型、准备要点和完成后的复盘。" },
+  { eventType: "INTERVIEW", label: "面试", title: "面试安排", note: "记录面试轮次、面试官、考察重点、准备材料和下一步计划。" },
+  { eventType: "HR", label: "HR", title: "HR 沟通", note: "记录薪资范围、到岗时间、意向城市、沟通结论和待确认问题。" },
+  { eventType: "OFFER", label: "Offer", title: "Offer 沟通", note: "记录薪资结构、截止回复时间、对比项和最终决策依据。" },
+]
+
 const COMPANY_TYPE_OPTIONS = [
   { value: "央国企", label: "央国企" },
   { value: "外企", label: "外企" },
@@ -117,12 +133,45 @@ const NEXT_STATUS: Partial<Record<JobApplicationStatus, JobApplicationStatus[]>>
   OFFER: ["ACCEPTED", "REJECTED", "GAVE_UP", "CLOSED"],
 }
 
+const BOARD_COLUMNS: Array<{ key: string; label: string; hint: string; statuses: JobApplicationStatus[] }> = [
+  { key: "pool", label: "机会池", hint: "感兴趣 / 准备投递", statuses: ["INTERESTED", "PREPARING"] },
+  { key: "submitted", label: "已投递", hint: "等待反馈", statuses: ["SUBMITTED"] },
+  { key: "interview", label: "笔面试", hint: "笔试 / 面试 / HR", statuses: ["WRITTEN_TEST", "INTERVIEW_1", "INTERVIEW_2", "HR_INTERVIEW"] },
+  { key: "offer", label: "Offer", hint: "Offer / 已接受", statuses: ["OFFER", "ACCEPTED"] },
+  { key: "closed", label: "已结束", hint: "拒绝 / 放弃 / 过期 / 关闭", statuses: ["REJECTED", "GAVE_UP", "EXPIRED", "CLOSED"] },
+]
+
 function statusLabel(status?: string) {
   return STATUS_OPTIONS.find((item) => item.value === status)?.label || status || "-"
 }
 
 function eventTypeLabel(type?: string) {
   return EVENT_TYPE_OPTIONS.find((item) => item.value === type)?.label || type || "-"
+}
+
+function eventSubject(event: JobApplicationEvent) {
+  if (event.companyName || event.position) {
+    return [event.companyName, event.position].filter(Boolean).join(" / ")
+  }
+  return event.eventTitle
+}
+
+function eventUrgencyLabel(urgency?: string) {
+  if (urgency === "TODAY") return "今天"
+  if (urgency === "TOMORROW") return "明天"
+  if (urgency === "THIS_WEEK") return "本周"
+  if (urgency === "PAST") return "待复盘"
+  if (urgency === "LATER") return "后续"
+  return ""
+}
+
+function nextKeyEvent(events?: JobApplicationEvent[]) {
+  if (!events?.length) return undefined
+  const importantTypes = new Set(["WRITTEN_TEST", "INTERVIEW", "HR", "OFFER"])
+  const now = Date.now()
+  return events
+    .filter((event) => importantTypes.has(event.eventType) && (event.eventTime || 0) >= now)
+    .sort((a, b) => (a.eventTime || 0) - (b.eventTime || 0))[0]
 }
 
 function companyTypeLabel(value?: string) {
@@ -202,6 +251,20 @@ function isFollowUpOverdue(record: JobApplicationItem, now = Date.now()) {
   return isFollowUpPending(record) && Number(record.nextFollowUpAt) <= now
 }
 
+function isStaleSubmittedRecord(record: JobApplicationItem, now = Date.now()) {
+  return (
+    isActionableRecord(record) &&
+    record.currentStatus === "SUBMITTED" &&
+    !record.nextFollowUpAt &&
+    Boolean(record.submittedAt) &&
+    Number(record.submittedAt) <= now - STALE_SUBMITTED_MS
+  )
+}
+
+function recordFollowUpOverdue(record: JobApplicationItem) {
+  return record.followUpOverdue ?? isFollowUpOverdue(record)
+}
+
 function followUpHint(value?: number, now = Date.now()) {
   if (!value) return ""
   const diffDays = Math.ceil((value - now) / 86_400_000)
@@ -222,9 +285,49 @@ function dateOnlyToTime(value?: string, endOfDay = false) {
   return Number.isNaN(date.getTime()) ? undefined : date.getTime()
 }
 
+function hasActionPriority(record: JobApplicationItem) {
+  return Boolean(record.actionPriority && record.actionPriority !== "NONE")
+}
+
+function actionPriorityLabel(priority?: string) {
+  if (priority === "A") return "A"
+  if (priority === "B") return "B"
+  if (priority === "C") return "C"
+  return "-"
+}
+
+function actionPriorityRank(priority?: string) {
+  if (priority === "A") return 0
+  if (priority === "B") return 1
+  if (priority === "C") return 2
+  return 3
+}
+
+function actionPriorityClass(priority?: string) {
+  if (priority === "A") return "border-red-200 bg-red-50 text-red-700"
+  if (priority === "B") return "border-amber-200 bg-amber-50 text-amber-700"
+  if (priority === "C") return "border-blue-200 bg-blue-50 text-blue-700"
+  return "border-surface-border bg-surface-muted text-content-tertiary"
+}
+
+function deadlineRiskLabel(risk?: string) {
+  const labels: Record<string, string> = {
+    EXPIRED: "已过截止",
+    DUE_TODAY: "今天截止",
+    DUE_SOON: "临近截止",
+    THIS_WEEK: "本周截止",
+    NORMAL: "截止正常",
+    UNKNOWN: "截止未知",
+    NONE: "无截止",
+  }
+  return risk ? labels[risk] || risk : ""
+}
+
 function nextStepSuggestion(record: JobApplicationItem) {
+  const suggested = record.suggestedNextAction?.trim()
+  if (suggested) return suggested
   if (record.terminal) return "如仍需继续，可重新打开并回到准备投递状态。"
-  if (isFollowUpOverdue(record)) return "跟进时间已到期，建议先完成跟进并记录结果。"
+  if (recordFollowUpOverdue(record)) return "跟进时间已到期，建议先完成跟进并记录结果。"
   if (record.nextFollowUpAt) return `下一步：${followUpHint(record.nextFollowUpAt)}。`
   if (record.currentStatus === "INTERESTED") return "建议确认岗位匹配度，补齐投递链接和截止时间。"
   if (record.currentStatus === "PREPARING") return "建议整理简历版本、内推信息，并设置下次跟进时间。"
@@ -239,6 +342,7 @@ export default function ApplicationsPage() {
   const searchParams = useSearchParams()
   const [records, setRecords] = useState<JobApplicationItem[]>([])
   const [summaryRecords, setSummaryRecords] = useState<JobApplicationItem[]>([])
+  const [actionItems, setActionItems] = useState<JobApplicationItem[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [companyName, setCompanyName] = useState("")
@@ -279,13 +383,14 @@ export default function ApplicationsPage() {
     const pendingRecords = summaryRecords.filter(isFollowUpPending)
     return {
       pending: pendingRecords.length,
-      overdue: pendingRecords.filter((record) => isFollowUpOverdue(record)).length,
+      overdue: pendingRecords.filter(recordFollowUpOverdue).length,
     }
   }, [summaryRecords])
 
   const activeCount = useMemo(() => summaryRecords.filter((record) => !record.terminal).length, [summaryRecords])
   const submittedAndLaterCount = useMemo(() => summaryRecords.filter((record) => ACTIVE_PROCESS_STATUS.includes(record.currentStatus)).length, [summaryRecords])
   const interviewCount = useMemo(() => summaryRecords.filter((record) => INTERVIEW_PROCESS_STATUS.includes(record.currentStatus)).length, [summaryRecords])
+  const staleSubmittedRecords = useMemo(() => summaryRecords.filter(isStaleSubmittedRecord), [summaryRecords])
   const todayTodo = useMemo(() => {
     const today = formatDateOnly(Date.now())
     const toSubmit = summaryRecords.filter(
@@ -295,7 +400,7 @@ export default function ApplicationsPage() {
     return {
       toSubmit,
       toFollowUp,
-      overdue: summaryRecords.filter(isFollowUpOverdue),
+      overdue: summaryRecords.filter(recordFollowUpOverdue),
     }
   }, [summaryRecords])
   const statusStats = useMemo(
@@ -304,6 +409,32 @@ export default function ApplicationsPage() {
         ...item,
         count: summaryRecords.filter((record) => record.currentStatus === item.value).length,
       })).filter((item) => item.count > 0),
+    [summaryRecords]
+  )
+  const boardColumns = useMemo(
+    () =>
+      BOARD_COLUMNS.map((column) => {
+        const recordsInColumn = summaryRecords
+          .filter((record) => column.statuses.includes(record.currentStatus))
+          .sort((a, b) => {
+            const priorityDiff = actionPriorityRank(a.actionPriority) - actionPriorityRank(b.actionPriority)
+            if (priorityDiff !== 0) return priorityDiff
+            const overdueDiff = Number(recordFollowUpOverdue(b)) - Number(recordFollowUpOverdue(a))
+            if (overdueDiff !== 0) return overdueDiff
+            const aDeadline = a.deadlineAt || dateOnlyToTime(a.deadline) || Number.MAX_SAFE_INTEGER
+            const bDeadline = b.deadlineAt || dateOnlyToTime(b.deadline) || Number.MAX_SAFE_INTEGER
+            if (aDeadline !== bDeadline) return aDeadline - bDeadline
+            const aFollowUp = a.nextFollowUpAt || Number.MAX_SAFE_INTEGER
+            const bFollowUp = b.nextFollowUpAt || Number.MAX_SAFE_INTEGER
+            if (aFollowUp !== bFollowUp) return aFollowUp - bFollowUp
+            return (b.updateTime || 0) - (a.updateTime || 0)
+          })
+        return {
+          ...column,
+          total: recordsInColumn.length,
+          records: recordsInColumn.slice(0, 5),
+        }
+      }),
     [summaryRecords]
   )
   const companyStats = useMemo(() => {
@@ -374,6 +505,15 @@ export default function ApplicationsPage() {
     }
   }
 
+  const loadActionItems = async () => {
+    if (!userInfo) return
+    try {
+      setActionItems(await fetchJobApplicationActionItems(20))
+    } catch {
+      setActionItems([])
+    }
+  }
+
   useEffect(() => {
     if (!userInfo) return
     const applicationId = Number(searchParams.get("applicationId"))
@@ -387,6 +527,7 @@ export default function ApplicationsPage() {
     loadRecords()
     loadSummaryRecords()
     loadTodayEvents()
+    loadActionItems()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInfo, page, status, companyType, followUpScope, attention])
 
@@ -402,6 +543,7 @@ export default function ApplicationsPage() {
     loadRecords()
     loadSummaryRecords()
     loadTodayEvents()
+    loadActionItems()
   }
 
   const handleResetFilters = async () => {
@@ -423,6 +565,7 @@ export default function ApplicationsPage() {
       setRecords((listRes.list || []).slice(0, PAGE_SIZE))
       setTotal(listRes.total || 0)
       setSummaryRecords(summaryRes.list || [])
+      loadActionItems()
     } catch (error) {
       toast({
         title: "筛选重置失败",
@@ -500,6 +643,16 @@ export default function ApplicationsPage() {
     })
   }
 
+  const applyEventTemplate = (template: EventTemplate) => {
+    setEventForm((value) => ({
+      ...value,
+      eventType: template.eventType,
+      eventTitle: template.title,
+      eventResult: "",
+      note: template.note,
+    }))
+  }
+
   const handleSave = async () => {
     if (!form.companyName.trim() || !form.position.trim()) {
       toast({ title: "信息不完整", description: "公司名称和岗位名称必填", variant: "destructive" })
@@ -526,6 +679,7 @@ export default function ApplicationsPage() {
       toast({ title: editingRecord ? "投递记录已更新" : "投递记录已保存" })
       loadRecords()
       loadSummaryRecords()
+      loadActionItems()
     } catch (error) {
       toast({
         title: "保存失败",
@@ -545,6 +699,7 @@ export default function ApplicationsPage() {
       await deleteJobApplication(record.id)
       setRecords((current) => current.filter((item) => item.id !== record.id))
       setSummaryRecords((current) => current.filter((item) => item.id !== record.id))
+      setActionItems((current) => current.filter((item) => item.id !== record.id))
       setTotal((value) => Math.max(0, value - 1))
       if (detail?.id === record.id) {
         setDetail(null)
@@ -564,7 +719,25 @@ export default function ApplicationsPage() {
       toast({ title: "暂无可导出的投递记录" })
       return
     }
-    const header = ["公司", "岗位", "状态", "公司类型", "关注度", "投递时间", "截止时间", "下次跟进", "投递链接", "备注", "更新时间"]
+    const header = [
+      "公司",
+      "岗位",
+      "状态",
+      "行动优先级",
+      "下一步建议",
+      "行动原因",
+      "截止风险",
+      "距截止天数",
+      "跟进已到期",
+      "公司类型",
+      "关注度",
+      "投递时间",
+      "截止时间",
+      "下次跟进",
+      "投递链接",
+      "备注",
+      "更新时间",
+    ]
     let exportRecords = summaryRecords
     if (summaryRecords.length < total) {
       try {
@@ -583,6 +756,12 @@ export default function ApplicationsPage() {
       record.companyName,
       record.position,
       record.currentStatusDesc || statusLabel(record.currentStatus),
+      actionPriorityLabel(record.actionPriority),
+      nextStepSuggestion(record),
+      record.actionReason || "",
+      deadlineRiskLabel(record.deadlineRisk),
+      record.daysUntilDeadline ?? "",
+      recordFollowUpOverdue(record) ? "是" : "否",
       companyTypeLabel(record.companyType),
       attentionLabel(record.priority),
       displayDate(record.submittedAt),
@@ -629,8 +808,12 @@ export default function ApplicationsPage() {
             }
           : current
       )
+      setDetail(await fetchJobApplicationDetail(detail.id))
       resetEventForm()
       loadTodayEvents()
+      loadRecords()
+      loadSummaryRecords()
+      loadActionItems()
       toast({ title: "投递事件已保存" })
     } catch (error) {
       toast({
@@ -652,7 +835,9 @@ export default function ApplicationsPage() {
         const latest = await fetchJobApplicationDetail(record.id)
         setDetail(latest)
       }
-      toast({ title: "状态已更新", description: `${record.companyName} / ${statusLabel(targetStatus)}` })
+      const nextFollowUpText = updated.nextFollowUpAt ? `；下次跟进：${displayDate(updated.nextFollowUpAt)}` : ""
+      toast({ title: "状态已更新", description: `${record.companyName} / ${statusLabel(targetStatus)}${nextFollowUpText}` })
+      loadActionItems()
     } catch (error) {
       toast({
         title: "状态更新失败",
@@ -673,6 +858,7 @@ export default function ApplicationsPage() {
       toast({ title: "已重新打开", description: `${record.companyName} / ${record.position}` })
       loadRecords()
       loadSummaryRecords()
+      loadActionItems()
     } catch (error) {
       toast({
         title: "重新打开失败",
@@ -694,9 +880,11 @@ export default function ApplicationsPage() {
       if (detail?.id === record.id) {
         setDetail(await fetchJobApplicationDetail(record.id))
       }
-      toast({ title: "已记录本次跟进", description: `${record.companyName} / ${record.position}` })
+      const nextFollowUpText = updated.nextFollowUpAt ? `下次跟进：${displayDate(updated.nextFollowUpAt)}` : "未设置下次跟进"
+      toast({ title: "已记录本次跟进", description: `${record.companyName} / ${record.position}；${nextFollowUpText}` })
       loadRecords()
       loadSummaryRecords()
+      loadActionItems()
     } catch (error) {
       toast({
         title: "完成跟进失败",
@@ -723,6 +911,7 @@ export default function ApplicationsPage() {
 
   const sameCompanyJobHref = (companyName: string, internship = false) =>
     `${internship ? "/internship" : "/"}?companyName=${encodeURIComponent(companyName)}`
+  const detailNextEvent = detail?.nextKeyEvent || nextKeyEvent(detail?.events)
 
   if (!userInfo) {
     return (
@@ -770,6 +959,9 @@ export default function ApplicationsPage() {
           <div className={statCardClass}>
             <div className={statLabelClass}>已投递及后续</div>
             <div className={statValueClass}>{submittedAndLaterCount}</div>
+            {staleSubmittedRecords.length > 0 ? (
+              <div className="mt-1 text-xs font-medium text-amber-700">{staleSubmittedRecords.length} 条投递超过 7 天未跟进</div>
+            ) : null}
             <div className="mt-1 text-xs text-content-tertiary">已进入正式流程</div>
           </div>
           <div className={statCardClass}>
@@ -804,8 +996,12 @@ export default function ApplicationsPage() {
             {todayEvents.length ? (
               <div className="mt-2 grid gap-1.5">
                 {todayEvents.slice(0, 3).map((event) => (
-                  <div key={event.id} className="truncate text-xs text-content-secondary" title={`${eventTypeLabel(event.eventType)} / ${event.eventTitle}`}>
-                    {eventTypeLabel(event.eventType)} / {event.eventTitle}
+                  <div key={event.id} className="grid gap-0.5 text-xs text-content-secondary" title={`${eventTypeLabel(event.eventType)} / ${eventSubject(event)} / ${event.eventTitle}`}>
+                    <div className="truncate">
+                      {eventTypeLabel(event.eventType)} / {eventSubject(event)}
+                      {eventUrgencyLabel(event.eventUrgency) ? <span className="ml-1 text-content-tertiary">{eventUrgencyLabel(event.eventUrgency)}</span> : null}
+                    </div>
+                    {event.suggestedPreparation ? <div className="line-clamp-1 text-content-tertiary">{event.suggestedPreparation}</div> : null}
                   </div>
                 ))}
                 {todayEvents.length > 3 ? <div className="text-xs text-content-tertiary">还有 {todayEvents.length - 3} 条</div> : null}
@@ -820,6 +1016,142 @@ export default function ApplicationsPage() {
             <MiniList items={todayTodo.overdue} emptyText="没有逾期跟进" />
           </div>
         </div>
+
+        <div className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-content-primary">行动优先级</h2>
+              <p className="mt-1 text-xs text-content-tertiary">按截止时间、跟进逾期和关注度自动排序，优先处理 A 级事项。</p>
+            </div>
+            <Badge variant="outline" className="rounded-md">
+              {actionItems.length} 条待处理
+            </Badge>
+          </div>
+          {actionItems.length ? (
+            <div className="grid gap-2 lg:grid-cols-2">
+              {actionItems.slice(0, 6).map((record) => {
+                const overdue = recordFollowUpOverdue(record)
+                const riskText = deadlineRiskLabel(record.deadlineRisk)
+                return (
+                  <div key={record.id} className={`rounded-md border p-3 ${overdue ? "border-red-200 bg-red-50/60" : "border-surface-border bg-white"}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className={`rounded-md ${actionPriorityClass(record.actionPriority)}`}>
+                            {actionPriorityLabel(record.actionPriority)}
+                          </Badge>
+                          <span className="truncate text-sm font-medium text-content-primary">
+                            {record.companyName} / {record.position}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-sm text-content-secondary">{nextStepSuggestion(record)}</div>
+                        <div className="mt-1 flex flex-wrap gap-2 text-xs text-content-tertiary">
+                          {record.actionReason ? <span>{record.actionReason}</span> : null}
+                          {riskText ? <span>{riskText}</span> : null}
+                          {record.nextFollowUpAt ? <span>{followUpHint(record.nextFollowUpAt)}</span> : null}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                        <Button variant="outline" size="sm" className="h-8" onClick={() => openDetail(record.id)}>
+                          详情
+                        </Button>
+                        {isFollowUpPending(record) ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 text-emerald-700 hover:text-emerald-800"
+                            disabled={completingFollowUpId === record.id}
+                            onClick={() => handleCompleteFollowUp(record)}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            已跟进
+                          </Button>
+                        ) : null}
+                        {record.applyUrl ? (
+                          <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
+                            <a href={record.applyUrl} target="_blank" rel="noopener noreferrer" title="打开投递链接">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-surface-border px-4 py-6 text-center text-sm text-content-tertiary">
+              暂无需要优先处理的投递事项。
+            </div>
+          )}
+        </div>
+
+        <section className="grid gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-content-primary">阶段看板</h2>
+              <p className="mt-1 text-xs text-content-tertiary">按当前筛选结果查看每个投递阶段，列内优先展示最需要处理的记录。</p>
+            </div>
+            <Badge variant="outline" className="rounded-md">
+              {summaryRecords.length} 条记录
+            </Badge>
+          </div>
+          <div className="grid gap-3 xl:grid-cols-5">
+            {boardColumns.map((column) => (
+              <div key={column.key} className="rounded-lg border border-surface-border bg-white shadow-sm">
+                <div className="border-b border-surface-border px-3 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-content-primary">{column.label}</h3>
+                    <Badge variant="secondary" className="rounded-md">
+                      {column.total}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 text-xs text-content-tertiary">{column.hint}</div>
+                </div>
+                <div className="grid gap-2 p-3">
+                  {column.records.map((record) => {
+                    const overdue = recordFollowUpOverdue(record)
+                    const riskText = deadlineRiskLabel(record.deadlineRisk)
+                    return (
+                      <button
+                        key={record.id}
+                        type="button"
+                        className={`rounded-md border p-3 text-left transition-colors hover:bg-gray-50 ${
+                          overdue ? "border-red-200 bg-red-50/60" : "border-surface-border bg-white"
+                        }`}
+                        onClick={() => openDetail(record.id)}
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant={statusBadgeVariant(record)} className="rounded-md">
+                            {record.currentStatusDesc || statusLabel(record.currentStatus)}
+                          </Badge>
+                          {hasActionPriority(record) ? (
+                            <Badge variant="outline" className={`rounded-md ${actionPriorityClass(record.actionPriority)}`}>
+                              {actionPriorityLabel(record.actionPriority)}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 truncate text-sm font-medium text-content-primary" title={`${record.companyName} / ${record.position}`}>
+                          {record.companyName} / {record.position}
+                        </div>
+                        <div className="mt-1 line-clamp-2 text-xs leading-5 text-content-secondary">{nextStepSuggestion(record)}</div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-content-tertiary">
+                          {riskText ? <span>{riskText}</span> : null}
+                          {record.nextFollowUpAt ? <span>{followUpHint(record.nextFollowUpAt)}</span> : null}
+                        </div>
+                      </button>
+                    )
+                  })}
+                  {column.records.length === 0 ? <div className="rounded-md border border-dashed border-surface-border p-4 text-center text-xs text-content-tertiary">暂无记录</div> : null}
+                  {column.total > column.records.length ? (
+                    <div className="text-center text-xs text-content-tertiary">还有 {column.total - column.records.length} 条，可在下方表格继续筛选</div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className="grid gap-3 lg:grid-cols-3">
           <div className="rounded-lg border border-surface-border bg-white p-4 shadow-sm lg:col-span-2">
@@ -1013,7 +1345,7 @@ export default function ApplicationsPage() {
                   </TableRow>
                 ) : (
                   records.map((record) => {
-                    const followUpOverdue = isFollowUpOverdue(record)
+                    const followUpOverdue = recordFollowUpOverdue(record)
                     const followUpPending = isFollowUpPending(record)
                     return (
                       <TableRow key={record.id} className={`border-b border-surface-border last:border-b-0 ${followUpOverdue ? "bg-red-50/70 hover:bg-red-50" : "hover:bg-gray-50"}`}>
@@ -1023,6 +1355,16 @@ export default function ApplicationsPage() {
                           {record.companyType ? <div className="mt-1 text-xs text-content-tertiary">类型：{companyTypeLabel(record.companyType)}</div> : null}
                           {record.submittedAt ? <div className="mt-1 text-xs text-content-tertiary">投递：{displayDate(record.submittedAt)}</div> : null}
                           {record.deadline ? <div className="mt-1 text-xs text-content-tertiary">截止：{record.deadline}</div> : null}
+                          {hasActionPriority(record) ? (
+                            <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-xs">
+                              <Badge variant="outline" className={`rounded-md ${actionPriorityClass(record.actionPriority)}`}>
+                                {actionPriorityLabel(record.actionPriority)}
+                              </Badge>
+                              <span className="max-w-[220px] truncate text-content-tertiary" title={nextStepSuggestion(record)}>
+                                {nextStepSuggestion(record)}
+                              </span>
+                            </div>
+                          ) : null}
                         </TableCell>
                         <TableCell className={tableCellClass}>
                           <Badge variant={statusBadgeVariant(record)} className="rounded-md">
@@ -1353,12 +1695,45 @@ export default function ApplicationsPage() {
                 </div>
                 <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-blue-700 md:col-span-2">
                   {nextStepSuggestion(detail)}
+                  {detail.actionReason ? <div className="mt-1 text-xs text-blue-600">原因：{detail.actionReason}</div> : null}
+                  {detail.deadlineRisk ? <div className="mt-1 text-xs text-blue-600">截止风险：{deadlineRiskLabel(detail.deadlineRisk)}</div> : null}
                 </div>
+                {detailNextEvent ? (
+                  <div className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 md:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="rounded-md border-emerald-200 bg-white text-emerald-700">
+                          下一次关键事件
+                        </Badge>
+                        <span className="text-sm font-medium text-emerald-900">
+                          {eventTypeLabel(detailNextEvent.eventType)} / {detailNextEvent.eventTitle}
+                        </span>
+                        {eventUrgencyLabel(detailNextEvent.eventUrgency) ? (
+                          <span className="text-xs text-emerald-700">{eventUrgencyLabel(detailNextEvent.eventUrgency)}</span>
+                        ) : null}
+                      </div>
+                      <span className="text-xs text-emerald-700">
+                        {formatDate(detailNextEvent.eventTime)}
+                        {detailNextEvent.hoursUntilEvent != null ? ` / 约 ${Math.max(0, detailNextEvent.hoursUntilEvent)} 小时后` : ""}
+                      </span>
+                    </div>
+                    {detailNextEvent.suggestedPreparation ? (
+                      <div className="mt-2 text-sm leading-5 text-emerald-800">{detailNextEvent.suggestedPreparation}</div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="md:col-span-2">复盘备注：{detail.remark || "-"}</div>
               </div>
 
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-content-primary">新增事件</h3>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {EVENT_TEMPLATES.map((template) => (
+                    <Button key={template.eventType} type="button" variant="outline" size="sm" className="h-8" onClick={() => applyEventTemplate(template)}>
+                      {template.label}
+                    </Button>
+                  ))}
+                </div>
                 <div className="grid gap-3 rounded-md border border-surface-border p-3 md:grid-cols-2">
                   <div className="grid gap-1.5">
                     <label className="text-sm font-medium text-content-secondary">事件类型</label>
@@ -1440,9 +1815,11 @@ export default function ApplicationsPage() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <span className="font-medium text-content-primary">
                             {eventTypeLabel(event.eventType)} / {event.eventTitle}
+                            {eventUrgencyLabel(event.eventUrgency) ? <span className="ml-2 text-xs font-normal text-content-tertiary">{eventUrgencyLabel(event.eventUrgency)}</span> : null}
                           </span>
                           <span className="text-content-tertiary">{formatDate(event.eventTime)}</span>
                         </div>
+                        {event.suggestedPreparation ? <div className="text-content-secondary">{event.suggestedPreparation}</div> : null}
                         {event.eventResult ? <div className="text-content-secondary">结果：{event.eventResult}</div> : null}
                         {event.note ? <div className="text-content-tertiary">备注：{event.note}</div> : null}
                       </div>

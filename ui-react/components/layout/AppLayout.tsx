@@ -1,5 +1,6 @@
 ﻿"use client"
 
+import { useCallback, useEffect, useState } from "react"
 import { ChevronDown, User } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { LoginPanel } from "@/components/auth/LoginPanel"
@@ -21,6 +22,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useLoginModal } from "@/hooks/useLoginModal"
 import { useLoginUser } from "@/hooks/useLoginUser"
+import {
+  fetchJobApplicationBrief,
+  JOB_APPLICATIONS_CHANGED_EVENT,
+} from "@/lib/job-application-api"
 
 const NAV_ITEMS = [
   { href: "/", label: "校招" },
@@ -38,9 +43,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { loginOpen, setLoginOpen } = useLoginModal()
   const { userInfo, logout } = useLoginUser()
+  const [actionCount, setActionCount] = useState(0)
   const hideFooter = pathname?.startsWith("/admin")
   const isActiveNav = (href: string) =>
     href === "/" ? pathname === "/" : pathname?.startsWith(href)
+  const actionCountLabel = actionCount >= 20 ? "20+" : String(actionCount)
+
+  const loadActionCount = useCallback(() => {
+    if (!userInfo || pathname?.startsWith("/admin")) {
+      setActionCount(0)
+      return
+    }
+
+    fetchJobApplicationBrief(1)
+      .then((brief) => {
+        setActionCount(brief?.actionCount || 0)
+      })
+      .catch(() => {
+        setActionCount(0)
+      })
+  }, [pathname, userInfo])
+
+  useEffect(() => {
+    loadActionCount()
+  }, [loadActionCount])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const listener = () => loadActionCount()
+    window.addEventListener(JOB_APPLICATIONS_CHANGED_EVENT, listener)
+    return () => {
+      window.removeEventListener(JOB_APPLICATIONS_CHANGED_EVENT, listener)
+    }
+  }, [loadActionCount])
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
@@ -62,9 +97,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <a
                       key={item.href}
                       href={item.href}
-                      className={`${isActiveNav(item.href) ? "font-medium text-blue-600" : "text-gray-700"} hover:text-blue-600`}
+                      className={`inline-flex items-center gap-1.5 ${isActiveNav(item.href) ? "font-medium text-blue-600" : "text-gray-700"} hover:text-blue-600`}
                     >
                       {item.label}
+                      {item.href === "/applications" && actionCount > 0 ? (
+                        <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-red-600">
+                          {actionCountLabel}
+                        </span>
+                      ) : null}
                     </a>
                   ))}
                 </nav>
@@ -100,7 +140,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => router.push("/user")}>个人信息</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push("/applications")}>我的求职</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push("/applications")}>
+                      <span className="flex w-full items-center justify-between gap-3">
+                        <span>我的求职</span>
+                        {actionCount > 0 ? <span className="text-xs text-red-600">{actionCountLabel}</span> : null}
+                      </span>
+                    </DropdownMenuItem>
                     {userInfo.role === 3 ? (
                       <DropdownMenuItem onClick={() => router.push("/admin")}>管理后台</DropdownMenuItem>
                     ) : null}
