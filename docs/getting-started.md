@@ -137,7 +137,7 @@ pnpm run deploy:legacy-spring-static
 本地 Docker 默认只启动 MySQL、后端 API、前端静态服务和统一网关：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
 ```
 
 也可运行脚本：

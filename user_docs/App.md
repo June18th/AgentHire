@@ -103,13 +103,13 @@ MySQL = 联调环境 / 生产环境 / 独立数据库服务
 在 Docker 中，如果只是想快速体验项目，可以使用 H2 模式：
 
 ```bash
-docker compose up --build -d
+docker compose -f docker/compose/compose.dev.yml up --build -d
 ```
 
 如果想更接近正式部署，可以使用 MySQL 模式：
 
 ```bash
-docker compose -f docker-compose.mysql.yml up --build -d
+docker compose -f docker/compose/compose.mysql.yml up --build -d
 ```
 
 IM 渠道层
@@ -192,7 +192,7 @@ JOBCLAW_SEARCH_ES_SOCKET_TIMEOUT_MS=5000
 本地 Docker 生产级联调时，Elasticsearch 通过独立 compose 文件启动：
 
 ```bash
-docker compose -f docker-compose.mysql.yml -f docker-compose.redis.yml -f docker-compose.kafka.yml -f docker-compose.elasticsearch.yml -f docker-compose.minio.yml -f docker-compose.frontend.yml up -d
+docker compose -f docker/compose/compose.mysql.yml -f docker/compose/compose.redis.yml -f docker/compose/compose.kafka.yml -f docker/compose/compose.elasticsearch.yml -f docker/compose/compose.minio.yml -f docker/compose/compose.frontend.yml up -d
 ```
 
 搜索入口：
@@ -238,7 +238,7 @@ Nginx Gateway -> 前端 Web / 后端 API
 当前新增的生产入口：
 
 ```text
-docker-compose.prod.yml
+docker/compose/compose.prod.yml
 .env.production.example
 build/docker-prod.ps1
 docs/production-deployment.md

@@ -1,8 +1,18 @@
 # JobClaw Production Deployment
 
-This document defines the single-server production baseline for JobClaw.
+This document defines the single-host production baseline for JobClaw.
 
-The target is **personal production grade**: real public traffic, persistent data, clear security boundaries, recoverable backups, and practical operations. It is not a toy demo, and it is not a multi-node enterprise cluster.
+The target is **single-server production ready**: real public traffic, persistent data, clear security boundaries, recoverable backups, and practical operations. It is not a toy demo, and it is not a multi-node enterprise cluster.
+
+## Scope
+
+This deployment is intended for one VPS or one small cloud host. Keep it boring and inspectable:
+
+- Use Docker Compose for process orchestration.
+- Keep public traffic behind one gateway.
+- Keep stateful services internal to the Docker network.
+- Back up named volumes before risky changes.
+- Move to managed services or a cluster only when traffic, availability, or compliance requirements justify it.
 
 ## Readiness Target
 
@@ -80,7 +90,7 @@ Start production:
 Equivalent command:
 
 ```powershell
-docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml up --build -d
 ```
 
 The production compose project name is fixed to `jobclaw-prod`, so it is isolated from the local development compose project.
@@ -127,7 +137,7 @@ This is intentionally modest and maintainable. For Internet-facing production, p
 
 ## Production Defaults
 
-`docker-compose.prod.yml` intentionally differs from development compose files:
+`docker/compose/compose.prod.yml` intentionally differs from development compose files:
 
 - Only `jobclaw-prod-gateway` exposes a host port.
 - MySQL, Redis, Kafka, Elasticsearch, and MinIO are internal Docker services.
@@ -137,6 +147,7 @@ This is intentionally modest and maintainable. For Internet-facing production, p
 - Core containers have default memory limits that can be tuned in `.env.production`.
 - The API uses the `prod` Maven profile and split frontend/backend deployment.
 - Gateway, API, and web containers use `no-new-privileges`.
+- Containers use `init: true` and explicit stop grace periods for cleaner shutdowns.
 
 ## Firewall
 
@@ -155,7 +166,7 @@ If you expose `JOBCLAW_PUBLIC_PORT=80`, the gateway is the only Docker service t
 Check service status:
 
 ```powershell
-docker compose --env-file .env.production -f docker-compose.prod.yml ps
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml ps
 ```
 
 View logs:
@@ -169,13 +180,13 @@ docker logs --tail 200 jobclaw-prod-elasticsearch
 Restart after config changes:
 
 ```powershell
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --force-recreate
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml up -d --force-recreate
 ```
 
 Stop services without deleting data:
 
 ```powershell
-docker compose --env-file .env.production -f docker-compose.prod.yml stop
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml stop
 ```
 
 Destroying volumes deletes production data. Do not run `down -v` unless you have a verified backup and intentionally want to reset the environment.
@@ -241,7 +252,7 @@ Example MySQL import:
 
 ```powershell
 Get-Content .\backups\jobclaw-prod\<timestamp>\mysql.sql |
-  docker compose --env-file .env.production -f docker-compose.prod.yml exec -T mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+  docker compose --env-file .env.production -f docker/compose/compose.prod.yml exec -T mysql sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
 ```
 
 Volume tarballs can be restored with a temporary container:
@@ -280,9 +291,9 @@ Commands:
 
 ```powershell
 .\ops\backup-prod.ps1
-docker compose --env-file .env.production -f docker-compose.prod.yml config
-docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
-docker compose --env-file .env.production -f docker-compose.prod.yml ps
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml config
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml up --build -d
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml ps
 ```
 
 Validate gateway config after editing Nginx files:

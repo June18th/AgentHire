@@ -7,7 +7,7 @@
 推荐使用前后端分离的 Docker 组合。默认本地启动保持轻量，只启动 MySQL、后端 API、前端静态服务和统一网关：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
 ```
 
 也可以直接运行脚本：
@@ -25,10 +25,10 @@ docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compo
 
 可选基础设施按需启动：
 
-- `jobclaw-redis`：缓存能力，需要 `docker-compose.redis.yml`
-- `jobclaw-kafka`：消息队列能力，需要 `docker-compose.kafka.yml`
-- `jobclaw-minio`：对象存储能力，需要 `docker-compose.minio.yml`
-- `jobclaw-elasticsearch`：搜索能力，需要 `docker-compose.elasticsearch.yml`
+- `jobclaw-redis`：缓存能力，需要 `docker/compose/compose.redis.yml`
+- `jobclaw-kafka`：消息队列能力，需要 `docker/compose/compose.kafka.yml`
+- `jobclaw-minio`：对象存储能力，需要 `docker/compose/compose.minio.yml`
+- `jobclaw-elasticsearch`：搜索能力，需要 `docker/compose/compose.elasticsearch.yml`
 
 访问入口：
 
@@ -38,7 +38,7 @@ http://localhost:8088/
 
 在该模式下，`backend/src/main/resources/static/` 为空是预期行为。API 镜像会清空该目录，前端静态产物会进入 `jobclaw-web` 镜像。
 
-`docker-compose.frontend.yml` 中的 `jobclaw` 服务会显式配置 MySQL 连接环境变量，并默认关闭 Redis：
+`docker/compose/compose.frontend.yml` 中的 `jobclaw` 服务会显式配置 MySQL 连接环境变量，并默认关闭 Redis：
 
 ```env
 DATABASE_HOST=mysql
@@ -48,24 +48,24 @@ DATABASE_PASSWORD=${MYSQL_ROOT_PASSWORD:-jobclaw_root}
 JOBCLAW_REDIS_ENABLED=false
 ```
 
-因此默认只需要叠加 `docker-compose.mysql.yml`。如果显式启用 Redis，再叠加 `docker-compose.redis.yml` 并设置 `JOBCLAW_REDIS_ENABLED=true`。
+因此默认只需要叠加 `docker/compose/compose.mysql.yml`。如果显式启用 Redis，再叠加 `docker/compose/compose.redis.yml` 并设置 `JOBCLAW_REDIS_ENABLED=true`。
 
 ### 只重建受影响服务
 
 日常改动如果只涉及后端 `backend/` 和前端 `ui-react/`，不需要重建 MySQL、Redis、Kafka、MinIO、Elasticsearch 等基础设施。可以只构建并重启 API 与 Web 两个服务：
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml build jobclaw jobclaw-web
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
 ```
 
 如果只改后端，构建 `jobclaw`；如果只改前端，构建 `jobclaw-web`。数据库迁移脚本变更仍属于后端发布的一部分，但通常不需要重建数据库容器。
 
-如果基础设施容器已经在同一个 Docker Compose 项目中运行，且只改了应用层，也可以只对 `docker-compose.frontend.yml` 执行构建和启动：
+如果基础设施容器已经在同一个 Docker Compose 项目中运行，且只改了应用层，也可以只对 `docker/compose/compose.frontend.yml` 执行构建和启动：
 
 ```powershell
-docker compose -f docker-compose.frontend.yml build jobclaw jobclaw-web
-docker compose -f docker-compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
+docker compose -f docker/compose/compose.frontend.yml build jobclaw jobclaw-web
+docker compose -f docker/compose/compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
 ```
 
 这种方式不会重建 MySQL、Redis、Kafka、MinIO、Elasticsearch 等基础设施。
@@ -75,15 +75,15 @@ docker compose -f docker-compose.frontend.yml up -d --no-deps jobclaw jobclaw-we
 AI 对话页位于 `ui-react/app/chat/page.tsx`，当前属于前端静态应用的一部分。只修改对话页 UI、滚动行为、Markdown 渲染、输入框交互等内容时，通常只需要重建并重启前端服务：
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml build jobclaw-web
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d jobclaw-web jobclaw-gateway
 ```
 
 如果修改了 Agent 调用、模型选择、ReAct 工具循环、接口返回等后端逻辑，则需要重建并重启 `jobclaw`：
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml build jobclaw
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d jobclaw
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d jobclaw
 ```
 
 飞书通道、模型供应商、Agent 路由、心跳上下文等都属于后端逻辑。例如修复飞书 OpenID 绑定、`im.message.receive_v1` 事件处理、`cardkit:card:write` 流式卡片权限、`im:message:send_as_bot` 文本回复权限，或把文本模型偏好从 `zhipu#glm-4.7-flash` 改为 `zhipu#glm-4.7` 后，都只需要重建并重启 `jobclaw`。
@@ -91,7 +91,7 @@ docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compo
 发布后可用下面的命令确认入口服务状态：
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml ps jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml ps jobclaw jobclaw-web jobclaw-gateway
 ```
 
 ## 本地快速体验：H2
@@ -114,7 +114,7 @@ JOBCLAW_DATABASE_NAME=jobclaw-my
 启动：
 
 ```bash
-docker compose up --build -d
+docker compose -f docker/compose/compose.dev.yml up --build -d
 ```
 
 访问：
@@ -125,7 +125,7 @@ docker compose up --build -d
 停止：
 
 ```bash
-docker compose down
+docker compose -f docker/compose/compose.dev.yml down
 ```
 
 ## MySQL 模式
@@ -133,7 +133,7 @@ docker compose down
 仅启动后端与 MySQL：
 
 ```bash
-docker compose -f docker-compose.mysql.yml up --build -d
+docker compose -f docker/compose/compose.mysql.yml up --build -d
 ```
 
 默认配置：
@@ -146,13 +146,13 @@ MYSQL_ROOT_PASSWORD=jobclaw_root
 停止但保留数据库：
 
 ```bash
-docker compose -f docker-compose.mysql.yml down
+docker compose -f docker/compose/compose.mysql.yml down
 ```
 
 停止并删除 MySQL 数据卷：
 
 ```bash
-docker compose -f docker-compose.mysql.yml down -v
+docker compose -f docker/compose/compose.mysql.yml down -v
 ```
 
 ## MinIO 对象存储
@@ -166,10 +166,10 @@ JOBCLAW_IMG_WEB_IMG_PATH=/oc/img/
 JOBCLAW_IMG_CDN_HOST=http://localhost:8087
 ```
 
-如需保存到 MinIO，叠加 `docker-compose.minio.yml`：
+如需保存到 MinIO，叠加 `docker/compose/compose.minio.yml`：
 
 ```bash
-docker compose -f docker-compose.mysql.yml -f docker-compose.minio.yml up --build -d
+docker compose -f docker/compose/compose.mysql.yml -f docker/compose/compose.minio.yml up --build -d
 ```
 
 默认 MinIO 配置：
@@ -193,9 +193,9 @@ http://localhost:9001
 默认本地 Docker 不启动 Redis、Kafka、Elasticsearch。需要对应能力时再叠加：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.redis.yml -f docker-compose.frontend.yml up -d --build mysql redis jobclaw jobclaw-web jobclaw-gateway
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.kafka.yml -f docker-compose.frontend.yml up -d --build mysql kafka jobclaw jobclaw-web jobclaw-gateway
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.elasticsearch.yml -f docker-compose.frontend.yml up -d --build mysql elasticsearch jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.redis.yml -f docker/compose/compose.frontend.yml up -d --build mysql redis jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.kafka.yml -f docker/compose/compose.frontend.yml up -d --build mysql kafka jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.elasticsearch.yml -f docker/compose/compose.frontend.yml up -d --build mysql elasticsearch jobclaw jobclaw-web jobclaw-gateway
 ```
 
 ## 前端开发

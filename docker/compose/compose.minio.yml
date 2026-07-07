@@ -1,3 +1,5 @@
+name: jobclaw
+
 services:
   minio:
     image: minio/minio:latest

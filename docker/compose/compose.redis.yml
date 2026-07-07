@@ -1,3 +1,5 @@
+name: jobclaw
+
 services:
   redis:
     image: redis:7.4-alpine

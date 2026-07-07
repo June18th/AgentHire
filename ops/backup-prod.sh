@@ -8,7 +8,7 @@ BACKUP_ROOT="${BACKUP_ROOT:-./backups/jobclaw-prod}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${BACKUP_ROOT}/${STAMP}"
-COMPOSE="docker compose --env-file ${ENV_FILE} -f docker-compose.prod.yml"
+COMPOSE="docker compose --env-file ${ENV_FILE} -f docker/compose/compose.prod.yml"
 
 mkdir -p "${BACKUP_DIR}"
 

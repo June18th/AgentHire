@@ -17,7 +17,7 @@ JOBCLAW_IMG_WEB_IMG_PATH=/oc/img/
 
 ## MinIO 多 bucket 存储
 
-如果叠加 `docker-compose.minio.yml` 并设置：
+如果叠加 `docker/compose/compose.minio.yml` 并设置：
 
 ```text
 JOBCLAW_IMG_STORAGE_TYPE=minio

@@ -13,6 +13,7 @@ services:
   mysql:
     image: mysql:8.0
     container_name: jobclaw-prod-mysql
+    init: true
     mem_limit: ${MYSQL_MEM_LIMIT:-1g}
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+08:00 --log-timestamps=SYSTEM
     environment:
@@ -28,11 +29,13 @@ services:
       retries: 18
       start_period: 40s
     logging: *default-logging
+    stop_grace_period: 60s
     <<: *default-restart
 
   redis:
     image: redis:7.4-alpine
     container_name: jobclaw-prod-redis
+    init: true
     mem_limit: ${REDIS_MEM_LIMIT:-256m}
     command:
       - redis-server
@@ -52,11 +55,13 @@ services:
       retries: 18
       start_period: 10s
     logging: *default-logging
+    stop_grace_period: 30s
     <<: *default-restart
 
   kafka:
     image: apache/kafka:3.9.1
     container_name: jobclaw-prod-kafka
+    init: true
     mem_limit: ${KAFKA_MEM_LIMIT:-1g}
     environment:
       KAFKA_NODE_ID: "1"
@@ -83,11 +88,13 @@ services:
       retries: 18
       start_period: 40s
     logging: *default-logging
+    stop_grace_period: 60s
     <<: *default-restart
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.5
     container_name: jobclaw-prod-elasticsearch
+    init: true
     mem_limit: ${ELASTICSEARCH_MEM_LIMIT:-1g}
     environment:
       discovery.type: single-node
@@ -96,7 +103,7 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - jobclaw-prod-elasticsearch-data:/usr/share/elasticsearch/data
-      - ./docker/elasticsearch/log4j2.properties:/usr/share/elasticsearch/config/log4j2.properties:ro
+      - ../../docker/elasticsearch/log4j2.properties:/usr/share/elasticsearch/config/log4j2.properties:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null"]
       interval: 10s
@@ -104,11 +111,13 @@ services:
       retries: 18
       start_period: 40s
     logging: *default-logging
+    stop_grace_period: 60s
     <<: *default-restart
 
   minio:
     image: minio/minio:latest
     container_name: jobclaw-prod-minio
+    init: true
     mem_limit: ${MINIO_MEM_LIMIT:-512m}
     command: server /data --console-address ":9001"
     environment:
@@ -124,21 +133,23 @@ services:
       retries: 18
       start_period: 20s
     logging: *default-logging
+    stop_grace_period: 30s
     <<: *default-restart
 
   jobclaw:
     build:
-      context: .
+      context: ../..
       dockerfile: docker/api/Dockerfile
       additional_contexts:
-        maven-local-repo: ${MAVEN_LOCAL_REPO:-./build/maven-empty-repo}
+        maven-local-repo: ${MAVEN_LOCAL_REPO:-../../build/maven-empty-repo}
       args:
         MAVEN_PROFILE: prod
     image: jobclaw-api:prod
     container_name: jobclaw-prod-api
+    init: true
     mem_limit: ${JOBCLAW_API_MEM_LIMIT:-1g}
     env_file:
-      - ${JOBCLAW_ENV_FILE:-.env.production}
+      - ${JOBCLAW_ENV_FILE:-../../.env.production}
     depends_on:
       mysql:
         condition: service_healthy
@@ -200,16 +211,18 @@ services:
       retries: 18
       start_period: 70s
     logging: *default-logging
+    stop_grace_period: 45s
     <<: *default-restart
 
   jobclaw-web:
     build:
-      context: .
+      context: ../..
       dockerfile: docker/web/Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
     image: jobclaw-web:prod
     container_name: jobclaw-prod-web
+    init: true
     mem_limit: ${JOBCLAW_WEB_MEM_LIMIT:-128m}
     depends_on:
       jobclaw:
@@ -223,11 +236,13 @@ services:
       retries: 12
       start_period: 10s
     logging: *default-logging
+    stop_grace_period: 15s
     <<: *default-restart
 
   jobclaw-gateway:
     image: nginx:1.27-alpine
     container_name: jobclaw-prod-gateway
+    init: true
     mem_limit: ${JOBCLAW_GATEWAY_MEM_LIMIT:-128m}
     depends_on:
       jobclaw-web:
@@ -237,7 +252,7 @@ services:
     ports:
       - "${JOBCLAW_PUBLIC_PORT:-80}:80"
     volumes:
-      - ./docker/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../../docker/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -247,6 +262,7 @@ services:
       retries: 12
       start_period: 10s
     logging: *default-logging
+    stop_grace_period: 15s
     <<: *default-restart
 
 volumes:

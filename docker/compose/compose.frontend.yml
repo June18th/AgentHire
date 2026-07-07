@@ -1,10 +1,12 @@
+name: jobclaw
+
 services:
   jobclaw:
     build:
-      context: .
+      context: ../..
       dockerfile: docker/api/Dockerfile
       additional_contexts:
-        maven-local-repo: ${MAVEN_LOCAL_REPO:-./build/maven-empty-repo}
+        maven-local-repo: ${MAVEN_LOCAL_REPO:-../../build/maven-empty-repo}
       args:
         MAVEN_PROFILE: prod
     image: jobclaw-api:prod
@@ -42,7 +44,7 @@ services:
       AGENT_CHANNEL_FEISHU_ENABLED: "true"
       SPRING_AUTOCONFIGURE_EXCLUDE: "org.springframework.boot.data.redis.autoconfigure.RedisAutoConfiguration,org.springframework.boot.data.redis.autoconfigure.RedisReactiveAutoConfiguration,org.springframework.boot.data.redis.autoconfigure.RedisRepositoriesAutoConfiguration,org.springframework.boot.actuate.autoconfigure.data.redis.RedisReactiveHealthContributorAutoConfiguration,org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiChatAutoConfiguration,org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiEmbeddingAutoConfiguration,org.springframework.ai.model.zhipuai.autoconfigure.ZhiPuAiImageAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration,org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAgentAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAsyncToolCallingManagerAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAudioSpeechAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAudioTranscriptionAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeChatAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeEmbeddingAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeImageAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeRerankAutoConfiguration,com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeVideoAutoConfiguration"
     volumes:
-      - ./workspace:/app/workspace
+      - ../../workspace:/app/workspace
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8087/actuator/health >/dev/null"]
       interval: 10s
@@ -53,7 +55,7 @@ services:
 
   jobclaw-web:
     build:
-      context: .
+      context: ../..
       dockerfile: docker/web/Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
@@ -73,5 +75,5 @@ services:
     ports:
       - "${JOBCLAW_GATEWAY_PORT:-8088}:80"
     volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../../docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped

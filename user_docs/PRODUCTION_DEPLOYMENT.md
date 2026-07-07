@@ -101,13 +101,13 @@ http://127.0.0.1:18080
 Linux 服务器上可直接使用 Docker Compose：
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml up --build -d
 ```
 
 查看状态：
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml ps
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml ps
 ```
 
 正常情况下，只有 `jobclaw-prod-gateway` 有宿主机端口映射；MySQL、Redis、Kafka、ES、MinIO、API 都应只在 Docker 内网。
@@ -198,7 +198,7 @@ README.txt
 查看服务：
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml ps
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml ps
 ```
 
 查看日志：
@@ -212,7 +212,7 @@ docker logs --tail 200 jobclaw-prod-mysql
 重启服务：
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml restart
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml restart
 ```
 
 更新部署：
@@ -220,14 +220,14 @@ docker compose --env-file .env.production -f docker-compose.prod.yml restart
 ```bash
 git pull
 sh ./ops/backup-prod.sh
-docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
-docker compose --env-file .env.production -f docker-compose.prod.yml ps
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml up --build -d
+docker compose --env-file .env.production -f docker/compose/compose.prod.yml ps
 ```
 
 不要在生产环境随意执行：
 
 ```bash
-docker compose -f docker-compose.prod.yml down -v
+docker compose -f docker/compose/compose.prod.yml down -v
 ```
 
 `-v` 会删除 Docker volume，等同于删除生产数据。

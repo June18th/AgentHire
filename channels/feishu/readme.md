@@ -59,14 +59,14 @@ zhipu#glm-4.7
 飞书通道属于后端代码，修改后只需要重建并重启 `jobclaw` 服务，不需要重建 MySQL、Redis、Kafka、MinIO、Elasticsearch 等基础设施。
 
 ```powershell
-docker compose -f docker-compose.mysql.yml -f docker-compose.redis.yml -f docker-compose.kafka.yml -f docker-compose.elasticsearch.yml -f docker-compose.minio.yml -f docker-compose.frontend.yml build jobclaw
-docker compose -f docker-compose.mysql.yml -f docker-compose.redis.yml -f docker-compose.kafka.yml -f docker-compose.elasticsearch.yml -f docker-compose.minio.yml -f docker-compose.frontend.yml up -d jobclaw
+docker compose -f docker/compose/compose.mysql.yml -f docker/compose/compose.redis.yml -f docker/compose/compose.kafka.yml -f docker/compose/compose.elasticsearch.yml -f docker/compose/compose.minio.yml -f docker/compose/compose.frontend.yml build jobclaw
+docker compose -f docker/compose/compose.mysql.yml -f docker/compose/compose.redis.yml -f docker/compose/compose.kafka.yml -f docker/compose/compose.elasticsearch.yml -f docker/compose/compose.minio.yml -f docker/compose/compose.frontend.yml up -d jobclaw
 ```
 
 重启后确认容器健康：
 
 ```powershell
-docker compose -f docker-compose.mysql.yml -f docker-compose.redis.yml -f docker-compose.kafka.yml -f docker-compose.elasticsearch.yml -f docker-compose.minio.yml -f docker-compose.frontend.yml ps jobclaw
+docker compose -f docker/compose/compose.mysql.yml -f docker/compose/compose.redis.yml -f docker/compose/compose.kafka.yml -f docker/compose/compose.elasticsearch.yml -f docker/compose/compose.minio.yml -f docker/compose/compose.frontend.yml ps jobclaw
 ```
 
 ## 六、验证方式

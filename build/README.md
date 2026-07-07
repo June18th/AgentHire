@@ -7,9 +7,9 @@ Some files intentionally stay in the repository root because external tools expe
 - `mvnw` and `mvnw.cmd`: Maven Wrapper convention.
 - `.mvn/`: Maven Wrapper configuration.
 - `pom.xml`: Maven project root.
-- `Dockerfile` and `docker-compose*.yml`: Docker defaults work best from the root.
+- `Dockerfile`: the legacy all-in-one image entry point.
 
-The scripts in this directory are convenience wrappers around those root-level entry points.
+Docker Compose files live in `docker/compose/`. The scripts in this directory are convenience wrappers around those environment-specific Compose entry points.
 
 ## Maven
 
@@ -74,7 +74,7 @@ Start MySQL mode:
 .\build\docker-mysql.ps1
 ```
 
-MySQL mode also starts Redis and Kafka, because they are part of the production-grade runtime baseline.
+MySQL mode starts only MySQL and the API service. Optional middleware stays out of the local baseline unless a task needs it.
 
 Start MySQL + MinIO mode:
 
@@ -89,7 +89,7 @@ Start split frontend/backend mode:
 ```
 
 Split mode runs Spring Boot as the API service, serves the exported Next.js frontend from a separate web container, and uses an Nginx gateway as the single browser entry point.
-It starts MySQL, Redis, Kafka, MinIO, the API service, the frontend web container, and the gateway.
+It starts MySQL, the API service, the frontend web container, and the gateway.
 
 Kafka is the recommended message queue for JobClaw because the platform is event-heavy: Agent execution traces, LLM audit events, job crawling events, notifications, and future analytics all fit Kafka's event-stream model.
 
@@ -100,7 +100,7 @@ Copy-Item .env.production.example .env.production
 .\build\docker-prod.ps1
 ```
 
-Production mode uses `docker-compose.prod.yml`. It exposes only the gateway port, keeps MySQL/Redis/Kafka/Elasticsearch/MinIO internal, uses named volumes for persistent data, and enables health checks plus log rotation.
+Production mode uses `docker/compose/compose.prod.yml`. It exposes only the gateway port, keeps MySQL/Redis/Kafka/Elasticsearch/MinIO internal, uses named volumes for persistent data, and enables health checks plus log rotation.
 
 By default, the split gateway uses:
 

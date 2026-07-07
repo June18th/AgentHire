@@ -47,7 +47,7 @@ DATABASE_HOST=mysql
 DATABASE_PORT=3306
 ```
 
-`docker-compose.frontend.yml` 为 API 服务提供这些默认值，MySQL 由 `docker-compose.mysql.yml` 启动。默认关闭 Redis、Kafka、Elasticsearch、MinIO。
+`docker/compose/compose.frontend.yml` 为 API 服务提供这些默认值，MySQL 由 `docker/compose/compose.mysql.yml` 启动。默认关闭 Redis、Kafka、Elasticsearch、MinIO。
 
 ## 启动
 
@@ -58,7 +58,7 @@ DATABASE_PORT=3306
 等价命令：
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
 ```
 
 ## 只重建变化服务
@@ -66,8 +66,8 @@ docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compo
 只修改后端 API 或前端静态代码时，只重建并重启受影响的应用服务：
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml build jobclaw jobclaw-web
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
 ```
 
 后端变更只构建 `jobclaw`，前端变更只构建 `jobclaw-web`。数据库迁移文件随后端镜像发布，通常不需要重建数据库容器。
@@ -75,8 +75,8 @@ docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compo
 基础设施容器已经运行且只改应用层时，也可使用较短命令：
 
 ```powershell
-docker compose -f docker-compose.frontend.yml build jobclaw jobclaw-web
-docker compose -f docker-compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
+docker compose -f docker/compose/compose.frontend.yml build jobclaw jobclaw-web
+docker compose -f docker/compose/compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
 ```
 
 这会保持 MySQL 等基础设施不变。
@@ -102,8 +102,8 @@ ui-react/components/chat/MarkdownMessage.tsx
 仅修改聊天 UI 时，重建前端镜像并重启前端容器：
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml build jobclaw-web
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d jobclaw-web jobclaw-gateway
 ```
 
 如果修改 Agent runtime、模型供应商或 `/api/chat/**` 后端接口，则重建 `jobclaw`。
@@ -116,7 +116,7 @@ docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compo
 MinIO 控制台:  http://localhost:9001/
 ```
 
-默认轻量模式不会启动 MinIO；只有叠加 `docker-compose.minio.yml` 后才会有 MinIO console。
+默认轻量模式不会启动 MinIO；只有叠加 `docker/compose/compose.minio.yml` 后才会有 MinIO console。
 
 浏览器通常访问 `http://localhost:8088/`。网关会把 API 请求转发到后端。
 

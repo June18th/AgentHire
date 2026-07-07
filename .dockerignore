@@ -12,6 +12,7 @@ build
 logs
 .env
 workspace/.m2
+workspace/browser-profiles
 workspace/datas
 workspace/storage
 workspace/tmp
@@ -21,6 +22,7 @@ workspace/conversations
 workspace/tasks
 workspace/users
 workspace/sessions
+workspace/skills
 workspace/archives
 workspace/AGENT.private.md
 *.log

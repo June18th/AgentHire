@@ -26,4 +26,4 @@ if (-not $env:MAVEN_LOCAL_REPO -and (Test-Path -LiteralPath $mavenRepo)) {
     Write-Host "Using host Maven repository: $env:MAVEN_LOCAL_REPO"
 }
 
-docker compose --env-file $envFile -f docker-compose.prod.yml up --build -d
+docker compose --env-file $envFile -f docker/compose/compose.prod.yml up --build -d

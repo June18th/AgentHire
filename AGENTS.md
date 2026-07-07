@@ -46,15 +46,15 @@ For the next few days, local Docker work should only build/start these services 
 - `jobclaw-gateway`
 
 Do not build or start optional middleware by default:
-- Do not include `docker-compose.elasticsearch.yml`.
-- Do not include `docker-compose.redis.yml`.
-- Do not include `docker-compose.kafka.yml`.
-- Do not include `docker-compose.minio.yml`.
+- Do not include `docker/compose/compose.elasticsearch.yml`.
+- Do not include `docker/compose/compose.redis.yml`.
+- Do not include `docker/compose/compose.kafka.yml`.
+- Do not include `docker/compose/compose.minio.yml`.
 
 Default local Docker startup should stay lightweight. If the web/gateway stack is needed, include only the MySQL and frontend compose files with the base compose file:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
 ```
 
 Rationale: dev defaults keep `JOBCLAW_SEARCH_ES_ENABLED=false`, `JOBCLAW_REDIS_ENABLED=false`, `JOBCLAW_MQ_ENABLED=false`, and `JOBCLAW_IMG_STORAGE_TYPE=local`.

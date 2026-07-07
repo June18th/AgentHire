@@ -100,7 +100,7 @@ pnpm build
 默认本地 Docker 只启动轻量服务：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
 ```
 
 也可以使用脚本：

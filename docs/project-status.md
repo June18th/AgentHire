@@ -46,15 +46,15 @@ pnpm dev
 默认命令：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --build mysql jobclaw jobclaw-web jobclaw-gateway
 ```
 
 不要默认叠加：
 
-- `docker-compose.elasticsearch.yml`
-- `docker-compose.redis.yml`
-- `docker-compose.kafka.yml`
-- `docker-compose.minio.yml`
+- `docker/compose/compose.elasticsearch.yml`
+- `docker/compose/compose.redis.yml`
+- `docker/compose/compose.kafka.yml`
+- `docker/compose/compose.minio.yml`
 
 这些中间件只在明确需要搜索、缓存、消息队列或对象存储能力时按需启动。
 

@@ -12,7 +12,7 @@ $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $backupDir = Join-Path $BackupRoot $stamp
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 
-$compose = @("compose", "--env-file", $EnvFile, "-f", "docker-compose.prod.yml")
+$compose = @("compose", "--env-file", $EnvFile, "-f", "docker/compose/compose.prod.yml")
 
 Write-Host "Creating MySQL dump..."
 $mysqlDump = docker @compose exec -T mysql sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"'

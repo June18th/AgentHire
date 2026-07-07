@@ -76,8 +76,8 @@ The chat message list owns its own scroll container. New messages keep the conve
 For Docker split deployment, chat UI-only changes require rebuilding `jobclaw-web`:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml build jobclaw-web
-docker compose -f docker-compose.yml -f docker-compose.mysql.yml -f docker-compose.frontend.yml up -d jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d jobclaw-web jobclaw-gateway
 ```
 
 ## Applications Page
