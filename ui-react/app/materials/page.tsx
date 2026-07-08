@@ -191,6 +191,40 @@ function applicationMaterialHint(item: JobApplicationItem) {
   return "建议检查材料是否匹配该岗位的投递阶段。"
 }
 
+// AI-GENERATED AIDEV-NOTE: copyable application kit
+function buildApplicationKit(item: JobApplicationItem, state: MaterialsState) {
+  const primaryResume = state.resumes.find((resume) => resume.isPrimary) || state.resumes[0]
+  const materialLines = state.links
+    .slice(0, 5)
+    .map((link) => `- ${link.title}（${materialKindLabel(link.kind)}）：${link.url}${link.note ? `；${link.note}` : ""}`)
+  const snippetLines = state.snippets
+    .slice(0, 3)
+    .map((snippet) => `- ${snippet.title}（${snippet.scene}）：${snippet.content}`)
+  const deadlineText = item.deadline || formatDateOnly(item.deadlineAt) || "未记录"
+  const followUpText = formatDateOnly(item.nextFollowUpAt) || "未设置"
+  return [
+    `投递材料包：${item.companyName} / ${item.position}`,
+    `当前状态：${item.currentStatusDesc || item.currentStatus}`,
+    `截止时间：${deadlineText}`,
+    `下次跟进：${followUpText}`,
+    `下一步建议：${applicationMaterialHint(item)}`,
+    "",
+    "主简历：",
+    primaryResume
+      ? `- ${primaryResume.name}${primaryResume.targetRole ? ` / ${primaryResume.targetRole}` : ""}${primaryResume.link ? `：${safeExternalUrl(primaryResume.link)}` : ""}`
+      : "- 未设置主简历",
+    primaryResume?.notes ? `  备注：${primaryResume.notes}` : "",
+    "",
+    "材料链接：",
+    materialLines.length ? materialLines.join("\n") : "- 暂无材料链接",
+    "",
+    "可用话术：",
+    snippetLines.length ? snippetLines.join("\n") : "- 暂无常用话术",
+  ]
+    .filter((line) => line !== "")
+    .join("\n")
+}
+
 function loadMaterials(storageKey: string): MaterialsState {
   if (typeof window === "undefined") return EMPTY_STATE
   const raw = localStorage.getItem(storageKey)
@@ -570,13 +604,13 @@ export default function MaterialsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-content-primary">材料关联待办</h2>
-                  <p className="mt-1 text-xs text-content-tertiary">从投递行动优先级里筛出需要准备材料的事项。</p>
+                  <p className="mt-1 text-xs text-content-tertiary">从投递行动优先级里筛出需要准备材料的事项，可复制岗位材料包。</p>
                 </div>
                 <Badge variant="outline" className="rounded-md">{materialActionItems.length}</Badge>
               </div>
               <div className="mt-4 grid gap-3">
                 {materialActionItems.map((item) => (
-                  <MaterialActionItem key={item.id} item={item} />
+                  <MaterialActionItem key={item.id} item={item} onCopyKit={() => copyText(buildApplicationKit(item, state))} />
                 ))}
                 {!materialActionItems.length ? <EmptyPanel text="暂无需要优先准备材料的投递事项。" /> : null}
               </div>
@@ -669,7 +703,7 @@ function EmptyPanel({ text }: { text: string }) {
   return <div className="rounded-lg border border-dashed border-surface-border p-6 text-center text-sm text-content-tertiary">{text}</div>
 }
 
-function MaterialActionItem({ item }: { item: JobApplicationItem }) {
+function MaterialActionItem({ item, onCopyKit }: { item: JobApplicationItem; onCopyKit: () => void }) {
   const riskText = deadlineRiskLabel(item.deadlineRisk)
   const deadlineText = item.deadline || formatDateOnly(item.deadlineAt)
   const followUpText = formatDateOnly(item.nextFollowUpAt)
@@ -700,11 +734,16 @@ function MaterialActionItem({ item }: { item: JobApplicationItem }) {
             {followUpText ? <span>跟进：{followUpText}</span> : null}
           </div>
         </div>
-        <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-          <Link href={`/applications?applicationId=${item.id}`} title="查看投递">
-            <BriefcaseBusiness className="h-4 w-4" />
-          </Link>
-        </Button>
+        <div className="flex shrink-0 gap-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" title="复制材料包" onClick={onCopyKit}>
+            <Clipboard className="h-4 w-4" />
+          </Button>
+          <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+            <Link href={`/applications?applicationId=${item.id}`} title="查看投递">
+              <BriefcaseBusiness className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
       </div>
     </div>
   )
