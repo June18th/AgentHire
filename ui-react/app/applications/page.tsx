@@ -502,6 +502,7 @@ export default function ApplicationsPage() {
       toSubmit,
       toFollowUp,
       dueSoon: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "DUE_SOON"),
+      thisWeek: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "THIS_WEEK"),
       overdue: summaryRecords.filter(recordFollowUpOverdue),
     }
   }, [summaryRecords])
@@ -1221,7 +1222,7 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <button
             type="button"
             className="rounded-lg border border-surface-border bg-white p-4 text-left shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
@@ -1239,6 +1240,15 @@ export default function ApplicationsPage() {
             <div className="text-sm font-semibold text-content-primary">临近截止</div>
             <div className={`mt-2 text-2xl font-semibold ${todayTodo.dueSoon.length > 0 ? "text-orange-700" : "text-content-primary"}`}>{todayTodo.dueSoon.length}</div>
             <MiniList items={todayTodo.dueSoon} emptyText="3 天内没有待处理截止项" />
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg border p-4 text-left shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 ${todayTodo.thisWeek.length > 0 ? "border-indigo-200 bg-indigo-50/60" : "border-surface-border bg-white"}`}
+            onClick={() => handleActionScopeChange("THIS_WEEK")}
+          >
+            <div className="text-sm font-semibold text-content-primary">本周截止</div>
+            <div className={`mt-2 text-2xl font-semibold ${todayTodo.thisWeek.length > 0 ? "text-indigo-700" : "text-content-primary"}`}>{todayTodo.thisWeek.length}</div>
+            <MiniList items={todayTodo.thisWeek} emptyText="4-7 天内没有待处理截止项" />
           </button>
           <button
             type="button"
