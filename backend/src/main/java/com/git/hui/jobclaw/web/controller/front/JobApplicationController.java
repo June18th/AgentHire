@@ -12,6 +12,7 @@ import com.git.hui.jobclaw.web.model.req.JobApplicationSearchReq;
 import com.git.hui.jobclaw.web.model.req.JobApplicationStatusUpdateReq;
 import com.git.hui.jobclaw.web.model.res.JobApplicationBriefVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationEventVo;
+import com.git.hui.jobclaw.web.model.res.JobApplicationReviewVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationVo;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -71,6 +72,11 @@ public class JobApplicationController {
     @GetMapping(path = "brief")
     public JobApplicationBriefVo brief(@RequestParam(required = false) Integer limit) {
         return applicationService.brief(currentUserId(), limit);
+    }
+
+    @GetMapping(path = "review")
+    public JobApplicationReviewVo review() {
+        return applicationService.review(currentUserId());
     }
 
     @PostMapping(path = "delete")

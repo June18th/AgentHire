@@ -13,6 +13,7 @@ import com.git.hui.jobclaw.web.model.req.JobApplicationFollowUpReq;
 import com.git.hui.jobclaw.web.model.req.JobApplicationSaveReq;
 import com.git.hui.jobclaw.web.model.req.JobApplicationStatusUpdateReq;
 import com.git.hui.jobclaw.web.model.res.JobApplicationBriefVo;
+import com.git.hui.jobclaw.web.model.res.JobApplicationReviewVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationVo;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -169,6 +170,51 @@ class JobApplicationServiceTest {
         assertThat(dueToday).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
         assertThat(staleSubmitted).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta");
         assertThat(priorityA).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
+    }
+
+    @Test
+    void reviewSummarizesWeeklyApplicationProgress() {
+        JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
+        JobApplicationService service = newService(applicationRepository);
+        Long userId = 7L;
+        Date thisWeek = Date.from(LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date older = Date.from(LocalDate.now().minusDays(14).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        when(applicationRepository.findByUserIdAndStateNot(userId, -1)).thenReturn(List.of(
+                base(userId, JobApplicationStatusEnum.PREPARING)
+                        .setCompanyName("Alpha")
+                        .setCreateTime(thisWeek)
+                        .setUpdateTime(thisWeek),
+                base(userId, JobApplicationStatusEnum.SUBMITTED)
+                        .setCompanyName("Beta")
+                        .setCreateTime(older)
+                        .setUpdateTime(thisWeek)
+                        .setSubmittedAt(older),
+                base(userId, JobApplicationStatusEnum.INTERVIEW_1)
+                        .setCompanyName("Gamma")
+                        .setCreateTime(older)
+                        .setUpdateTime(thisWeek),
+                base(userId, JobApplicationStatusEnum.OFFER)
+                        .setCompanyName("Sigma")
+                        .setCreateTime(older)
+                        .setUpdateTime(thisWeek),
+                base(userId, JobApplicationStatusEnum.SUBMITTED)
+                        .setCompanyName("Delta")
+                        .setCreateTime(older)
+                        .setUpdateTime(older)
+                        .setSubmittedAt(older)
+        ));
+
+        JobApplicationReviewVo review = service.review(userId);
+
+        assertThat(review.getTotal()).isEqualTo(5);
+        assertThat(review.getCreatedThisWeek()).isEqualTo(1);
+        assertThat(review.getSubmittedAndLaterThisWeek()).isEqualTo(3);
+        assertThat(review.getInterviewThisWeek()).isEqualTo(1);
+        assertThat(review.getOfferThisWeek()).isEqualTo(1);
+        assertThat(review.getStaleSubmitted()).isEqualTo(2);
+        assertThat(review.getWeekStart()).isNotNull();
+        assertThat(review.getWeekEnd()).isNotNull();
+        assertThat(review.getSummary()).contains("投递超过 7 天未跟进");
     }
 
     @Test

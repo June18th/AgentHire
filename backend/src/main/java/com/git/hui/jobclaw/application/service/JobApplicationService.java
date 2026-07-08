@@ -18,6 +18,7 @@ import com.git.hui.jobclaw.web.model.req.JobApplicationSearchReq;
 import com.git.hui.jobclaw.web.model.req.JobApplicationStatusUpdateReq;
 import com.git.hui.jobclaw.web.model.res.JobApplicationBriefVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationEventVo;
+import com.git.hui.jobclaw.web.model.res.JobApplicationReviewVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationVo;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -275,6 +276,42 @@ public class JobApplicationService {
                 .setTopActions(actionItems.stream().limit(size).toList());
     }
 
+    public JobApplicationReviewVo review(Long userId) {
+        Assert.notNull(userId, "Please login first");
+        Date weekStart = startOfWeek();
+        Date weekEnd = startOfNextDay();
+        List<JobApplicationVo> all = JobApplicationConvert.toVoList(applicationRepository.findByUserIdAndStateNot(userId, DELETED));
+
+        int createdThisWeek = (int) all.stream().filter(item -> atOrAfter(item.getCreateTime(), weekStart)).count();
+        int submittedAndLaterThisWeek = (int) all.stream()
+                .filter(this::isSubmittedAndLater)
+                .filter(item -> atOrAfter(item.getUpdateTime(), weekStart))
+                .count();
+        int interviewThisWeek = (int) all.stream()
+                .filter(this::isInterviewStatus)
+                .filter(item -> atOrAfter(item.getUpdateTime(), weekStart))
+                .count();
+        int offerThisWeek = (int) all.stream()
+                .filter(this::isOfferStatus)
+                .filter(item -> atOrAfter(item.getUpdateTime(), weekStart))
+                .count();
+        int overdueFollowUps = (int) all.stream().filter(item -> Boolean.TRUE.equals(item.getFollowUpOverdue())).count();
+        int staleSubmitted = (int) all.stream().filter(this::isStaleSubmitted).count();
+
+        return new JobApplicationReviewVo()
+                .setWeekStart(weekStart.getTime())
+                .setWeekEnd(weekEnd.getTime())
+                .setTotal(all.size())
+                .setCreatedThisWeek(createdThisWeek)
+                .setSubmittedAndLaterThisWeek(submittedAndLaterThisWeek)
+                .setInterviewThisWeek(interviewThisWeek)
+                .setOfferThisWeek(offerThisWeek)
+                .setOverdueFollowUps(overdueFollowUps)
+                .setStaleSubmitted(staleSubmitted)
+                .setSummary(buildReviewSummary(createdThisWeek, submittedAndLaterThisWeek, interviewThisWeek,
+                        offerThisWeek, overdueFollowUps, staleSubmitted));
+    }
+
     @Transactional
     public boolean delete(Long userId, Long id) {
         JobApplicationEntity entity = requireOwned(userId, id);
@@ -387,6 +424,51 @@ public class JobApplicationService {
                 && item.getSubmittedAt() <= System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000;
     }
 
+    private boolean isSubmittedAndLater(JobApplicationVo item) {
+        return item != null && List.of(
+                JobApplicationStatusEnum.SUBMITTED.getCode(),
+                JobApplicationStatusEnum.WRITTEN_TEST.getCode(),
+                JobApplicationStatusEnum.INTERVIEW_1.getCode(),
+                JobApplicationStatusEnum.INTERVIEW_2.getCode(),
+                JobApplicationStatusEnum.HR_INTERVIEW.getCode(),
+                JobApplicationStatusEnum.OFFER.getCode(),
+                JobApplicationStatusEnum.ACCEPTED.getCode()
+        ).contains(item.getCurrentStatus());
+    }
+
+    private boolean isInterviewStatus(JobApplicationVo item) {
+        return item != null && List.of(
+                JobApplicationStatusEnum.WRITTEN_TEST.getCode(),
+                JobApplicationStatusEnum.INTERVIEW_1.getCode(),
+                JobApplicationStatusEnum.INTERVIEW_2.getCode(),
+                JobApplicationStatusEnum.HR_INTERVIEW.getCode()
+        ).contains(item.getCurrentStatus());
+    }
+
+    private boolean isOfferStatus(JobApplicationVo item) {
+        return item != null && List.of(
+                JobApplicationStatusEnum.OFFER.getCode(),
+                JobApplicationStatusEnum.ACCEPTED.getCode()
+        ).contains(item.getCurrentStatus());
+    }
+
+    private boolean atOrAfter(Long timestamp, Date threshold) {
+        return timestamp != null && threshold != null && timestamp >= threshold.getTime();
+    }
+
+    private Date startOfWeek() {
+        LocalDate today = LocalDate.now();
+        return Date.from(today.minusDays(today.getDayOfWeek().getValue() - 1L)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant());
+    }
+
+    private Date startOfNextDay() {
+        return Date.from(LocalDate.now().plusDays(1)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant());
+    }
+
     private List<JobApplicationEventEntity> listImportantEvents(Long userId, LocalDate startInclusive, LocalDate endExclusive) {
         Date start = Date.from(startInclusive.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(endExclusive.atStartOfDay(ZoneId.systemDefault()).toInstant());
@@ -475,6 +557,29 @@ public class JobApplicationService {
             return "当前有 " + offer + " 条 Offer 相关记录，建议补充沟通结果和选择理由。";
         }
         return "当前有 " + actionCount + " 条待处理事项，建议按优先级逐条推进。";
+    }
+
+    private String buildReviewSummary(int createdThisWeek, int submittedAndLaterThisWeek, int interviewThisWeek,
+                                      int offerThisWeek, int overdueFollowUps, int staleSubmitted) {
+        if (overdueFollowUps > 0) {
+            return "本周复盘优先处理 " + overdueFollowUps + " 条已到期跟进，避免投递线索断档。";
+        }
+        if (staleSubmitted > 0) {
+            return "本周复盘发现 " + staleSubmitted + " 条投递超过 7 天未跟进，建议集中补一次状态确认。";
+        }
+        if (offerThisWeek > 0) {
+            return "本周已有 " + offerThisWeek + " 条 Offer 阶段进展，建议记录选择依据和沟通结论。";
+        }
+        if (interviewThisWeek > 0) {
+            return "本周有 " + interviewThisWeek + " 条笔面试推进，建议沉淀题目、反馈和下一步安排。";
+        }
+        if (submittedAndLaterThisWeek > 0) {
+            return "本周有 " + submittedAndLaterThisWeek + " 条投递进入流程，建议按优先级安排跟进节奏。";
+        }
+        if (createdThisWeek > 0) {
+            return "本周新增 " + createdThisWeek + " 条岗位线索，建议筛出高优先级目标并尽快投递。";
+        }
+        return "本周暂未记录新的投递推进，建议补充岗位池并复查材料完整度。";
     }
 
     private int actionPriorityRank(String priority) {
