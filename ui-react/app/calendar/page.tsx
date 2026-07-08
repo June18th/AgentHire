@@ -104,7 +104,12 @@ function dateOnlyToTime(value: string, endOfDay = false) {
   return date.getTime()
 }
 
-function normalizeDeadlineDate(value?: string) {
+// AI-GENERATED AIDEV-NOTE: prefer parsed deadline
+function normalizeDeadlineDate(value?: string, parsedAt?: number) {
+  if (parsedAt) {
+    const parsedKey = formatDateKey(parsedAt)
+    if (parsedKey) return parsedKey
+  }
   if (!value) return ""
   const trimmed = value.trim()
   if (!trimmed) return ""
@@ -170,7 +175,7 @@ function buildCalendarItems(records: JobApplicationItem[], events: JobApplicatio
 
   records.forEach((record) => {
     if (!isTerminal(record)) {
-      const deadlineKey = normalizeDeadlineDate(record.deadline)
+      const deadlineKey = normalizeDeadlineDate(record.deadline, record.deadlineAt)
       if (deadlineKey && ["INTERESTED", "PREPARING"].includes(record.currentStatus)) {
         items.push({
           id: `deadline-${record.id}`,
