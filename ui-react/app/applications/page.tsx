@@ -1086,27 +1086,35 @@ export default function ApplicationsPage() {
             <div className={statValueClass}>{activeCount}</div>
             <div className="mt-1 text-xs text-content-tertiary">未结束的投递</div>
           </div>
-          <div className={statCardClass}>
+          <button
+            type="button"
+            className={`${statCardClass} text-left transition-colors hover:border-amber-200 hover:bg-amber-50`}
+            onClick={() => handleActionScopeChange("STALE_SUBMITTED")}
+          >
             <div className={statLabelClass}>已投递及后续</div>
             <div className={statValueClass}>{submittedAndLaterCount}</div>
             {staleSubmittedRecords.length > 0 ? (
               <div className="mt-1 text-xs font-medium text-amber-700">{staleSubmittedRecords.length} 条投递超过 7 天未跟进</div>
             ) : null}
             <div className="mt-1 text-xs text-content-tertiary">已进入正式流程</div>
-          </div>
+          </button>
           <div className={statCardClass}>
             <div className={statLabelClass}>笔面试中</div>
             <div className={statValueClass}>{interviewCount}</div>
             <div className="mt-1 text-xs text-content-tertiary">笔试 / 面试 / HR</div>
           </div>
-          <div className={`${statCardClass} ${followUpSummary.overdue > 0 ? "border-red-200 bg-red-50/60" : ""}`}>
+          <button
+            type="button"
+            className={`${statCardClass} text-left transition-colors hover:border-red-200 hover:bg-red-50 ${followUpSummary.overdue > 0 ? "border-red-200 bg-red-50/60" : ""}`}
+            onClick={() => handleActionScopeChange("OVERDUE_FOLLOW_UP")}
+          >
             <div className={statLabelClass}>待跟进</div>
             <div className="mt-2 flex items-end gap-2">
               <span className={`text-2xl font-semibold ${followUpSummary.overdue > 0 ? "text-red-700" : "text-content-primary"}`}>{followUpSummary.pending}</span>
               {followUpSummary.overdue > 0 ? <span className="pb-1 text-xs font-medium text-red-600">{followUpSummary.overdue} 条已到期</span> : null}
             </div>
             <div className="mt-1 text-xs text-content-tertiary">需要主动处理</div>
-          </div>
+          </button>
         </div>
 
         <div className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
