@@ -397,6 +397,30 @@ function nextStepSuggestion(record: JobApplicationItem) {
   return "建议保持状态更新，并记录下一步跟进计划。"
 }
 
+function startOfWeekTime(now = Date.now()) {
+  const date = new Date(now)
+  const day = date.getDay() || 7
+  date.setDate(date.getDate() - day + 1)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+function weeklyReviewHint(stats: {
+  created: number
+  submittedAndLater: number
+  interviews: number
+  offers: number
+  overdue: number
+  stale: number
+}) {
+  if (stats.overdue > 0) return `本周还有 ${stats.overdue} 条跟进已到期，建议先清空逾期队列。`
+  if (stats.stale > 0) return `有 ${stats.stale} 条静默投递需要复盘，建议检查邮箱、短信和官网状态。`
+  if (stats.interviews > 0) return `本周已有 ${stats.interviews} 条笔面试推进，建议补充复盘和下一轮安排。`
+  if (stats.submittedAndLater > 0) return `本周已有 ${stats.submittedAndLater} 条进入正式流程，继续补齐跟进提醒。`
+  if (stats.created > 0) return `本周新增 ${stats.created} 条投递记录，建议优先完成材料匹配和截止日期确认。`
+  return "本周还没有新的投递推进，可以先从岗位库筛选下一批目标。"
+}
+
 export default function ApplicationsPage() {
   const { toast } = useToast()
   const { userInfo } = useLoginUser()
@@ -512,6 +536,21 @@ export default function ApplicationsPage() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
   }, [summaryRecords])
+  const weeklyReview = useMemo(() => {
+    const weekStart = startOfWeekTime()
+    const stats = {
+      created: summaryRecords.filter((record) => (record.createTime || 0) >= weekStart).length,
+      submittedAndLater: summaryRecords.filter((record) => ACTIVE_PROCESS_STATUS.includes(record.currentStatus) && (record.updateTime || 0) >= weekStart).length,
+      interviews: summaryRecords.filter((record) => INTERVIEW_PROCESS_STATUS.includes(record.currentStatus) && (record.updateTime || 0) >= weekStart).length,
+      offers: summaryRecords.filter((record) => ["OFFER", "ACCEPTED"].includes(record.currentStatus) && (record.updateTime || 0) >= weekStart).length,
+      overdue: summaryRecords.filter(recordFollowUpOverdue).length,
+      stale: staleSubmittedRecords.length,
+    }
+    return {
+      ...stats,
+      hint: weeklyReviewHint(stats),
+    }
+  }, [summaryRecords, staleSubmittedRecords])
   const conversionBase = Math.max(1, submittedAndLaterCount)
   const offerCount = useMemo(() => summaryRecords.filter((record) => ["OFFER", "ACCEPTED"].includes(record.currentStatus)).length, [summaryRecords])
   const hasActiveFilters = companyName.trim() !== "" || position.trim() !== "" || status !== "all" || companyType !== "all" || followUpScope !== "all" || attention !== "all"
@@ -1067,6 +1106,52 @@ export default function ApplicationsPage() {
               {followUpSummary.overdue > 0 ? <span className="pb-1 text-xs font-medium text-red-600">{followUpSummary.overdue} 条已到期</span> : null}
             </div>
             <div className="mt-1 text-xs text-content-tertiary">需要主动处理</div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-content-primary">本周复盘</h2>
+              <p className="mt-1 text-xs text-content-tertiary">{weeklyReview.hint}</p>
+            </div>
+            <Badge variant="outline" className="rounded-md">
+              周一至今
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+            <div className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
+              <div className="text-lg font-semibold text-content-primary">{weeklyReview.created}</div>
+              <div className="text-xs text-content-tertiary">新增记录</div>
+            </div>
+            <div className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
+              <div className="text-lg font-semibold text-blue-700">{weeklyReview.submittedAndLater}</div>
+              <div className="text-xs text-content-tertiary">流程推进</div>
+            </div>
+            <div className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
+              <div className="text-lg font-semibold text-purple-700">{weeklyReview.interviews}</div>
+              <div className="text-xs text-content-tertiary">笔面试推进</div>
+            </div>
+            <div className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
+              <div className="text-lg font-semibold text-emerald-700">{weeklyReview.offers}</div>
+              <div className="text-xs text-content-tertiary">Offer 相关</div>
+            </div>
+            <button
+              type="button"
+              className="rounded-md border border-surface-border bg-gray-50 px-3 py-2 text-left transition-colors hover:border-red-200 hover:bg-red-50"
+              onClick={() => handleActionScopeChange("OVERDUE_FOLLOW_UP")}
+            >
+              <div className="text-lg font-semibold text-red-700">{weeklyReview.overdue}</div>
+              <div className="text-xs text-content-tertiary">逾期跟进</div>
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-surface-border bg-gray-50 px-3 py-2 text-left transition-colors hover:border-amber-200 hover:bg-amber-50"
+              onClick={() => handleActionScopeChange("STALE_SUBMITTED")}
+            >
+              <div className="text-lg font-semibold text-amber-700">{weeklyReview.stale}</div>
+              <div className="text-xs text-content-tertiary">静默风险</div>
+            </button>
           </div>
         </div>
 
