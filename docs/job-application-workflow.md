@@ -87,6 +87,22 @@ Return the user's most actionable, non-terminal applications:
 GET /api/user/applications/action-items?limit=20
 ```
 
+The endpoint also accepts an optional deterministic scope filter:
+
+```http
+GET /api/user/applications/action-items?limit=20&scope=DUE_TODAY
+```
+
+Supported scopes:
+
+| Scope | Meaning |
+|---|---|
+| `A` | Only A-priority action items. |
+| `OVERDUE_FOLLOW_UP` | Follow-up reminders that are due or overdue. |
+| `DUE_TODAY` | Applications whose parsed deadline is today. |
+| `DUE_SOON` | Applications whose parsed deadline is within 3 days. |
+| `STALE_SUBMITTED` | Submitted applications older than 7 days with no follow-up plan. |
+
 Sorting order:
 
 ```text
@@ -130,9 +146,11 @@ The same deterministic brief is available from IM/chat system commands:
 ```text
 /brief
 /today
+/brief 10
+/today 10
 ```
 
-The command formats `JobApplicationService.brief(userId, 5)` directly. It returns the user's action count, A-priority count, overdue follow-ups, today's events, next-7-day events, top actions, and upcoming important written-test/interview/HR/Offer events.
+The command formats `JobApplicationService.brief(userId, limit)` directly. The optional numeric limit is clamped between 1 and 10 for action items; important events stay capped so IM messages remain readable. It returns the user's action count, A-priority count, overdue follow-ups, today's events, next-7-day events, top actions, and upcoming important written-test/interview/HR/Offer events.
 
 This command does not call an LLM, so it is suitable for stable daily reminders and can later be reused by proactive scheduled notifications.
 
@@ -143,9 +161,9 @@ The action signal layer is now surfaced in the main personal job-search pages:
 | Page | Integration |
 |---|---|
 | `/` | Shows a compact "today's action" entry point next to the job list, including A-priority, overdue follow-up, due-today, due-soon, stale-submitted, and today-event metrics. |
-| `/applications` | Shows action priority cards, quiet-submission review, stage board, row hints, detail reasons, status-aware event templates, the next key event in application detail, today's event preparation hints, and CSV export fields. |
+| `/applications` | Shows action priority cards with smart scopes, quiet-submission review, stage board, row hints, detail reasons, status-aware event templates, the next key event in application detail, today's event preparation hints, and CSV export fields. |
 | `/calendar` | Adds an action-priority side panel next to deadline, follow-up, and event dates; uses parsed `deadlineAt` before raw deadline text; supports completing follow-ups inline and exporting the current month/week schedule as CSV. |
-| `/materials` | Shows material-related application actions for resume and portfolio preparation, can copy a per-application material kit with the primary resume, material links, snippets, and next-step advice, and supports JSON backup/restore for local material data. |
+| `/materials` | Shows material-related application actions for resume and portfolio preparation, can copy a per-application material kit with the primary resume, material links, snippets, and next-step advice, supports JSON backup/restore for local material data, and displays the most recent local backup/export time. |
 | Global nav | Shows a live action count beside "我的求职" and refreshes after application changes. |
 
 CSV exports from `/applications` include the deterministic action fields so weekly review can happen outside the app when needed.
@@ -154,7 +172,7 @@ When the user clicks "已跟进" in `/applications` or `/calendar`, the backend 
 
 The `/calendar` CSV export is intentionally lightweight. It is meant for weekly planning, backup, and import into external tools, not as a replacement for the in-app timeline.
 
-The `/materials` page currently stores resume versions, material links, snippets, and checklist state in browser local storage. Users should use the JSON backup/restore controls before changing browsers, clearing browser data, or reinstalling the frontend. The copied material kit is a practical bridge for outreach, email, and manual application forms until a persisted material-application relation is added.
+The `/materials` page currently stores resume versions, material links, snippets, checklist state, and the last backup timestamp in browser local storage. Users should use the JSON backup/restore controls before changing browsers, clearing browser data, or reinstalling the frontend. The copied material kit is a practical bridge for outreach, email, and manual application forms until a persisted material-application relation is added.
 
 ## Next Practical Slice
 
