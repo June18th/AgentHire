@@ -431,9 +431,10 @@ export default function HomePage() {
     ? [
         { label: "A级优先", value: applicationBrief.priorityA, className: "text-red-600" },
         { label: "逾期跟进", value: applicationBrief.overdueFollowUps, className: "text-red-600" },
-        { label: "今日日程", value: applicationBrief.todayEvents, className: "text-emerald-600" },
         { label: "今日截止", value: applicationBrief.dueToday, className: "text-amber-600" },
-        { label: "待跟进", value: applicationBrief.staleSubmitted, className: "text-blue-600" },
+        { label: "临近截止", value: applicationBrief.dueSoon, className: "text-amber-600" },
+        { label: "静默投递", value: applicationBrief.staleSubmitted, className: "text-blue-600" },
+        { label: "今日日程", value: applicationBrief.todayEvents, className: "text-emerald-600" },
       ]
     : [];
 
@@ -482,7 +483,7 @@ export default function HomePage() {
               </Badge>
             </div>
             {briefMetrics.length ? (
-              <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+              <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
                 {briefMetrics.map((metric) => (
                   <div key={metric.label} className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
                     <div className={`text-lg font-semibold ${metric.className}`}>{metric.value}</div>
