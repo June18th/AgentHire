@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AlertTriangle, CalendarClock, CheckCircle2, Download, ExternalLink, FilePlus2, Pencil, RefreshCw, RotateCcw, Search, Star, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -400,6 +400,7 @@ function nextStepSuggestion(record: JobApplicationItem) {
 export default function ApplicationsPage() {
   const { toast } = useToast()
   const { userInfo } = useLoginUser()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [records, setRecords] = useState<JobApplicationItem[]>([])
   const [summaryRecords, setSummaryRecords] = useState<JobApplicationItem[]>([])
@@ -670,6 +671,15 @@ export default function ApplicationsPage() {
 
   const handleActionScopeChange = (value: "all" | JobApplicationActionScope) => {
     setActionScope(value)
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("applicationId")
+    if (value === "all") {
+      params.delete("actionScope")
+    } else {
+      params.set("actionScope", value)
+    }
+    const query = params.toString()
+    router.push(query ? `/applications?${query}` : "/applications")
   }
 
   const resetApplicationForm = () => {
