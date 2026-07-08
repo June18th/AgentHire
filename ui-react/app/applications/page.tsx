@@ -96,14 +96,26 @@ interface EventTemplate {
   label: string
   title: string
   note: string
+  defaultHour: number
+  defaultLeadDays: number
 }
 
 const EVENT_TEMPLATES: EventTemplate[] = [
-  { eventType: "WRITTEN_TEST", label: "笔试", title: "笔试安排", note: "记录笔试时间、平台、题型、准备要点和完成后的复盘。" },
-  { eventType: "INTERVIEW", label: "面试", title: "面试安排", note: "记录面试轮次、面试官、考察重点、准备材料和下一步计划。" },
-  { eventType: "HR", label: "HR", title: "HR 沟通", note: "记录薪资范围、到岗时间、意向城市、沟通结论和待确认问题。" },
-  { eventType: "OFFER", label: "Offer", title: "Offer 沟通", note: "记录薪资结构、截止回复时间、对比项和最终决策依据。" },
+  { eventType: "WRITTEN_TEST", label: "笔试", title: "笔试安排", note: "记录笔试时间、平台、题型、准备要点和完成后的复盘。", defaultHour: 19, defaultLeadDays: 1 },
+  { eventType: "INTERVIEW", label: "面试", title: "面试安排", note: "记录面试轮次、面试官、考察重点、准备材料和下一步计划。", defaultHour: 10, defaultLeadDays: 2 },
+  { eventType: "HR", label: "HR", title: "HR 沟通", note: "记录薪资范围、到岗时间、意向城市、沟通结论和待确认问题。", defaultHour: 15, defaultLeadDays: 2 },
+  { eventType: "OFFER", label: "Offer", title: "Offer 沟通", note: "记录薪资结构、截止回复时间、对比项和最终决策依据。", defaultHour: 18, defaultLeadDays: 1 },
 ]
+
+// AI-GENERATED AIDEV-NOTE: stage event nudges
+const RECOMMENDED_EVENT_TYPES_BY_STATUS: Partial<Record<JobApplicationStatus, string[]>> = {
+  SUBMITTED: ["WRITTEN_TEST", "INTERVIEW"],
+  WRITTEN_TEST: ["INTERVIEW"],
+  INTERVIEW_1: ["INTERVIEW", "HR", "OFFER"],
+  INTERVIEW_2: ["HR", "OFFER"],
+  HR_INTERVIEW: ["OFFER", "HR"],
+  OFFER: ["OFFER", "HR"],
+}
 
 const COMPANY_TYPE_OPTIONS = [
   { value: "央国企", label: "央国企" },
@@ -209,6 +221,18 @@ function formatDateOnly(value?: number | string) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 10)
 }
 
+function toDateTimeInput(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
+}
+
+function nextDefaultEventTime(template: EventTemplate) {
+  const date = new Date()
+  date.setDate(date.getDate() + template.defaultLeadDays)
+  date.setHours(template.defaultHour, 0, 0, 0)
+  return toDateTimeInput(date)
+}
+
 function toDateInput(value?: number | string) {
   if (!value) return ""
   if (typeof value !== "string") {
@@ -226,6 +250,24 @@ function toDateInput(value?: number | string) {
 
 function toDateStartTime(value?: string) {
   return value ? new Date(`${value}T00:00:00`).getTime() : undefined
+}
+
+function suggestedEventTitle(template: EventTemplate, detail?: JobApplicationItem | null) {
+  if (!detail) return template.title
+  if (template.eventType !== "INTERVIEW") return template.title
+  if (detail.currentStatus === "INTERVIEW_1") return "二面安排"
+  if (detail.currentStatus === "INTERVIEW_2") return "终面安排"
+  if (detail.currentStatus === "WRITTEN_TEST") return "一面安排"
+  return "一面安排"
+}
+
+function eventTemplatesForStatus(status?: JobApplicationStatus) {
+  const recommendedTypes = status ? RECOMMENDED_EVENT_TYPES_BY_STATUS[status] || [] : []
+  const recommended = recommendedTypes
+    .map((type) => EVENT_TEMPLATES.find((template) => template.eventType === type))
+    .filter((template): template is EventTemplate => Boolean(template))
+  const recommendedSet = new Set(recommended.map((template) => template.eventType))
+  return [...recommended, ...EVENT_TEMPLATES.filter((template) => !recommendedSet.has(template.eventType))]
 }
 
 function escapeCsvCell(value: unknown) {
@@ -647,7 +689,8 @@ export default function ApplicationsPage() {
     setEventForm((value) => ({
       ...value,
       eventType: template.eventType,
-      eventTitle: template.title,
+      eventTitle: suggestedEventTitle(template, detail),
+      eventTime: value.eventTime || nextDefaultEventTime(template),
       eventResult: "",
       note: template.note,
     }))
@@ -912,6 +955,11 @@ export default function ApplicationsPage() {
   const sameCompanyJobHref = (companyName: string, internship = false) =>
     `${internship ? "/internship" : "/"}?companyName=${encodeURIComponent(companyName)}`
   const detailNextEvent = detail?.nextKeyEvent || nextKeyEvent(detail?.events)
+  const detailEventTemplates = useMemo(() => eventTemplatesForStatus(detail?.currentStatus), [detail?.currentStatus])
+  const detailRecommendedEventTypes = useMemo(
+    () => new Set(detail?.currentStatus ? RECOMMENDED_EVENT_TYPES_BY_STATUS[detail.currentStatus] || [] : []),
+    [detail?.currentStatus],
+  )
 
   if (!userInfo) {
     return (
@@ -1728,11 +1776,23 @@ export default function ApplicationsPage() {
               <div>
                 <h3 className="mb-2 text-sm font-semibold text-content-primary">新增事件</h3>
                 <div className="mb-2 flex flex-wrap gap-2">
-                  {EVENT_TEMPLATES.map((template) => (
-                    <Button key={template.eventType} type="button" variant="outline" size="sm" className="h-8" onClick={() => applyEventTemplate(template)}>
-                      {template.label}
-                    </Button>
-                  ))}
+                  {detailEventTemplates.map((template) => {
+                    const recommended = detailRecommendedEventTypes.has(template.eventType)
+                    return (
+                      <Button
+                        key={template.eventType}
+                        type="button"
+                        variant={recommended ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 gap-1.5"
+                        title={template.note}
+                        onClick={() => applyEventTemplate(template)}
+                      >
+                        {template.label}
+                        {recommended ? <span className="text-[10px] opacity-80">推荐</span> : null}
+                      </Button>
+                    )
+                  })}
                 </div>
                 <div className="grid gap-3 rounded-md border border-surface-border p-3 md:grid-cols-2">
                   <div className="grid gap-1.5">
