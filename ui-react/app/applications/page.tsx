@@ -43,6 +43,7 @@ const tableHeadClass = "border-r border-surface-border bg-blue-50 px-4 py-3 text
 const tableCellClass = "border-r border-surface-border px-4 py-4 text-center align-middle last:border-r-0"
 const ACTIVE_PROCESS_STATUS = ["SUBMITTED", "WRITTEN_TEST", "INTERVIEW_1", "INTERVIEW_2", "HR_INTERVIEW", "OFFER", "ACCEPTED"]
 const INTERVIEW_PROCESS_STATUS = ["WRITTEN_TEST", "INTERVIEW_1", "INTERVIEW_2", "HR_INTERVIEW"]
+const FOLLOW_UP_REQUIRED_PROCESS_STATUS = ["WRITTEN_TEST", "INTERVIEW_1", "INTERVIEW_2", "HR_INTERVIEW", "OFFER"]
 const STALE_SUBMITTED_MS = 7 * 24 * 60 * 60 * 1000
 
 const ATTENTION_OPTIONS = [
@@ -320,6 +321,10 @@ function isStaleSubmittedRecord(record: JobApplicationItem, now = Date.now()) {
   )
 }
 
+function isProcessNeedsFollowUpRecord(record: JobApplicationItem) {
+  return FOLLOW_UP_REQUIRED_PROCESS_STATUS.includes(record.currentStatus) && !record.nextFollowUpAt
+}
+
 function staleSubmittedDays(record: JobApplicationItem, now = Date.now()) {
   if (!record.submittedAt) return 0
   return Math.max(0, Math.floor((now - Number(record.submittedAt)) / 86_400_000))
@@ -415,9 +420,11 @@ function weeklyReviewHint(stats: {
   offers: number
   overdue: number
   stale: number
+  processNeedsFollowUp: number
 }) {
   if (stats.overdue > 0) return `本周还有 ${stats.overdue} 条跟进已到期，建议先清空逾期队列。`
   if (stats.stale > 0) return `有 ${stats.stale} 条静默投递需要复盘，建议检查邮箱、短信和官网状态。`
+  if (stats.processNeedsFollowUp > 0) return `有 ${stats.processNeedsFollowUp} 条流程已推进但没有下一次跟进，建议补齐复盘和提醒。`
   if (stats.interviews > 0) return `本周已有 ${stats.interviews} 条笔面试推进，建议补充复盘和下一轮安排。`
   if (stats.submittedAndLater > 0) return `本周已有 ${stats.submittedAndLater} 条进入正式流程，继续补齐跟进提醒。`
   if (stats.created > 0) return `本周新增 ${stats.created} 条投递记录，建议优先完成材料匹配和截止日期确认。`
@@ -549,6 +556,7 @@ export default function ApplicationsPage() {
       offers: summaryRecords.filter((record) => ["OFFER", "ACCEPTED"].includes(record.currentStatus) && (record.updateTime || 0) >= weekStart).length,
       overdue: summaryRecords.filter(recordFollowUpOverdue).length,
       stale: staleSubmittedRecords.length,
+      processNeedsFollowUp: summaryRecords.filter(isProcessNeedsFollowUpRecord).length,
     }
     return {
       ...stats,
@@ -564,6 +572,7 @@ export default function ApplicationsPage() {
       offers: serverWeeklyReview.offerThisWeek || 0,
       overdue: serverWeeklyReview.overdueFollowUps || 0,
       stale: serverWeeklyReview.staleSubmitted || 0,
+      processNeedsFollowUp: serverWeeklyReview.processNeedsFollowUp || 0,
     }
     return {
       ...stats,
@@ -1165,7 +1174,7 @@ export default function ApplicationsPage() {
               周一至今
             </Badge>
           </div>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-7">
             <div className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
               <div className="text-lg font-semibold text-content-primary">{weeklyReview.created}</div>
               <div className="text-xs text-content-tertiary">新增记录</div>
@@ -1197,6 +1206,14 @@ export default function ApplicationsPage() {
             >
               <div className="text-lg font-semibold text-amber-700">{weeklyReview.stale}</div>
               <div className="text-xs text-content-tertiary">静默风险</div>
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-surface-border bg-gray-50 px-3 py-2 text-left transition-colors hover:border-blue-200 hover:bg-blue-50"
+              onClick={() => handleActionScopeChange("PROCESS_NEEDS_FOLLOW_UP")}
+            >
+              <div className="text-lg font-semibold text-sky-700">{weeklyReview.processNeedsFollowUp}</div>
+              <div className="text-xs text-content-tertiary">流程待跟进</div>
             </button>
           </div>
         </div>

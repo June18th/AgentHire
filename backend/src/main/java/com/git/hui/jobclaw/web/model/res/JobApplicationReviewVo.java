@@ -15,5 +15,6 @@ public class JobApplicationReviewVo {
     private Integer offerThisWeek;
     private Integer overdueFollowUps;
     private Integer staleSubmitted;
+    private Integer processNeedsFollowUp;
     private String summary;
 }

@@ -131,6 +131,7 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
         sb.append("风险队列：")
                 .append("逾期跟进 ").append(value(review.getOverdueFollowUps()))
                 .append("，静默投递 ").append(value(review.getStaleSubmitted()))
+                .append("，流程待跟进 ").append(value(review.getProcessNeedsFollowUp()))
                 .append("。\n");
         sb.append("建议：先处理逾期和静默投递，再补齐面试复盘、下一次跟进时间和材料版本。");
         return sb.toString();

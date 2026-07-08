@@ -136,6 +136,7 @@ export interface JobApplicationReview {
   offerThisWeek: number
   overdueFollowUps: number
   staleSubmitted: number
+  processNeedsFollowUp: number
   summary: string
 }
 

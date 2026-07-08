@@ -297,6 +297,7 @@ public class JobApplicationService {
                 .count();
         int overdueFollowUps = (int) all.stream().filter(item -> Boolean.TRUE.equals(item.getFollowUpOverdue())).count();
         int staleSubmitted = (int) all.stream().filter(this::isStaleSubmitted).count();
+        int processNeedsFollowUp = (int) all.stream().filter(this::isProcessNeedsFollowUp).count();
 
         return new JobApplicationReviewVo()
                 .setWeekStart(weekStart.getTime())
@@ -308,8 +309,9 @@ public class JobApplicationService {
                 .setOfferThisWeek(offerThisWeek)
                 .setOverdueFollowUps(overdueFollowUps)
                 .setStaleSubmitted(staleSubmitted)
+                .setProcessNeedsFollowUp(processNeedsFollowUp)
                 .setSummary(buildReviewSummary(createdThisWeek, submittedAndLaterThisWeek, interviewThisWeek,
-                        offerThisWeek, overdueFollowUps, staleSubmitted));
+                        offerThisWeek, overdueFollowUps, staleSubmitted, processNeedsFollowUp));
     }
 
     @Transactional
@@ -575,12 +577,16 @@ public class JobApplicationService {
     }
 
     private String buildReviewSummary(int createdThisWeek, int submittedAndLaterThisWeek, int interviewThisWeek,
-                                      int offerThisWeek, int overdueFollowUps, int staleSubmitted) {
+                                      int offerThisWeek, int overdueFollowUps, int staleSubmitted,
+                                      int processNeedsFollowUp) {
         if (overdueFollowUps > 0) {
             return "本周复盘优先处理 " + overdueFollowUps + " 条已到期跟进，避免投递线索断档。";
         }
         if (staleSubmitted > 0) {
             return "本周复盘发现 " + staleSubmitted + " 条投递超过 7 天未跟进，建议集中补一次状态确认。";
+        }
+        if (processNeedsFollowUp > 0) {
+            return "本周复盘发现 " + processNeedsFollowUp + " 条流程已推进但未设置跟进，建议补齐复盘和下一次提醒。";
         }
         if (offerThisWeek > 0) {
             return "本周已有 " + offerThisWeek + " 条 Offer 阶段进展，建议记录选择依据和沟通结论。";

@@ -218,6 +218,7 @@ class JobApplicationServiceTest {
         assertThat(review.getInterviewThisWeek()).isEqualTo(1);
         assertThat(review.getOfferThisWeek()).isEqualTo(1);
         assertThat(review.getStaleSubmitted()).isEqualTo(2);
+        assertThat(review.getProcessNeedsFollowUp()).isEqualTo(2);
         assertThat(review.getWeekStart()).isNotNull();
         assertThat(review.getWeekEnd()).isNotNull();
         assertThat(review.getSummary()).contains("投递超过 7 天未跟进");
