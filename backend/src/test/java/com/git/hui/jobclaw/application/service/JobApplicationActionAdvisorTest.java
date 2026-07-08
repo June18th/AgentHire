@@ -51,6 +51,18 @@ class JobApplicationActionAdvisorTest {
     }
 
     @Test
+    void rollsMonthDayDeadlineIntoNextYearWhenItClearlyPassed() {
+        JobApplicationEntity entity = base(JobApplicationStatusEnum.INTERESTED)
+                .setDeadline("1/5 23:59");
+
+        JobApplicationActionAdvisor.ActionSignal signal = JobApplicationActionAdvisor.evaluate(entity, atStart("2026-12-30"));
+
+        assertThat(signal.deadlineRisk()).isEqualTo("THIS_WEEK");
+        assertThat(signal.daysUntilDeadline()).isEqualTo(6);
+        assertThat(signal.deadlineAt()).isEqualTo(atStart("2027-01-05").getTime());
+    }
+
+    @Test
     void followUpOverdueWinsOverNormalDeadline() {
         JobApplicationEntity entity = base(JobApplicationStatusEnum.SUBMITTED)
                 .setDeadline("2026-08-01")
