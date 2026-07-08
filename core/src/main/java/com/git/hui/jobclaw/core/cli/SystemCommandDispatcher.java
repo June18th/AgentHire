@@ -109,7 +109,7 @@ public class SystemCommandDispatcher {
     public String getAllCommandDescriptions() {
         var list = handlers.stream()
                 .map(handler -> String.format("%s - %s",
-                        handler.getIntentType().getCommand(),
+                        handler.getCommand(),
                         handler.getDescription()))
                 .toList();
         StringJoiner joiner = new StringJoiner("\n\n");

@@ -123,6 +123,19 @@ The response includes:
 
 This endpoint is intentionally not LLM-generated. Agents should use it as factual context and then decide whether to summarize, rewrite, or ask the user for confirmation.
 
+## IM Brief Command
+
+The same deterministic brief is available from IM/chat system commands:
+
+```text
+/brief
+/today
+```
+
+The command formats `JobApplicationService.brief(userId, 5)` directly. It returns the user's action count, A-priority count, overdue follow-ups, today's events, next-7-day events, top actions, and upcoming important written-test/interview/HR/Offer events.
+
+This command does not call an LLM, so it is suitable for stable daily reminders and can later be reused by proactive scheduled notifications.
+
 ## Current Frontend Integration
 
 The action signal layer is now surfaced in the main personal job-search pages:
@@ -147,7 +160,7 @@ Use `actionPriority`, `deadlineRisk`, and `suggestedNextAction` as deterministic
 
 Suggested next backend/frontend slices:
 
-- IM daily briefing: call `/api/user/applications/brief` and send only when `actionCount > 0`.
+- IM daily briefing: reuse the `/brief` command formatter and send only when `actionCount > 0`.
 - Quiet-submission review: surface B-priority submitted records as "投递已超过 7 天未跟进".
 - Event templates: make written-test/interview/offer events easy to create from application detail.
 - Material linkage: allow resume versions or portfolio links to be associated with a specific application.

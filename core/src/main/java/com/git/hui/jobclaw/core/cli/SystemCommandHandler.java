@@ -25,7 +25,16 @@ public interface SystemCommandHandler {
      * @return 是否支持
      */
     default boolean supports(String command) {
-        return command.startsWith(getIntentType().getCommand());
+        return command.startsWith(getCommand());
+    }
+
+    /**
+     * Returns the concrete slash command handled by this handler.
+     *
+     * @return command text
+     */
+    default String getCommand() {
+        return getIntentType().getCommand();
     }
 
     /**
