@@ -46,7 +46,7 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
 
     @Override
     public boolean supports(String command) {
-        return command != null && (command.startsWith("/brief") || command.startsWith("/today"));
+        return matchesCommand(command, "/brief") || matchesCommand(command, "/today");
     }
 
     @Override
@@ -144,6 +144,14 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
         } catch (NumberFormatException ignored) {
             return null;
         }
+    }
+
+    private static boolean matchesCommand(String command, String expected) {
+        if (!StringUtils.hasText(command)) {
+            return false;
+        }
+        String trimmed = command.trim();
+        return trimmed.equals(expected) || trimmed.startsWith(expected + " ");
     }
 
     private static String formatTime(Long timestamp) {

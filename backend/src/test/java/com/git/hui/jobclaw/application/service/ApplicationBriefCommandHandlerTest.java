@@ -72,7 +72,11 @@ class ApplicationBriefCommandHandlerTest {
         ApplicationBriefCommandHandler handler = new ApplicationBriefCommandHandler(mock(JobApplicationService.class));
 
         assertThat(handler.supports("/brief")).isTrue();
+        assertThat(handler.supports("/brief 5")).isTrue();
         assertThat(handler.supports("/today")).isTrue();
+        assertThat(handler.supports("/today now")).isTrue();
+        assertThat(handler.supports("/briefing")).isFalse();
+        assertThat(handler.supports("/todayish")).isFalse();
     }
 
     @Test
