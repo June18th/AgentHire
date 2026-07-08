@@ -155,8 +155,10 @@ export async function devWxLogin(type: "user" | "admin"): Promise<DevLoginRespon
 export interface JobListQuery {
   companyName?: string;
   companyType?: string;
+  companyIndustry?: string;
   jobLocation?: string;
   recruitmentType?: string;
+  recruitmentTypeExcept?: string;
   recruitmentTarget?: string;
   position?: string;
   deliveryProgress?: string;
@@ -165,8 +167,26 @@ export interface JobListQuery {
   size?: number;
 }
 
+export interface JobListItem {
+  id: number | string;
+  companyName?: string;
+  companyType?: string;
+  companyIndustry?: string;
+  jobLocation?: string;
+  recruitmentType?: string;
+  recruitmentTarget?: string;
+  position?: string;
+  deliveryProgress?: string;
+  lastUpdatedTime?: string;
+  deadline?: string;
+  relatedLink?: string;
+  jobAnnouncement?: string;
+  internalReferralCode?: string;
+  remarks?: string;
+}
+
 export interface JobListResponse {
-  list: any[];
+  list: JobListItem[];
   hasMore: boolean;
   page: number;
   size: number;

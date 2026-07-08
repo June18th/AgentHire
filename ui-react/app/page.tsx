@@ -35,6 +35,7 @@ import {
 import Link from "next/link";
 import {
   fetchJobList,
+  type JobListQuery,
   JobListResponse,
   GlobalConfigItemValue,
   getUserDetail,
@@ -180,7 +181,7 @@ export default function HomePage() {
   const [total, setTotal] = useState(0);
   const [locked, setLocked] = useState(false);
   const [online, setOnline] = useState(1);
-  const [queryParams, setQueryParams] = useState<any>({});
+  const [queryParams, setQueryParams] = useState<JobListQuery>({});
   const [quickSavingId, setQuickSavingId] = useState<string | null>(null);
   const [applicationBrief, setApplicationBrief] = useState<JobApplicationBrief | null>(null);
   const router = useRouter();
@@ -217,40 +218,40 @@ export default function HomePage() {
   }, [searchParams]);
 
   // 请求岗位数据（带分页）
-  const loadJobList = (params: any = {}, page = currentPage) => {
-    if (!params.recruitmentTypeExcept) {
-      params.recruitmentTypeExcept = "实习";
-    }
+  const loadJobList = (params: JobListQuery = {}, page = currentPage) => {
+    const nextParams: JobListQuery = {
+      recruitmentTypeExcept: "实习",
+      ...params,
+    };
 
     // 查询实习相关的岗位
     fetchJobList({
       page,
       size: itemsPerPage,
-      ...params,
+      ...nextParams,
     })
       .then(async (data: JobListResponse) => {
-        const mapped = data.list.map((item: any) => ({
+        const mapped: JobOffer[] = data.list.map((item) => ({
           id: item.id,
-          companyName: item.companyName,
-          companyType: item.companyType,
-          companyIndustry: item.companyIndustry,
-          location: item.jobLocation,
-          recruitmentType: item.recruitmentType,
-          recruitmentTarget: item.recruitmentTarget,
-          position: item.position,
-          applicationProgress: item.deliveryProgress,
+          companyName: item.companyName || "",
+          companyType: item.companyType || "",
+          companyIndustry: item.companyIndustry || "",
+          location: item.jobLocation || "",
+          recruitmentType: item.recruitmentType || "",
+          recruitmentTarget: item.recruitmentTarget || "",
+          position: item.position || "",
+          applicationProgress: item.deliveryProgress || "",
           updateTime: item.lastUpdatedTime
             ? item.lastUpdatedTime.split("T")[0]
             : "",
-          deadline: item.deadline,
-          relatedLinks: item.relatedLink,
-          recruitmentNotice: item.jobAnnouncement,
-          referralCode: item.internalReferralCode,
-          notes: item.remarks,
+          deadline: item.deadline || "",
+          relatedLinks: item.relatedLink || "",
+          recruitmentNotice: item.jobAnnouncement || "",
+          referralCode: item.internalReferralCode || "",
+          notes: item.remarks || "",
         }));
         setLocked(data.locked);
         setTotal(data.total);
-        console.log("当前在线人数:", data.online);
         setOnline(data.online ? data.online : 1);
         if (!userInfo || data.locked || mapped.length === 0) {
           setFilteredOffers(mapped);
@@ -277,7 +278,7 @@ export default function HomePage() {
           setFilteredOffers(mapped);
         }
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         console.error("获取岗位数据失败", err);
       });
   };
