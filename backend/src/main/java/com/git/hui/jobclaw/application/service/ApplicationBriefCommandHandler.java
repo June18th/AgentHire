@@ -6,6 +6,7 @@ import com.git.hui.jobclaw.core.cli.SystemCommandHandler;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
 import com.git.hui.jobclaw.web.model.res.JobApplicationBriefVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationEventVo;
+import com.git.hui.jobclaw.web.model.res.JobApplicationReviewVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationVo;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -43,6 +44,11 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
                     """);
         }
 
+        if (matchesReviewCommand(command)) {
+            JobApplicationReviewVo review = jobApplicationService.review(userId);
+            return process.apply(formatReview(review));
+        }
+
         int limit = parseLimit(command);
         JobApplicationBriefVo brief = jobApplicationService.brief(userId, limit);
         return process.apply(formatBrief(brief, limit));
@@ -50,7 +56,9 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
 
     @Override
     public boolean supports(String command) {
-        return matchesCommand(command, "/brief") || matchesCommand(command, "/today");
+        return matchesCommand(command, "/brief")
+                || matchesCommand(command, "/today")
+                || matchesReviewCommand(command);
     }
 
     @Override
@@ -65,7 +73,7 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
 
     @Override
     public String getDescription() {
-        return "查看今日投递行动简报，也可使用 /today";
+        return "查看今日投递行动简报；/review 查看本周复盘";
     }
 
     private String formatBrief(JobApplicationBriefVo brief, int limit) {
@@ -96,6 +104,35 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
 
         appendActions(sb, brief.getTopActions(), limit);
         appendEvents(sb, brief.getUpcomingEvents(), limit);
+        return sb.toString();
+    }
+
+    private String formatReview(JobApplicationReviewVo review) {
+        // AIDEV-NOTE: AI-GENERATED weekly review
+        if (review == null || value(review.getTotal()) == 0) {
+            return """
+                    本周投递复盘
+
+                    还没有投递记录。可以先从岗位库筛选目标，再把感兴趣的岗位加入“我的投递”。
+                    """;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("本周投递复盘\n\n");
+        if (StringUtils.hasText(review.getSummary())) {
+            sb.append(review.getSummary()).append("\n\n");
+        }
+        sb.append("本周进展：")
+                .append("新增 ").append(value(review.getCreatedThisWeek()))
+                .append("，流程推进 ").append(value(review.getSubmittedAndLaterThisWeek()))
+                .append("，笔面试 ").append(value(review.getInterviewThisWeek()))
+                .append("，Offer ").append(value(review.getOfferThisWeek()))
+                .append("。\n");
+        sb.append("风险队列：")
+                .append("逾期跟进 ").append(value(review.getOverdueFollowUps()))
+                .append("，静默投递 ").append(value(review.getStaleSubmitted()))
+                .append("。\n");
+        sb.append("建议：先处理逾期和静默投递，再补齐面试复盘、下一次跟进时间和材料版本。");
         return sb.toString();
     }
 
@@ -171,6 +208,10 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
         }
         String trimmed = command.trim();
         return trimmed.equals(expected) || trimmed.startsWith(expected + " ");
+    }
+
+    private static boolean matchesReviewCommand(String command) {
+        return matchesCommand(command, "/review") || matchesCommand(command, "/weekly");
     }
 
     private static String formatTime(Long timestamp) {

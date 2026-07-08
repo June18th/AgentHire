@@ -4,6 +4,7 @@ import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.web.model.res.JobApplicationBriefVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationEventVo;
+import com.git.hui.jobclaw.web.model.res.JobApplicationReviewVo;
 import com.git.hui.jobclaw.web.model.res.JobApplicationVo;
 import org.junit.jupiter.api.Test;
 
@@ -75,8 +76,41 @@ class ApplicationBriefCommandHandlerTest {
         assertThat(handler.supports("/brief 5")).isTrue();
         assertThat(handler.supports("/today")).isTrue();
         assertThat(handler.supports("/today now")).isTrue();
+        assertThat(handler.supports("/review")).isTrue();
+        assertThat(handler.supports("/weekly")).isTrue();
+        assertThat(handler.supports("/review now")).isTrue();
         assertThat(handler.supports("/briefing")).isFalse();
         assertThat(handler.supports("/todayish")).isFalse();
+        assertThat(handler.supports("/reviewing")).isFalse();
+    }
+
+    @Test
+    void rendersWeeklyReviewForBoundUser() {
+        JobApplicationService service = mock(JobApplicationService.class);
+        ApplicationBriefCommandHandler handler = new ApplicationBriefCommandHandler(service);
+        when(service.review(7L)).thenReturn(new JobApplicationReviewVo()
+                .setTotal(6)
+                .setCreatedThisWeek(2)
+                .setSubmittedAndLaterThisWeek(3)
+                .setInterviewThisWeek(1)
+                .setOfferThisWeek(1)
+                .setOverdueFollowUps(1)
+                .setStaleSubmitted(2)
+                .setSummary("本周复盘发现 2 条投递超过 7 天未跟进，建议集中补一次状态确认。"));
+
+        AtomicReference<String> response = new AtomicReference<>();
+
+        boolean handled = handler.handle(message(), conversation("7"), "/review", content -> {
+            response.set(content);
+            return true;
+        });
+
+        assertThat(handled).isTrue();
+        assertThat(response.get()).contains("本周投递复盘");
+        assertThat(response.get()).contains("流程推进 3");
+        assertThat(response.get()).contains("逾期跟进 1");
+        assertThat(response.get()).contains("静默投递 2");
+        verify(service).review(7L);
     }
 
     @Test
