@@ -103,6 +103,19 @@ class JobApplicationActionAdvisorTest {
         assertThat(signal.suggestedNextAction()).contains("无需继续跟进");
     }
 
+    @Test
+    void processStageWithoutFollowUpBecomesMediumPriority() {
+        JobApplicationEntity entity = base(JobApplicationStatusEnum.INTERVIEW_1)
+                .setDeadline("2026-08-01");
+
+        JobApplicationActionAdvisor.ActionSignal signal = JobApplicationActionAdvisor.evaluate(entity, atStart("2026-07-07"));
+
+        assertThat(signal.deadlineRisk()).isEqualTo("NORMAL");
+        assertThat(signal.actionPriority()).isEqualTo("B");
+        assertThat(signal.suggestedNextAction()).contains("设置下一次跟进提醒");
+        assertThat(signal.actionReason()).contains("尚未设置下一次跟进");
+    }
+
     private static JobApplicationEntity base(JobApplicationStatusEnum status) {
         return new JobApplicationEntity().setCurrentStatus(status.getCode());
     }

@@ -40,10 +40,11 @@ public class JobApplicationActionAdvisor {
                 && entity.getNextFollowUpAt() == null
                 && daysSinceSubmitted != null
                 && daysSinceSubmitted >= 7;
+        boolean processNeedsFollowUp = !terminal && entity.getNextFollowUpAt() == null && needsFollowUp(status);
 
-        String priority = actionPriority(status, deadlineRisk, followUpOverdue, staleSubmitted);
-        String nextAction = nextAction(status, deadlineRisk, followUpOverdue, staleSubmitted);
-        String reason = actionReason(deadlineRisk, followUpOverdue, daysUntilDeadline, status, staleSubmitted, daysSinceSubmitted);
+        String priority = actionPriority(status, deadlineRisk, followUpOverdue, staleSubmitted, processNeedsFollowUp);
+        String nextAction = nextAction(status, deadlineRisk, followUpOverdue, staleSubmitted, processNeedsFollowUp);
+        String reason = actionReason(deadlineRisk, followUpOverdue, daysUntilDeadline, status, staleSubmitted, daysSinceSubmitted, processNeedsFollowUp);
         Long deadlineAt = deadlineDate == null ? null : deadlineDate.atStartOfDay(ZONE).toInstant().toEpochMilli();
 
         return new ActionSignal(deadlineAt, daysUntilDeadline, deadlineRisk, followUpOverdue, priority, nextAction, reason);
@@ -109,14 +110,14 @@ public class JobApplicationActionAdvisor {
     }
 
     private static String actionPriority(JobApplicationStatusEnum status, String deadlineRisk, boolean followUpOverdue,
-                                         boolean staleSubmitted) {
+                                         boolean staleSubmitted, boolean processNeedsFollowUp) {
         if (status != null && status.isTerminal()) {
             return "NONE";
         }
         if (followUpOverdue || "DUE_TODAY".equals(deadlineRisk) || "DUE_SOON".equals(deadlineRisk)) {
             return "A";
         }
-        if (staleSubmitted || "EXPIRED".equals(deadlineRisk) || "THIS_WEEK".equals(deadlineRisk)) {
+        if (staleSubmitted || processNeedsFollowUp || "EXPIRED".equals(deadlineRisk) || "THIS_WEEK".equals(deadlineRisk)) {
             return "B";
         }
         if (status == JobApplicationStatusEnum.INTERESTED || status == JobApplicationStatusEnum.PREPARING
@@ -127,7 +128,7 @@ public class JobApplicationActionAdvisor {
     }
 
     private static String nextAction(JobApplicationStatusEnum status, String deadlineRisk, boolean followUpOverdue,
-                                     boolean staleSubmitted) {
+                                     boolean staleSubmitted, boolean processNeedsFollowUp) {
         if (status != null && status.isTerminal()) {
             return "已结束，无需继续跟进。";
         }
@@ -145,6 +146,9 @@ public class JobApplicationActionAdvisor {
         }
         if ("DUE_SOON".equals(deadlineRisk)) {
             return "临近截止，今天安排材料准备和投递。";
+        }
+        if (processNeedsFollowUp) {
+            return "流程已推进，补充面试/沟通复盘，并设置下一次跟进提醒。";
         }
         if (status == JobApplicationStatusEnum.INTERESTED) {
             return "评估岗位匹配度，决定是否进入准备。";
@@ -167,7 +171,7 @@ public class JobApplicationActionAdvisor {
 
     private static String actionReason(String deadlineRisk, boolean followUpOverdue, Integer daysUntilDeadline,
                                        JobApplicationStatusEnum status, boolean staleSubmitted,
-                                       Integer daysSinceSubmitted) {
+                                       Integer daysSinceSubmitted, boolean processNeedsFollowUp) {
         if (status != null && status.isTerminal()) {
             return "投递流程已结束。";
         }
@@ -176,6 +180,9 @@ public class JobApplicationActionAdvisor {
         }
         if (staleSubmitted && daysSinceSubmitted != null) {
             return "已投递 " + daysSinceSubmitted + " 天，尚未设置下一次跟进。";
+        }
+        if (processNeedsFollowUp) {
+            return "当前已进入流程阶段，但尚未设置下一次跟进。";
         }
         if ("UNKNOWN".equals(deadlineRisk)) {
             return "截止时间尚未规范化。";
@@ -190,6 +197,14 @@ public class JobApplicationActionAdvisor {
             return "距离投递截止还有 " + daysUntilDeadline + " 天。";
         }
         return "当前状态需要复核。";
+    }
+
+    private static boolean needsFollowUp(JobApplicationStatusEnum status) {
+        return status == JobApplicationStatusEnum.WRITTEN_TEST
+                || status == JobApplicationStatusEnum.INTERVIEW_1
+                || status == JobApplicationStatusEnum.INTERVIEW_2
+                || status == JobApplicationStatusEnum.HR_INTERVIEW
+                || status == JobApplicationStatusEnum.OFFER;
     }
 
     public record ActionSignal(Long deadlineAt,
