@@ -142,15 +142,19 @@ The action signal layer is now surfaced in the main personal job-search pages:
 
 | Page | Integration |
 |---|---|
-| `/` | Shows a compact "today's action" entry point next to the job list. |
-| `/applications` | Shows action priority cards, stage board, row hints, detail reasons, the next key event in application detail, today's event preparation hints, and CSV export fields. |
-| `/calendar` | Adds an action-priority side panel next to deadline, follow-up, and event dates, with preparation hints for written-test/interview/HR/Offer events. |
-| `/materials` | Shows material-related application actions for resume and portfolio preparation. |
+| `/` | Shows a compact "today's action" entry point next to the job list, including A-priority, overdue follow-up, due-today, due-soon, stale-submitted, and today-event metrics. |
+| `/applications` | Shows action priority cards, quiet-submission review, stage board, row hints, detail reasons, status-aware event templates, the next key event in application detail, today's event preparation hints, and CSV export fields. |
+| `/calendar` | Adds an action-priority side panel next to deadline, follow-up, and event dates; uses parsed `deadlineAt` before raw deadline text; supports completing follow-ups inline and exporting the current month/week schedule as CSV. |
+| `/materials` | Shows material-related application actions for resume and portfolio preparation, and can copy a per-application material kit with the primary resume, material links, snippets, and next-step advice. |
 | Global nav | Shows a live action count beside "我的求职" and refreshes after application changes. |
 
 CSV exports from `/applications` include the deterministic action fields so weekly review can happen outside the app when needed.
 
-When the user clicks "已跟进" in `/applications`, the success toast displays the returned `nextFollowUpAt` so the user can see the next reminder that was set by the backend.
+When the user clicks "已跟进" in `/applications` or `/calendar`, the backend writes a `FOLLOW_UP` event and returns a refreshed `nextFollowUpAt` so the user can see the next reminder that was set.
+
+The `/calendar` CSV export is intentionally lightweight. It is meant for weekly planning, backup, and import into external tools, not as a replacement for the in-app timeline.
+
+The `/materials` page currently stores resume versions, material links, snippets, and checklist state in browser local storage. The copied material kit is a practical bridge for outreach, email, and manual application forms until a persisted material-application relation is added.
 
 ## Next Practical Slice
 
@@ -161,6 +165,6 @@ Use `actionPriority`, `deadlineRisk`, and `suggestedNextAction` as deterministic
 Suggested next backend/frontend slices:
 
 - IM daily briefing: reuse the `/brief` command formatter and send only when `actionCount > 0`.
-- Quiet-submission review: surface B-priority submitted records as "投递已超过 7 天未跟进".
-- Event templates: make written-test/interview/offer events easy to create from application detail.
-- Material linkage: allow resume versions or portfolio links to be associated with a specific application.
+- Persisted material linkage: allow resume versions or portfolio links to be associated with a specific application instead of only local browser state.
+- Proactive reminders: schedule daily IM reminders based on `/brief`, quiet-submission review, due-soon deadlines, and upcoming key events.
+- Review analytics: add weekly summaries for conversion rate, stale submitted records, interview outcomes, and offer decisions.
