@@ -126,6 +126,19 @@ export interface JobApplicationBrief {
   topActions: JobApplicationItem[]
 }
 
+export interface JobApplicationReview {
+  weekStart: number
+  weekEnd: number
+  total: number
+  createdThisWeek: number
+  submittedAndLaterThisWeek: number
+  interviewThisWeek: number
+  offerThisWeek: number
+  overdueFollowUps: number
+  staleSubmitted: number
+  summary: string
+}
+
 export interface JobApplicationSaveReq {
   id?: number
   jobId?: number
@@ -187,6 +200,11 @@ export async function fetchJobApplicationActionItems(limit = 20, scope?: JobAppl
 export async function fetchJobApplicationBrief(limit = 5): Promise<JobApplicationBrief> {
   const res = await api.get("/api/user/applications/brief", { params: { limit } })
   return unwrap<JobApplicationBrief>(res.data, "获取求职行动简报失败")
+}
+
+export async function fetchJobApplicationReview(): Promise<JobApplicationReview> {
+  const res = await api.get("/api/user/applications/review")
+  return unwrap<JobApplicationReview>(res.data, "获取本周投递复盘失败")
 }
 
 export async function saveJobApplication(req: JobApplicationSaveReq): Promise<JobApplicationItem> {

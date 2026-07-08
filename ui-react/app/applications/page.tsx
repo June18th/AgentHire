@@ -21,6 +21,7 @@ import {
   fetchJobApplicationActionItems,
   fetchJobApplicationDetail,
   fetchJobApplicationEventsByDay,
+  fetchJobApplicationReview,
   fetchJobApplications,
   reopenJobApplication,
   saveJobApplication,
@@ -29,6 +30,7 @@ import {
   type JobApplicationEvent,
   type JobApplicationFollowUpScope,
   type JobApplicationItem,
+  type JobApplicationReview,
   type JobApplicationStatus,
 } from "@/lib/job-application-api"
 
@@ -429,6 +431,7 @@ export default function ApplicationsPage() {
   const [records, setRecords] = useState<JobApplicationItem[]>([])
   const [summaryRecords, setSummaryRecords] = useState<JobApplicationItem[]>([])
   const [actionItems, setActionItems] = useState<JobApplicationItem[]>([])
+  const [serverWeeklyReview, setServerWeeklyReview] = useState<JobApplicationReview | null>(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [companyName, setCompanyName] = useState("")
@@ -536,7 +539,7 @@ export default function ApplicationsPage() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
   }, [summaryRecords])
-  const weeklyReview = useMemo(() => {
+  const localWeeklyReview = useMemo(() => {
     const weekStart = startOfWeekTime()
     const stats = {
       created: summaryRecords.filter((record) => (record.createTime || 0) >= weekStart).length,
@@ -551,6 +554,21 @@ export default function ApplicationsPage() {
       hint: weeklyReviewHint(stats),
     }
   }, [summaryRecords, staleSubmittedRecords])
+  const weeklyReview = useMemo(() => {
+    if (!serverWeeklyReview) return localWeeklyReview
+    const stats = {
+      created: serverWeeklyReview.createdThisWeek || 0,
+      submittedAndLater: serverWeeklyReview.submittedAndLaterThisWeek || 0,
+      interviews: serverWeeklyReview.interviewThisWeek || 0,
+      offers: serverWeeklyReview.offerThisWeek || 0,
+      overdue: serverWeeklyReview.overdueFollowUps || 0,
+      stale: serverWeeklyReview.staleSubmitted || 0,
+    }
+    return {
+      ...stats,
+      hint: serverWeeklyReview.summary || weeklyReviewHint(stats),
+    }
+  }, [localWeeklyReview, serverWeeklyReview])
   const conversionBase = Math.max(1, submittedAndLaterCount)
   const offerCount = useMemo(() => summaryRecords.filter((record) => ["OFFER", "ACCEPTED"].includes(record.currentStatus)).length, [summaryRecords])
   const hasActiveFilters = companyName.trim() !== "" || position.trim() !== "" || status !== "all" || companyType !== "all" || followUpScope !== "all" || attention !== "all"
@@ -596,6 +614,15 @@ export default function ApplicationsPage() {
     }
   }
 
+  const loadWeeklyReview = async () => {
+    if (!userInfo) return
+    try {
+      setServerWeeklyReview(await fetchJobApplicationReview())
+    } catch {
+      setServerWeeklyReview(null)
+    }
+  }
+
   const loadTodayEvents = async () => {
     if (!userInfo) return
     const today = formatDateOnly(Date.now())
@@ -633,6 +660,7 @@ export default function ApplicationsPage() {
   useEffect(() => {
     loadRecords()
     loadSummaryRecords()
+    loadWeeklyReview()
     loadTodayEvents()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInfo, page, status, companyType, followUpScope, attention])
@@ -647,12 +675,14 @@ export default function ApplicationsPage() {
     if (page === 1) {
       loadRecords()
       loadSummaryRecords()
+      loadWeeklyReview()
     }
   }
 
   const handleRefresh = () => {
     loadRecords()
     loadSummaryRecords()
+    loadWeeklyReview()
     loadTodayEvents()
     loadActionItems()
   }
@@ -676,6 +706,7 @@ export default function ApplicationsPage() {
       setRecords((listRes.list || []).slice(0, PAGE_SIZE))
       setTotal(listRes.total || 0)
       setSummaryRecords(summaryRes.list || [])
+      loadWeeklyReview()
       loadActionItems()
     } catch (error) {
       toast({
@@ -804,6 +835,7 @@ export default function ApplicationsPage() {
       toast({ title: editingRecord ? "投递记录已更新" : "投递记录已保存" })
       loadRecords()
       loadSummaryRecords()
+      loadWeeklyReview()
       loadActionItems()
     } catch (error) {
       toast({
@@ -829,6 +861,7 @@ export default function ApplicationsPage() {
       if (detail?.id === record.id) {
         setDetail(null)
       }
+      loadWeeklyReview()
       toast({ title: "投递记录已删除" })
     } catch (error) {
       toast({
@@ -938,6 +971,7 @@ export default function ApplicationsPage() {
       loadTodayEvents()
       loadRecords()
       loadSummaryRecords()
+      loadWeeklyReview()
       loadActionItems()
       toast({ title: "投递事件已保存" })
     } catch (error) {
@@ -962,6 +996,7 @@ export default function ApplicationsPage() {
       }
       const nextFollowUpText = updated.nextFollowUpAt ? `；下次跟进：${displayDate(updated.nextFollowUpAt)}` : ""
       toast({ title: "状态已更新", description: `${record.companyName} / ${statusLabel(targetStatus)}${nextFollowUpText}` })
+      loadWeeklyReview()
       loadActionItems()
     } catch (error) {
       toast({
@@ -983,6 +1018,7 @@ export default function ApplicationsPage() {
       toast({ title: "已重新打开", description: `${record.companyName} / ${record.position}` })
       loadRecords()
       loadSummaryRecords()
+      loadWeeklyReview()
       loadActionItems()
     } catch (error) {
       toast({
@@ -1009,6 +1045,7 @@ export default function ApplicationsPage() {
       toast({ title: "已记录本次跟进", description: `${record.companyName} / ${record.position}；${nextFollowUpText}` })
       loadRecords()
       loadSummaryRecords()
+      loadWeeklyReview()
       loadActionItems()
     } catch (error) {
       toast({
