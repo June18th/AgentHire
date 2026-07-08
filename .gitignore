@@ -73,6 +73,10 @@ workspace/datas/jobclaw.trace.db
 workspace/datas/jobclaw.mv.db
 workspace/datas/jobclaw-my.trace.db
 workspace/datas/jobclaw-my.mv.db
+workspace/datas/*-import.sql
+workspace/datas/*-jobs.csv
+workspace/datas/*-jobs.json
+workspace/datas/*-preview.png
 workspace/channel
 workspace/conversations
 workspace/AGENT.private.md
