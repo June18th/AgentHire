@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { useLoginUser } from "@/hooks/useLoginUser"
 import { useToast } from "@/hooks/use-toast"
 import {
+  completeJobApplicationFollowUp,
   fetchJobApplicationActionItems,
   fetchJobApplicationEventsByDay,
   fetchJobApplications,
@@ -295,6 +296,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<JobApplicationEvent[]>([])
   const [actionItems, setActionItems] = useState<JobApplicationItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [completingFollowUpId, setCompletingFollowUpId] = useState<number | null>(null)
   const [selectedDateKey, setSelectedDateKey] = useState(() => formatDateKey(new Date()))
 
   const todayKey = formatDateKey(new Date())
@@ -369,6 +371,28 @@ export default function CalendarPage() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
+  }
+
+  // AI-GENERATED AIDEV-NOTE: inline follow-up closure
+  const handleCompleteFollowUp = async (applicationId?: number) => {
+    if (!applicationId) return
+    setCompletingFollowUpId(applicationId)
+    try {
+      await completeJobApplicationFollowUp({
+        id: applicationId,
+        note: "从求职日历完成跟进",
+      })
+      toast({ title: "已记录本次跟进", description: "已自动设置下一次跟进提醒。" })
+      await loadCalendar()
+    } catch (error) {
+      toast({
+        title: "完成跟进失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+        variant: "destructive",
+      })
+    } finally {
+      setCompletingFollowUpId(null)
+    }
   }
 
   if (!userInfo) {
@@ -481,7 +505,12 @@ export default function CalendarPage() {
             </div>
             <div className="mt-3 grid gap-2">
               {actionItems.slice(0, 5).map((item) => (
-                <CalendarActionItem key={item.id} item={item} />
+                <CalendarActionItem
+                  key={item.id}
+                  item={item}
+                  completing={completingFollowUpId === item.id}
+                  onCompleteFollowUp={() => handleCompleteFollowUp(item.id)}
+                />
               ))}
               {!actionItems.length ? <div className="text-sm text-content-tertiary">暂无高优先级行动项</div> : null}
             </div>
@@ -504,7 +533,12 @@ export default function CalendarPage() {
             </div>
             <div className="mt-3 grid gap-2">
               {overdueItems.slice(0, 5).map((item) => (
-                <CalendarListItem key={item.id} item={item} />
+                <CalendarListItem
+                  key={item.id}
+                  item={item}
+                  completing={item.applicationId != null && completingFollowUpId === item.applicationId}
+                  onCompleteFollowUp={() => handleCompleteFollowUp(item.applicationId)}
+                />
               ))}
               {!overdueItems.length ? <div className="text-sm text-content-tertiary">暂无逾期事项</div> : null}
             </div>
@@ -522,7 +556,12 @@ export default function CalendarPage() {
             </div>
             <div className="mt-3 grid gap-2">
               {selectedItems.map((item) => (
-                <CalendarListItem key={item.id} item={item} />
+                <CalendarListItem
+                  key={item.id}
+                  item={item}
+                  completing={item.applicationId != null && completingFollowUpId === item.applicationId}
+                  onCompleteFollowUp={() => handleCompleteFollowUp(item.applicationId)}
+                />
               ))}
               {!selectedItems.length ? <div className="rounded-md border border-dashed p-4 text-center text-sm text-content-tertiary">这一天没有求职安排</div> : null}
             </div>
@@ -533,7 +572,13 @@ export default function CalendarPage() {
             <p className="mt-1 text-xs text-content-tertiary">从今天起最近的求职事项。</p>
             <div className="mt-3 grid gap-2">
               {upcomingItems.map((item) => (
-                <CalendarListItem key={item.id} item={item} showDate />
+                <CalendarListItem
+                  key={item.id}
+                  item={item}
+                  showDate
+                  completing={item.applicationId != null && completingFollowUpId === item.applicationId}
+                  onCompleteFollowUp={() => handleCompleteFollowUp(item.applicationId)}
+                />
               ))}
               {!upcomingItems.length ? <div className="text-sm text-content-tertiary">暂无后续安排</div> : null}
             </div>
@@ -544,7 +589,17 @@ export default function CalendarPage() {
   )
 }
 
-function CalendarListItem({ item, showDate = false }: { item: CalendarItem; showDate?: boolean }) {
+function CalendarListItem({
+  item,
+  showDate = false,
+  completing = false,
+  onCompleteFollowUp,
+}: {
+  item: CalendarItem
+  showDate?: boolean
+  completing?: boolean
+  onCompleteFollowUp?: () => void
+}) {
   const icon =
     item.type === "deadline" ? (
       <AlertTriangle className="h-4 w-4" />
@@ -577,18 +632,39 @@ function CalendarListItem({ item, showDate = false }: { item: CalendarItem; show
           </div>
         </div>
         {item.applicationId ? (
-          <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-            <Link href={`/applications?applicationId=${item.applicationId}`} title="查看投递">
-              <ExternalLink className="h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="flex shrink-0 gap-1">
+            {item.type === "follow-up" ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                disabled={completing}
+                onClick={onCompleteFollowUp}
+              >
+                已跟进
+              </Button>
+            ) : null}
+            <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+              <Link href={`/applications?applicationId=${item.applicationId}`} title="查看投递">
+                <ExternalLink className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         ) : null}
       </div>
     </div>
   )
 }
 
-function CalendarActionItem({ item }: { item: JobApplicationItem }) {
+function CalendarActionItem({
+  item,
+  completing = false,
+  onCompleteFollowUp,
+}: {
+  item: JobApplicationItem
+  completing?: boolean
+  onCompleteFollowUp?: () => void
+}) {
   const riskText = deadlineRiskLabel(item.deadlineRisk)
   const showPriority = hasActionPriority(item)
 
@@ -613,11 +689,24 @@ function CalendarActionItem({ item }: { item: JobApplicationItem }) {
             {item.nextFollowUpAt ? <span>跟进：{formatDateKey(item.nextFollowUpAt)}</span> : null}
           </div>
         </div>
-        <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-          <Link href={`/applications?applicationId=${item.id}`} title="查看投递">
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-        </Button>
+        <div className="flex shrink-0 gap-1">
+          {item.nextFollowUpAt ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              disabled={completing}
+              onClick={onCompleteFollowUp}
+            >
+              已跟进
+            </Button>
+          ) : null}
+          <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+            <Link href={`/applications?applicationId=${item.id}`} title="查看投递">
+              <ExternalLink className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
       </div>
     </div>
   )
