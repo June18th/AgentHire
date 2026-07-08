@@ -63,8 +63,9 @@ public class JobApplicationController {
     }
 
     @GetMapping(path = "action-items")
-    public List<JobApplicationVo> actionItems(@RequestParam(required = false) Integer limit) {
-        return applicationService.actionItems(currentUserId(), limit);
+    public List<JobApplicationVo> actionItems(@RequestParam(required = false) Integer limit,
+                                              @RequestParam(required = false) String scope) {
+        return applicationService.actionItems(currentUserId(), limit, scope);
     }
 
     @GetMapping(path = "brief")

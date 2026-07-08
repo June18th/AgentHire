@@ -193,12 +193,17 @@ public class JobApplicationService {
     }
 
     public List<JobApplicationVo> actionItems(Long userId, Integer limit) {
+        return actionItems(userId, limit, null);
+    }
+
+    public List<JobApplicationVo> actionItems(Long userId, Integer limit, String scope) {
         Assert.notNull(userId, "Please login first");
         int size = limit == null ? 20 : Math.max(1, Math.min(limit, 100));
         return attachNextKeyEvents(JobApplicationConvert.toVoList(applicationRepository.findByUserIdAndStateNotAndCurrentStatusNotIn(
                         userId, DELETED, JobApplicationRepository.TERMINAL_STATUS_CODES)), userId)
                 .stream()
                 .filter(item -> !"NONE".equals(item.getActionPriority()))
+                .filter(item -> matchesActionScope(item, scope))
                 .sorted(actionItemComparator())
                 .limit(size)
                 .toList();
@@ -354,6 +359,20 @@ public class JobApplicationService {
 
     private boolean hasActionPriority(JobApplicationVo item) {
         return item != null && item.getActionPriority() != null && !"NONE".equals(item.getActionPriority());
+    }
+
+    private boolean matchesActionScope(JobApplicationVo item, String scope) {
+        if (!StringUtils.hasText(scope) || item == null) {
+            return true;
+        }
+        return switch (scope.trim().toUpperCase()) {
+            case "A" -> "A".equals(item.getActionPriority());
+            case "OVERDUE_FOLLOW_UP" -> Boolean.TRUE.equals(item.getFollowUpOverdue());
+            case "DUE_TODAY" -> "DUE_TODAY".equals(item.getDeadlineRisk());
+            case "DUE_SOON" -> "DUE_SOON".equals(item.getDeadlineRisk());
+            case "STALE_SUBMITTED" -> isStaleSubmitted(item);
+            default -> true;
+        };
     }
 
     private int countPriority(List<JobApplicationVo> items, String priority) {

@@ -142,6 +142,36 @@ class JobApplicationServiceTest {
     }
 
     @Test
+    void actionItemsCanBeFilteredBySmartScope() {
+        JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
+        JobApplicationService service = newService(applicationRepository);
+        Long userId = 7L;
+        when(applicationRepository.findByUserIdAndStateNotAndCurrentStatusNotIn(userId, -1, JobApplicationRepository.TERMINAL_STATUS_CODES))
+                .thenReturn(List.of(
+                        base(userId, JobApplicationStatusEnum.PREPARING)
+                                .setCompanyName("Alpha")
+                                .setPosition("Java backend")
+                                .setDeadline(LocalDate.now().toString()),
+                        base(userId, JobApplicationStatusEnum.SUBMITTED)
+                                .setCompanyName("Beta")
+                                .setPosition("Platform")
+                                .setSubmittedAt(Date.from(LocalDate.now().minusDays(8).atStartOfDay(ZoneId.systemDefault()).toInstant())),
+                        base(userId, JobApplicationStatusEnum.PREPARING)
+                                .setCompanyName("Gamma")
+                                .setPosition("Frontend")
+                                .setDeadline(LocalDate.now().plusDays(5).toString())
+                ));
+
+        List<JobApplicationVo> dueToday = service.actionItems(userId, 20, "DUE_TODAY");
+        List<JobApplicationVo> staleSubmitted = service.actionItems(userId, 20, "STALE_SUBMITTED");
+        List<JobApplicationVo> priorityA = service.actionItems(userId, 20, "A");
+
+        assertThat(dueToday).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
+        assertThat(staleSubmitted).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta");
+        assertThat(priorityA).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
+    }
+
+    @Test
     void detailExposesNextKeyEvent() {
         JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
         JobApplicationEventRepository eventRepository = mock(JobApplicationEventRepository.class);

@@ -18,6 +18,7 @@ export type JobApplicationStatus =
   | "CLOSED"
 
 export type JobApplicationFollowUpScope = "PENDING" | "OVERDUE"
+export type JobApplicationActionScope = "A" | "OVERDUE_FOLLOW_UP" | "DUE_TODAY" | "DUE_SOON" | "STALE_SUBMITTED"
 export type JobApplicationDeadlineRisk = "NONE" | "UNKNOWN" | "EXPIRED" | "DUE_TODAY" | "DUE_SOON" | "THIS_WEEK" | "NORMAL" | string
 export type JobApplicationActionPriority = "A" | "B" | "C" | "NONE" | string
 export type JobApplicationEventUrgency = "UNKNOWN" | "PAST" | "TODAY" | "TOMORROW" | "THIS_WEEK" | "LATER" | string
@@ -178,8 +179,8 @@ export async function fetchJobApplicationDetail(id: number): Promise<JobApplicat
   return unwrap<JobApplicationItem>(res.data, "获取投递详情失败")
 }
 
-export async function fetchJobApplicationActionItems(limit = 20): Promise<JobApplicationItem[]> {
-  const res = await api.get("/api/user/applications/action-items", { params: { limit } })
+export async function fetchJobApplicationActionItems(limit = 20, scope?: JobApplicationActionScope): Promise<JobApplicationItem[]> {
+  const res = await api.get("/api/user/applications/action-items", { params: { limit, scope } })
   return unwrap<JobApplicationItem[]>(res.data, "获取投递行动项失败")
 }
 

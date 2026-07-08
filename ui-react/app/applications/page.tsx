@@ -25,6 +25,7 @@ import {
   reopenJobApplication,
   saveJobApplication,
   saveJobApplicationEvent,
+  type JobApplicationActionScope,
   type JobApplicationEvent,
   type JobApplicationFollowUpScope,
   type JobApplicationItem,
@@ -132,6 +133,15 @@ const COMPANY_TYPE_OPTIONS = [
 const FOLLOW_UP_SCOPE_OPTIONS: Array<{ value: JobApplicationFollowUpScope; label: string }> = [
   { value: "PENDING", label: "待跟进" },
   { value: "OVERDUE", label: "已到期" },
+]
+
+const ACTION_SCOPE_OPTIONS: Array<{ value: "all" | JobApplicationActionScope; label: string }> = [
+  { value: "all", label: "全部行动" },
+  { value: "A", label: "A 级优先" },
+  { value: "OVERDUE_FOLLOW_UP", label: "逾期跟进" },
+  { value: "DUE_TODAY", label: "今日截止" },
+  { value: "DUE_SOON", label: "临近截止" },
+  { value: "STALE_SUBMITTED", label: "静默投递" },
 ]
 
 const NEXT_STATUS: Partial<Record<JobApplicationStatus, JobApplicationStatus[]>> = {
@@ -398,6 +408,7 @@ export default function ApplicationsPage() {
   const [companyType, setCompanyType] = useState("all")
   const [followUpScope, setFollowUpScope] = useState<"all" | JobApplicationFollowUpScope>("all")
   const [attention, setAttention] = useState("all")
+  const [actionScope, setActionScope] = useState<"all" | JobApplicationActionScope>("all")
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [eventSaving, setEventSaving] = useState(false)
@@ -426,6 +437,7 @@ export default function ApplicationsPage() {
   })
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const actionScopeLabel = ACTION_SCOPE_OPTIONS.find((item) => item.value === actionScope)?.label || "全部行动"
   const followUpSummary = useMemo(() => {
     const pendingRecords = summaryRecords.filter(isFollowUpPending)
     return {
@@ -555,7 +567,7 @@ export default function ApplicationsPage() {
   const loadActionItems = async () => {
     if (!userInfo) return
     try {
-      setActionItems(await fetchJobApplicationActionItems(20))
+      setActionItems(await fetchJobApplicationActionItems(20, actionScope === "all" ? undefined : actionScope))
     } catch {
       setActionItems([])
     }
@@ -574,9 +586,13 @@ export default function ApplicationsPage() {
     loadRecords()
     loadSummaryRecords()
     loadTodayEvents()
-    loadActionItems()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInfo, page, status, companyType, followUpScope, attention])
+
+  useEffect(() => {
+    loadActionItems()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userInfo, actionScope])
 
   const handleSearch = () => {
     setPage(1)
@@ -642,6 +658,10 @@ export default function ApplicationsPage() {
   const handleAttentionFilterChange = (value: string) => {
     setAttention(value)
     setPage(1)
+  }
+
+  const handleActionScopeChange = (value: "all" | JobApplicationActionScope) => {
+    setActionScope(value)
   }
 
   const resetApplicationForm = () => {
@@ -1074,11 +1094,25 @@ export default function ApplicationsPage() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-content-primary">行动优先级</h2>
-              <p className="mt-1 text-xs text-content-tertiary">按截止时间、跟进逾期和关注度自动排序，优先处理 A 级事项。</p>
+              <p className="mt-1 text-xs text-content-tertiary">当前查看：{actionScopeLabel}，按截止时间、跟进逾期和关注度自动排序。</p>
             </div>
-            <Badge variant="outline" className="rounded-md">
-              {actionItems.length} 条待处理
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={actionScope} onValueChange={(value) => handleActionScopeChange(value as "all" | JobApplicationActionScope)}>
+                <SelectTrigger className="h-8 w-36">
+                  <SelectValue placeholder="行动范围" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACTION_SCOPE_OPTIONS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge variant="outline" className="rounded-md">
+                {actionItems.length} 条待处理
+              </Badge>
+            </div>
           </div>
           {actionItems.length ? (
             <div className="grid gap-2 lg:grid-cols-2">
