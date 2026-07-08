@@ -1,14 +1,16 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
   AlertTriangle,
   BriefcaseBusiness,
   CheckCircle2,
   Clipboard,
+  Download,
   ExternalLink,
   FileText,
+  Upload,
   Link2,
   Plus,
   Star,
@@ -225,18 +227,22 @@ function buildApplicationKit(item: JobApplicationItem, state: MaterialsState) {
     .join("\n")
 }
 
+function normalizeMaterialsState(value: Partial<MaterialsState>): MaterialsState {
+  return {
+    resumes: Array.isArray(value.resumes) ? value.resumes : [],
+    links: Array.isArray(value.links) ? value.links : [],
+    snippets: Array.isArray(value.snippets) ? value.snippets : [],
+    checklist: Array.isArray(value.checklist) && value.checklist.length ? value.checklist : EMPTY_STATE.checklist,
+  }
+}
+
 function loadMaterials(storageKey: string): MaterialsState {
   if (typeof window === "undefined") return EMPTY_STATE
   const raw = localStorage.getItem(storageKey)
   if (!raw) return EMPTY_STATE
   try {
     const parsed = JSON.parse(raw) as Partial<MaterialsState>
-    return {
-      resumes: parsed.resumes || [],
-      links: parsed.links || [],
-      snippets: parsed.snippets || [],
-      checklist: parsed.checklist?.length ? parsed.checklist : EMPTY_STATE.checklist,
-    }
+    return normalizeMaterialsState(parsed)
   } catch {
     return EMPTY_STATE
   }
@@ -251,6 +257,7 @@ export default function MaterialsPage() {
   const [linkForm, setLinkForm] = useState(EMPTY_LINK_FORM)
   const [snippetForm, setSnippetForm] = useState(EMPTY_SNIPPET_FORM)
   const [actionItems, setActionItems] = useState<JobApplicationItem[]>([])
+  const importInputRef = useRef<HTMLInputElement | null>(null)
   const storageKey = userInfo ? `jobclaw-materials-${userInfo.userId}` : ""
   const displayName = userInfo?.nickname || `用户${userInfo?.userId || ""}`
   const userInitial = displayName.slice(0, 1) || "U"
@@ -385,6 +392,42 @@ export default function MaterialsPage() {
     toast({ title: "已复制到剪贴板" })
   }
 
+  const exportMaterials = () => {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      userId: userInfo?.userId,
+      materials: state,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `jobclaw-materials-${userInfo?.userId || "backup"}-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  // AI-GENERATED AIDEV-NOTE: local material backup
+  const importMaterials = async (file?: File) => {
+    if (!file) return
+    try {
+      const raw = await file.text()
+      const parsed = JSON.parse(raw) as { materials?: Partial<MaterialsState> } & Partial<MaterialsState>
+      const nextState = normalizeMaterialsState(parsed.materials || parsed)
+      setState(nextState)
+      toast({ title: "材料备份已导入", description: "已覆盖当前浏览器里的材料工作台数据。" })
+    } catch {
+      toast({ title: "导入失败", description: "请选择从 JobClaw 导出的材料 JSON 文件。", variant: "destructive" })
+    } finally {
+      if (importInputRef.current) {
+        importInputRef.current.value = ""
+      }
+    }
+  }
+
   const resetChecklist = () => {
     setState((current) => ({ ...current, checklist: current.checklist.map((item) => ({ ...item, checked: false })) }))
   }
@@ -411,12 +454,29 @@ export default function MaterialsPage() {
               维护简历版本、作品集链接和常用话术，投递前快速确认材料是否就绪。
             </p>
           </div>
-          <Button asChild variant="outline" className="gap-2">
-            <Link href="/applications">
-              <ExternalLink className="h-4 w-4" />
-              查看投递
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(event) => importMaterials(event.target.files?.[0])}
+            />
+            <Button variant="outline" className="gap-2" onClick={exportMaterials}>
+              <Download className="h-4 w-4" />
+              导出备份
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={() => importInputRef.current?.click()}>
+              <Upload className="h-4 w-4" />
+              导入备份
+            </Button>
+            <Button asChild variant="outline" className="gap-2">
+              <Link href="/applications">
+                <ExternalLink className="h-4 w-4" />
+                查看投递
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <section className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-surface-border bg-white p-4 shadow-sm">
