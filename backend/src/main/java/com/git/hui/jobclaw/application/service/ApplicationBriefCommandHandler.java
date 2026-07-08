@@ -98,6 +98,7 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
                 .append("，今日截止 ").append(value(brief.getDueToday()))
                 .append("，临近截止 ").append(value(brief.getDueSoon()))
                 .append("，静默投递 ").append(value(brief.getStaleSubmitted()))
+                .append("，流程待跟进 ").append(value(brief.getProcessNeedsFollowUp()))
                 .append("，今日日程 ").append(value(brief.getTodayEvents()))
                 .append("，未来 7 天关键日程 ").append(value(brief.getNext7DayEvents()))
                 .append("。\n");

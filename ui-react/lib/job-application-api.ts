@@ -117,6 +117,7 @@ export interface JobApplicationBrief {
   thisWeek: number
   submittedAndLater: number
   staleSubmitted: number
+  processNeedsFollowUp: number
   interview: number
   offer: number
   todayEvents: number

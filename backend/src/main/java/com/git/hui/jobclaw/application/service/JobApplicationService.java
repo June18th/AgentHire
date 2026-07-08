@@ -224,6 +224,7 @@ public class JobApplicationService {
         int dueSoon = (int) all.stream().filter(item -> "DUE_SOON".equals(item.getDeadlineRisk())).count();
         int thisWeek = (int) all.stream().filter(item -> "THIS_WEEK".equals(item.getDeadlineRisk())).count();
         int staleSubmitted = (int) all.stream().filter(this::isStaleSubmitted).count();
+        int processNeedsFollowUp = (int) all.stream().filter(this::isProcessNeedsFollowUp).count();
         int submittedAndLater = (int) all.stream().filter(item -> List.of(
                 JobApplicationStatusEnum.SUBMITTED.getCode(),
                 JobApplicationStatusEnum.WRITTEN_TEST.getCode(),
@@ -267,11 +268,13 @@ public class JobApplicationService {
                 .setThisWeek(thisWeek)
                 .setSubmittedAndLater(submittedAndLater)
                 .setStaleSubmitted(staleSubmitted)
+                .setProcessNeedsFollowUp(processNeedsFollowUp)
                 .setInterview(interview)
                 .setOffer(offer)
                 .setTodayEvents(todayEvents)
                 .setNext7DayEvents(next7DayEvents)
-                .setSummary(buildBriefSummary(actionItems.size(), overdueFollowUps, dueToday, dueSoon, staleSubmitted, interview, offer, todayEvents))
+                .setSummary(buildBriefSummary(actionItems.size(), overdueFollowUps, dueToday, dueSoon,
+                        staleSubmitted, processNeedsFollowUp, interview, offer, todayEvents))
                 .setUpcomingEvents(upcomingEvents)
                 .setTopActions(actionItems.stream().limit(size).toList());
     }
@@ -548,7 +551,9 @@ public class JobApplicationService {
                 .orElse(null);
     }
 
-    private String buildBriefSummary(int actionCount, int overdueFollowUps, int dueToday, int dueSoon, int staleSubmitted, int interview, int offer, int todayEvents) {
+    private String buildBriefSummary(int actionCount, int overdueFollowUps, int dueToday, int dueSoon,
+                                     int staleSubmitted, int processNeedsFollowUp, int interview,
+                                     int offer, int todayEvents) {
         if (overdueFollowUps > 0) {
             return "有 " + overdueFollowUps + " 条跟进已到期，建议优先处理。";
         }
@@ -566,6 +571,9 @@ public class JobApplicationService {
         }
         if (staleSubmitted > 0) {
             return "有 " + staleSubmitted + " 条投递超过 7 天未跟进，建议检查通知渠道并设置提醒。";
+        }
+        if (processNeedsFollowUp > 0) {
+            return "有 " + processNeedsFollowUp + " 条流程已推进但未设置跟进，建议补齐阶段复盘和下一次提醒。";
         }
         if (interview > 0) {
             return "当前有 " + interview + " 条笔面试流程，建议记录安排和复盘。";

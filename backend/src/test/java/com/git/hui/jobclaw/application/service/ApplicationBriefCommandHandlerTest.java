@@ -32,6 +32,7 @@ class ApplicationBriefCommandHandlerTest {
                 .setDueToday(1)
                 .setDueSoon(2)
                 .setStaleSubmitted(1)
+                .setProcessNeedsFollowUp(3)
                 .setTodayEvents(1)
                 .setNext7DayEvents(1)
                 .setSummary("有 1 条跟进已到期，建议优先处理。")
@@ -63,6 +64,7 @@ class ApplicationBriefCommandHandlerTest {
         assertThat(response.get()).contains("今日截止 1");
         assertThat(response.get()).contains("临近截止 2");
         assertThat(response.get()).contains("静默投递 1");
+        assertThat(response.get()).contains("流程待跟进 3");
         assertThat(response.get()).contains("Alpha / Backend");
         assertThat(response.get()).contains("准备项目复盘");
         verify(service).brief(7L, 5);

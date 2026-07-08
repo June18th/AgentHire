@@ -62,6 +62,7 @@ class JobApplicationServiceTest {
         assertThat(brief.getPriorityA()).isEqualTo(2);
         assertThat(brief.getOverdueFollowUps()).isEqualTo(1);
         assertThat(brief.getDueToday()).isEqualTo(1);
+        assertThat(brief.getProcessNeedsFollowUp()).isEqualTo(1);
         assertThat(brief.getInterview()).isEqualTo(1);
         assertThat(brief.getTopActions()).hasSize(2);
         assertThat(brief.getTopActions()).allMatch(item -> "A".equals(item.getActionPriority()));
@@ -85,6 +86,25 @@ class JobApplicationServiceTest {
         assertThat(brief.getPriorityB()).isEqualTo(1);
         assertThat(brief.getStaleSubmitted()).isEqualTo(1);
         assertThat(brief.getSummary()).isNotBlank();
+    }
+
+    @Test
+    void briefSummarizesProcessFollowUpGaps() {
+        JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
+        JobApplicationService service = newService(applicationRepository);
+        Long userId = 7L;
+        when(applicationRepository.findByUserIdAndStateNot(userId, -1)).thenReturn(List.of(
+                base(userId, JobApplicationStatusEnum.INTERVIEW_1)
+                        .setCompanyName("Sigma")
+                        .setPosition("Platform")
+        ));
+
+        JobApplicationBriefVo brief = service.brief(userId, 5);
+
+        assertThat(brief.getActionCount()).isEqualTo(1);
+        assertThat(brief.getPriorityB()).isEqualTo(1);
+        assertThat(brief.getProcessNeedsFollowUp()).isEqualTo(1);
+        assertThat(brief.getSummary()).contains("流程已推进但未设置跟进");
     }
 
     @Test

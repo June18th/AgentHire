@@ -20,6 +20,7 @@ public class JobApplicationBriefVo {
     private Integer thisWeek;
     private Integer submittedAndLater;
     private Integer staleSubmitted;
+    private Integer processNeedsFollowUp;
     private Integer interview;
     private Integer offer;
     private Integer todayEvents;
