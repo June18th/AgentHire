@@ -188,11 +188,13 @@ class JobApplicationServiceTest {
                 ));
 
         List<JobApplicationVo> dueToday = service.actionItems(userId, 20, "DUE_TODAY");
+        List<JobApplicationVo> thisWeek = service.actionItems(userId, 20, "THIS_WEEK");
         List<JobApplicationVo> staleSubmitted = service.actionItems(userId, 20, "STALE_SUBMITTED");
         List<JobApplicationVo> processNeedsFollowUp = service.actionItems(userId, 20, "PROCESS_NEEDS_FOLLOW_UP");
         List<JobApplicationVo> priorityA = service.actionItems(userId, 20, "A");
 
         assertThat(dueToday).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
+        assertThat(thisWeek).extracting(JobApplicationVo::getCompanyName).containsExactly("Gamma");
         assertThat(staleSubmitted).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta");
         assertThat(processNeedsFollowUp).extracting(JobApplicationVo::getCompanyName).containsExactly("Sigma");
         assertThat(priorityA).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");

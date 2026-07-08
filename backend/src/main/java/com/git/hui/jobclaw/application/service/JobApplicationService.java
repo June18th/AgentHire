@@ -412,6 +412,7 @@ public class JobApplicationService {
             case "OVERDUE_FOLLOW_UP" -> Boolean.TRUE.equals(item.getFollowUpOverdue());
             case "DUE_TODAY" -> "DUE_TODAY".equals(item.getDeadlineRisk());
             case "DUE_SOON" -> "DUE_SOON".equals(item.getDeadlineRisk());
+            case "THIS_WEEK" -> "THIS_WEEK".equals(item.getDeadlineRisk());
             case "STALE_SUBMITTED" -> isStaleSubmitted(item);
             case "PROCESS_NEEDS_FOLLOW_UP" -> isProcessNeedsFollowUp(item);
             default -> true;
