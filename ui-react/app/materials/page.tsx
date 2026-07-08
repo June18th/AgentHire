@@ -236,6 +236,17 @@ function normalizeMaterialsState(value: Partial<MaterialsState>): MaterialsState
   }
 }
 
+function isMaterialsLike(value: unknown): value is Partial<MaterialsState> {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as Partial<MaterialsState>
+  return (
+    Array.isArray(candidate.resumes) ||
+    Array.isArray(candidate.links) ||
+    Array.isArray(candidate.snippets) ||
+    Array.isArray(candidate.checklist)
+  )
+}
+
 function loadMaterials(storageKey: string): MaterialsState {
   if (typeof window === "undefined") return EMPTY_STATE
   const raw = localStorage.getItem(storageKey)
@@ -416,7 +427,11 @@ export default function MaterialsPage() {
     try {
       const raw = await file.text()
       const parsed = JSON.parse(raw) as { materials?: Partial<MaterialsState> } & Partial<MaterialsState>
-      const nextState = normalizeMaterialsState(parsed.materials || parsed)
+      const imported = parsed.materials || parsed
+      if (!isMaterialsLike(imported)) {
+        throw new Error("Invalid materials backup")
+      }
+      const nextState = normalizeMaterialsState(imported)
       setState(nextState)
       toast({ title: "材料备份已导入", description: "已覆盖当前浏览器里的材料工作台数据。" })
     } catch {
