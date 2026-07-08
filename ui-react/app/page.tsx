@@ -49,6 +49,7 @@ import {
   fetchJobApplicationBrief,
   JOB_APPLICATIONS_CHANGED_EVENT,
   saveJobApplication,
+  type JobApplicationActionScope,
   type JobApplicationBrief,
   type JobApplicationEvent,
   type JobApplicationItem,
@@ -84,6 +85,14 @@ const QUICK_STATUS_OPTIONS: Array<{ value: JobApplicationStatus; label: string }
   { value: "PREPARING", label: "准备投递" },
   { value: "SUBMITTED", label: "已投递" },
 ];
+
+interface BriefMetric {
+  label: string;
+  value: number;
+  className: string;
+  actionScope?: JobApplicationActionScope;
+  href?: string;
+}
 
 function jobStatusLabel(status?: string) {
   return QUICK_STATUS_OPTIONS.find((item) => item.value === status)?.label || status || "已加入";
@@ -427,14 +436,14 @@ export default function HomePage() {
   const actionItems = applicationBrief?.topActions || [];
   const upcomingEvents = applicationBrief?.upcomingEvents || [];
   const applicationActionCount = applicationBrief?.actionCount ?? actionItems.length;
-  const briefMetrics = applicationBrief
+  const briefMetrics: BriefMetric[] = applicationBrief
     ? [
-        { label: "A级优先", value: applicationBrief.priorityA, className: "text-red-600" },
-        { label: "逾期跟进", value: applicationBrief.overdueFollowUps, className: "text-red-600" },
-        { label: "今日截止", value: applicationBrief.dueToday, className: "text-amber-600" },
-        { label: "临近截止", value: applicationBrief.dueSoon, className: "text-amber-600" },
-        { label: "静默投递", value: applicationBrief.staleSubmitted, className: "text-blue-600" },
-        { label: "今日日程", value: applicationBrief.todayEvents, className: "text-emerald-600" },
+        { label: "A级优先", value: applicationBrief.priorityA, className: "text-red-600", actionScope: "A" },
+        { label: "逾期跟进", value: applicationBrief.overdueFollowUps, className: "text-red-600", actionScope: "OVERDUE_FOLLOW_UP" },
+        { label: "今日截止", value: applicationBrief.dueToday, className: "text-amber-600", actionScope: "DUE_TODAY" },
+        { label: "临近截止", value: applicationBrief.dueSoon, className: "text-amber-600", actionScope: "DUE_SOON" },
+        { label: "静默投递", value: applicationBrief.staleSubmitted, className: "text-blue-600", actionScope: "STALE_SUBMITTED" },
+        { label: "今日日程", value: applicationBrief.todayEvents, className: "text-emerald-600", href: "/calendar" },
       ]
     : [];
 
@@ -485,10 +494,15 @@ export default function HomePage() {
             {briefMetrics.length ? (
               <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
                 {briefMetrics.map((metric) => (
-                  <div key={metric.label} className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
+                  <button
+                    key={metric.label}
+                    type="button"
+                    className="rounded-md border border-surface-border bg-gray-50 px-3 py-2 text-left transition-colors hover:border-blue-200 hover:bg-blue-50"
+                    onClick={() => router.push(metric.href || `/applications?actionScope=${metric.actionScope}`)}
+                  >
                     <div className={`text-lg font-semibold ${metric.className}`}>{metric.value}</div>
                     <div className="text-xs text-content-tertiary">{metric.label}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : null}

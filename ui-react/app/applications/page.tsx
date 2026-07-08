@@ -144,6 +144,10 @@ const ACTION_SCOPE_OPTIONS: Array<{ value: "all" | JobApplicationActionScope; la
   { value: "STALE_SUBMITTED", label: "静默投递" },
 ]
 
+function normalizeActionScope(value: string | null): "all" | JobApplicationActionScope {
+  return ACTION_SCOPE_OPTIONS.some((item) => item.value === value) ? (value as "all" | JobApplicationActionScope) : "all"
+}
+
 const NEXT_STATUS: Partial<Record<JobApplicationStatus, JobApplicationStatus[]>> = {
   INTERESTED: ["PREPARING", "SUBMITTED", "GAVE_UP", "EXPIRED", "CLOSED"],
   PREPARING: ["SUBMITTED", "GAVE_UP", "EXPIRED", "CLOSED"],
@@ -581,6 +585,10 @@ export default function ApplicationsPage() {
     openDetail(applicationId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInfo, searchParams])
+
+  useEffect(() => {
+    setActionScope(normalizeActionScope(searchParams.get("actionScope")))
+  }, [searchParams])
 
   useEffect(() => {
     loadRecords()
