@@ -303,6 +303,11 @@ function isStaleSubmittedRecord(record: JobApplicationItem, now = Date.now()) {
   )
 }
 
+function staleSubmittedDays(record: JobApplicationItem, now = Date.now()) {
+  if (!record.submittedAt) return 0
+  return Math.max(0, Math.floor((now - Number(record.submittedAt)) / 86_400_000))
+}
+
 function recordFollowUpOverdue(record: JobApplicationItem) {
   return record.followUpOverdue ?? isFollowUpOverdue(record)
 }
@@ -911,12 +916,12 @@ export default function ApplicationsPage() {
     }
   }
 
-  const handleCompleteFollowUp = async (record: JobApplicationItem) => {
+  const handleCompleteFollowUp = async (record: JobApplicationItem, note = "从我的投递列表完成跟进") => {
     setCompletingFollowUpId(record.id)
     try {
       const updated = await completeJobApplicationFollowUp({
         id: record.id,
-        note: "从我的投递列表完成跟进",
+        note,
       })
       setRecords((current) => current.map((item) => (item.id === record.id ? updated : item)))
       setSummaryRecords((current) => current.map((item) => (item.id === record.id ? updated : item)))
@@ -1134,6 +1139,66 @@ export default function ApplicationsPage() {
             </div>
           )}
         </div>
+
+        {/* AI-GENERATED AIDEV-NOTE: quiet-submit review */}
+        {staleSubmittedRecords.length ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-amber-950">静默投递复盘</h2>
+                <p className="mt-1 text-xs text-amber-800">已投递超过 7 天且没有下一次跟进计划，建议检查邮箱、短信、官网状态或联系内推人。</p>
+              </div>
+              <Badge variant="outline" className="rounded-md border-amber-300 bg-white text-amber-800">
+                {staleSubmittedRecords.length} 条待复盘
+              </Badge>
+            </div>
+            <div className="grid gap-2 lg:grid-cols-2">
+              {staleSubmittedRecords.slice(0, 4).map((record) => (
+                <div key={record.id} className="rounded-md border border-amber-200 bg-white p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="rounded-md border-amber-200 bg-amber-50 text-amber-800">
+                          静默 {staleSubmittedDays(record)} 天
+                        </Badge>
+                        <span className="truncate text-sm font-medium text-content-primary">
+                          {record.companyName} / {record.position}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm text-content-secondary">{nextStepSuggestion(record)}</div>
+                      <div className="mt-1 text-xs text-content-tertiary">投递：{displayDate(record.submittedAt)}</div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                      <Button variant="outline" size="sm" className="h-8" onClick={() => openDetail(record.id)}>
+                        详情
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 text-emerald-700 hover:text-emerald-800"
+                        disabled={completingFollowUpId === record.id}
+                        onClick={() => handleCompleteFollowUp(record, "静默投递复盘：已检查通知渠道并设置下次跟进")}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        已检查
+                      </Button>
+                      {record.applyUrl ? (
+                        <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
+                          <a href={record.applyUrl} target="_blank" rel="noopener noreferrer" title="打开投递链接">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {staleSubmittedRecords.length > 4 ? (
+              <div className="mt-2 text-center text-xs text-amber-800">还有 {staleSubmittedRecords.length - 4} 条，可在下方表格筛选“已投递”继续处理。</div>
+            ) : null}
+          </div>
+        ) : null}
 
         <section className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
