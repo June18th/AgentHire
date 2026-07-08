@@ -19,6 +19,9 @@ import java.util.function.Function;
 
 @Component
 public class ApplicationBriefCommandHandler implements SystemCommandHandler {
+    private static final int DEFAULT_BRIEF_LIMIT = 5;
+    private static final int MAX_BRIEF_LIMIT = 10;
+    private static final int MAX_EVENT_LIMIT = 5;
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("M月d日 HH:mm");
     private static final ZoneId ZONE = ZoneId.systemDefault();
 
@@ -40,8 +43,9 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
                     """);
         }
 
-        JobApplicationBriefVo brief = jobApplicationService.brief(userId, 5);
-        return process.apply(formatBrief(brief));
+        int limit = parseLimit(command);
+        JobApplicationBriefVo brief = jobApplicationService.brief(userId, limit);
+        return process.apply(formatBrief(brief, limit));
     }
 
     @Override
@@ -64,7 +68,7 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
         return "查看今日投递行动简报，也可使用 /today";
     }
 
-    private String formatBrief(JobApplicationBriefVo brief) {
+    private String formatBrief(JobApplicationBriefVo brief, int limit) {
         // AIDEV-NOTE: AI-GENERATED brief command
         if (brief == null || value(brief.getTotal()) == 0) {
             return """
@@ -90,18 +94,18 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
                 .append("，未来 7 天关键日程 ").append(value(brief.getNext7DayEvents()))
                 .append("。\n");
 
-        appendActions(sb, brief.getTopActions());
-        appendEvents(sb, brief.getUpcomingEvents());
+        appendActions(sb, brief.getTopActions(), limit);
+        appendEvents(sb, brief.getUpcomingEvents(), limit);
         return sb.toString();
     }
 
-    private void appendActions(StringBuilder sb, List<JobApplicationVo> actions) {
+    private void appendActions(StringBuilder sb, List<JobApplicationVo> actions, int limit) {
         if (actions == null || actions.isEmpty()) {
             sb.append("\n当前没有需要优先处理的投递事项。\n");
             return;
         }
         sb.append("\n优先行动：\n");
-        for (int i = 0; i < Math.min(actions.size(), 3); i++) {
+        for (int i = 0; i < Math.min(actions.size(), limit); i++) {
             JobApplicationVo item = actions.get(i);
             sb.append(i + 1).append(". [").append(text(item.getActionPriority(), "-")).append("] ")
                     .append(text(item.getCompanyName(), "未知公司"))
@@ -113,12 +117,12 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
         }
     }
 
-    private void appendEvents(StringBuilder sb, List<JobApplicationEventVo> events) {
+    private void appendEvents(StringBuilder sb, List<JobApplicationEventVo> events, int limit) {
         if (events == null || events.isEmpty()) {
             return;
         }
         sb.append("\n未来 7 天关键日程：\n");
-        for (int i = 0; i < Math.min(events.size(), 3); i++) {
+        for (int i = 0; i < Math.min(events.size(), Math.min(limit, MAX_EVENT_LIMIT)); i++) {
             JobApplicationEventVo event = events.get(i);
             sb.append(i + 1).append(". ")
                     .append(formatTime(event.getEventTime()))
@@ -132,6 +136,21 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
                 sb.append("；").append(event.getSuggestedPreparation());
             }
             sb.append("\n");
+        }
+    }
+
+    private static int parseLimit(String command) {
+        if (!StringUtils.hasText(command)) {
+            return DEFAULT_BRIEF_LIMIT;
+        }
+        String[] parts = command.trim().split("\\s+");
+        if (parts.length < 2) {
+            return DEFAULT_BRIEF_LIMIT;
+        }
+        try {
+            return Math.max(1, Math.min(Integer.parseInt(parts[1]), MAX_BRIEF_LIMIT));
+        } catch (NumberFormatException ignored) {
+            return DEFAULT_BRIEF_LIMIT;
         }
     }
 

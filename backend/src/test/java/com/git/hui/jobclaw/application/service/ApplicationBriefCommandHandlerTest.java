@@ -80,6 +80,45 @@ class ApplicationBriefCommandHandlerTest {
     }
 
     @Test
+    void appliesRequestedBriefLimit() {
+        JobApplicationService service = mock(JobApplicationService.class);
+        ApplicationBriefCommandHandler handler = new ApplicationBriefCommandHandler(service);
+        when(service.brief(7L, 4)).thenReturn(new JobApplicationBriefVo()
+                .setTotal(4)
+                .setActionCount(4)
+                .setTopActions(List.of(
+                        action("Alpha", "Backend", "A"),
+                        action("Beta", "Frontend", "B"),
+                        action("Gamma", "QA", "C"),
+                        action("Delta", "PM", "C"))));
+
+        AtomicReference<String> response = new AtomicReference<>();
+
+        boolean handled = handler.handle(message(), conversation("7"), "/brief 4", content -> {
+            response.set(content);
+            return true;
+        });
+
+        assertThat(handled).isTrue();
+        assertThat(response.get()).contains("4. [C] Delta / PM");
+        verify(service).brief(7L, 4);
+    }
+
+    @Test
+    void clampsOrFallsBackBriefLimit() {
+        JobApplicationService service = mock(JobApplicationService.class);
+        ApplicationBriefCommandHandler handler = new ApplicationBriefCommandHandler(service);
+
+        assertThat(handler.handle(message(), conversation("7"), "/brief 99", content -> true)).isTrue();
+        assertThat(handler.handle(message(), conversation("7"), "/today abc", content -> true)).isTrue();
+        assertThat(handler.handle(message(), conversation("7"), "/brief -1", content -> true)).isTrue();
+
+        verify(service).brief(7L, 10);
+        verify(service).brief(7L, 5);
+        verify(service).brief(7L, 1);
+    }
+
+    @Test
     void promptsWhenUserIdIsMissing() {
         ApplicationBriefCommandHandler handler = new ApplicationBriefCommandHandler(mock(JobApplicationService.class));
         AtomicReference<String> response = new AtomicReference<>();
@@ -101,6 +140,14 @@ class ApplicationBriefCommandHandlerTest {
                 .jobClawUserId("7")
                 .message("/brief")
                 .build();
+    }
+
+    private static JobApplicationVo action(String company, String position, String priority) {
+        return new JobApplicationVo()
+                .setCompanyName(company)
+                .setPosition(position)
+                .setActionPriority(priority)
+                .setSuggestedNextAction("继续推进");
     }
 
     private static UserConversationInfo conversation(String jobClawUserId) {
