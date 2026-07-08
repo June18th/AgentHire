@@ -500,6 +500,7 @@ export default function ApplicationsPage() {
     return {
       toSubmit,
       toFollowUp,
+      dueSoon: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "DUE_SOON"),
       overdue: summaryRecords.filter(recordFollowUpOverdue),
     }
   }, [summaryRecords])
@@ -1219,7 +1220,7 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <button
             type="button"
             className="rounded-lg border border-surface-border bg-white p-4 text-left shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
@@ -1228,6 +1229,15 @@ export default function ApplicationsPage() {
             <div className="text-sm font-semibold text-content-primary">今日要投递</div>
             <div className="mt-2 text-2xl font-semibold text-blue-700">{todayTodo.toSubmit.length}</div>
             <MiniList items={todayTodo.toSubmit} emptyText="今天没有临近截止的准备项" />
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg border p-4 text-left shadow-sm transition-colors hover:border-orange-200 hover:bg-orange-50 ${todayTodo.dueSoon.length > 0 ? "border-orange-200 bg-orange-50/60" : "border-surface-border bg-white"}`}
+            onClick={() => handleActionScopeChange("DUE_SOON")}
+          >
+            <div className="text-sm font-semibold text-content-primary">临近截止</div>
+            <div className={`mt-2 text-2xl font-semibold ${todayTodo.dueSoon.length > 0 ? "text-orange-700" : "text-content-primary"}`}>{todayTodo.dueSoon.length}</div>
+            <MiniList items={todayTodo.dueSoon} emptyText="3 天内没有待处理截止项" />
           </button>
           <button
             type="button"
