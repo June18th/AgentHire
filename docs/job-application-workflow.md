@@ -145,7 +145,7 @@ The action signal layer is now surfaced in the main personal job-search pages:
 | `/` | Shows a compact "today's action" entry point next to the job list, including A-priority, overdue follow-up, due-today, due-soon, stale-submitted, and today-event metrics. |
 | `/applications` | Shows action priority cards, quiet-submission review, stage board, row hints, detail reasons, status-aware event templates, the next key event in application detail, today's event preparation hints, and CSV export fields. |
 | `/calendar` | Adds an action-priority side panel next to deadline, follow-up, and event dates; uses parsed `deadlineAt` before raw deadline text; supports completing follow-ups inline and exporting the current month/week schedule as CSV. |
-| `/materials` | Shows material-related application actions for resume and portfolio preparation, and can copy a per-application material kit with the primary resume, material links, snippets, and next-step advice. |
+| `/materials` | Shows material-related application actions for resume and portfolio preparation, can copy a per-application material kit with the primary resume, material links, snippets, and next-step advice, and supports JSON backup/restore for local material data. |
 | Global nav | Shows a live action count beside "我的求职" and refreshes after application changes. |
 
 CSV exports from `/applications` include the deterministic action fields so weekly review can happen outside the app when needed.
@@ -154,7 +154,7 @@ When the user clicks "已跟进" in `/applications` or `/calendar`, the backend 
 
 The `/calendar` CSV export is intentionally lightweight. It is meant for weekly planning, backup, and import into external tools, not as a replacement for the in-app timeline.
 
-The `/materials` page currently stores resume versions, material links, snippets, and checklist state in browser local storage. The copied material kit is a practical bridge for outreach, email, and manual application forms until a persisted material-application relation is added.
+The `/materials` page currently stores resume versions, material links, snippets, and checklist state in browser local storage. Users should use the JSON backup/restore controls before changing browsers, clearing browser data, or reinstalling the frontend. The copied material kit is a practical bridge for outreach, email, and manual application forms until a persisted material-application relation is added.
 
 ## Next Practical Slice
 
