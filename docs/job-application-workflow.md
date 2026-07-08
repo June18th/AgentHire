@@ -161,7 +161,7 @@ The action signal layer is now surfaced in the main personal job-search pages:
 | Page | Integration |
 |---|---|
 | `/` | Shows a compact "today's action" entry point next to the job list, including A-priority, overdue follow-up, due-today, due-soon, stale-submitted, and today-event metrics; metric cards deep-link into the matching action scope. |
-| `/applications` | Shows action priority cards with smart scopes, supports `/applications?actionScope=...` deep links, keeps the selected scope in the URL, weekly review metrics, clickable daily action cards, quiet-submission review, stage board, row hints, detail reasons, status-aware event templates, the next key event in application detail, today's event preparation hints, and CSV export fields. |
+| `/applications` | Shows action priority cards with smart scopes, supports `/applications?actionScope=...` deep links, keeps the selected scope in the URL, weekly review metrics, clickable overview risk cards, clickable daily action cards, quiet-submission review, stage board, row hints, detail reasons, status-aware event templates, the next key event in application detail, today's event preparation hints, and CSV export fields. |
 | `/calendar` | Adds an action-priority side panel next to deadline, follow-up, and event dates; uses parsed `deadlineAt` before raw deadline text; supports completing follow-ups inline and exporting the current month/week schedule as CSV. |
 | `/materials` | Shows material-related application actions for resume and portfolio preparation, can copy a per-application material kit with the primary resume, material links, snippets, and next-step advice, supports JSON backup/restore for local material data, and displays the most recent local backup/export time. |
 | Global nav | Shows a live action count beside "我的求职" and refreshes after application changes. |
@@ -171,6 +171,8 @@ CSV exports from `/applications` include the deterministic action fields so week
 The `/applications` weekly review block summarizes records created since Monday, applications updated into submitted/interview/offer stages this week, overdue follow-ups, and stale submitted records. Its risk metrics link back into the same action-scope workflow so weekly review can become immediate cleanup rather than a separate report.
 
 The `/applications` daily action cards also link back into action scopes: "今日要投递" opens today-deadline action items, while "今日要跟进" and "已逾期" open overdue follow-up action items. This keeps the dashboard, weekly review, and action list on one cleanup path.
+
+The `/applications` overview risk cards use the same cleanup path: "已投递及后续" opens stale-submitted review, and "待跟进" opens overdue follow-up action items.
 
 When the user clicks "已跟进" in `/applications` or `/calendar`, the backend writes a `FOLLOW_UP` event and returns a refreshed `nextFollowUpAt` so the user can see the next reminder that was set.
 
