@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -416,7 +417,8 @@ class JobApplicationServiceTest {
     @Test
     void completeFollowUpDefaultsNextReminderWhenMissing() {
         JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
-        JobApplicationService service = newService(applicationRepository);
+        JobApplicationEventRepository eventRepository = mock(JobApplicationEventRepository.class);
+        JobApplicationService service = newService(applicationRepository, eventRepository);
         JobApplicationEntity entity = base(7L, JobApplicationStatusEnum.SUBMITTED)
                 .setId(100L)
                 .setSubmittedAt(atStart("2026-07-01"))
@@ -436,6 +438,14 @@ class JobApplicationServiceTest {
         verify(applicationRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getNextFollowUpAt())
                 .isBetween(plusDays(before, 7), plusDaysWithGrace(after, 7));
+
+        ArgumentCaptor<JobApplicationEventEntity> eventCaptor = ArgumentCaptor.forClass(JobApplicationEventEntity.class);
+        verify(eventRepository).save(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().getApplicationId()).isEqualTo(100L);
+        assertThat(eventCaptor.getValue().getUserId()).isEqualTo(7L);
+        assertThat(eventCaptor.getValue().getEventType()).isEqualTo("FOLLOW_UP");
+        assertThat(eventCaptor.getValue().getEventResult()).isEqualTo("DONE");
+        assertThat(eventCaptor.getValue().getNote()).isEqualTo("followed up by email");
     }
 
     @Test
@@ -458,6 +468,26 @@ class JobApplicationServiceTest {
         ArgumentCaptor<JobApplicationEntity> captor = ArgumentCaptor.forClass(JobApplicationEntity.class);
         verify(applicationRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getNextFollowUpAt()).isEqualTo(atStart("2026-07-20"));
+    }
+
+    @Test
+    void completeFollowUpRejectsTerminalApplications() {
+        JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
+        JobApplicationEventRepository eventRepository = mock(JobApplicationEventRepository.class);
+        JobApplicationService service = newService(applicationRepository, eventRepository);
+        JobApplicationEntity entity = base(7L, JobApplicationStatusEnum.REJECTED)
+                .setId(109L)
+                .setSubmittedAt(atStart("2026-07-01"));
+        when(applicationRepository.findById(109L)).thenReturn(Optional.of(entity));
+
+        JobApplicationFollowUpReq req = new JobApplicationFollowUpReq();
+        req.setId(109L);
+
+        assertThatThrownBy(() -> service.completeFollowUp(7L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Terminal application cannot be followed up");
+        verify(applicationRepository, never()).saveAndFlush(any(JobApplicationEntity.class));
+        verify(eventRepository, never()).save(any(JobApplicationEventEntity.class));
     }
 
     private static JobApplicationService newService(JobApplicationRepository applicationRepository) {
