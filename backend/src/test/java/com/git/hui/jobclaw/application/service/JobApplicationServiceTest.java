@@ -58,7 +58,7 @@ class JobApplicationServiceTest {
 
         assertThat(brief.getTotal()).isEqualTo(3);
         assertThat(brief.getActive()).isEqualTo(3);
-        assertThat(brief.getActionCount()).isEqualTo(2);
+        assertThat(brief.getActionCount()).isEqualTo(3);
         assertThat(brief.getPriorityA()).isEqualTo(2);
         assertThat(brief.getOverdueFollowUps()).isEqualTo(1);
         assertThat(brief.getDueToday()).isEqualTo(1);
@@ -160,15 +160,21 @@ class JobApplicationServiceTest {
                         base(userId, JobApplicationStatusEnum.PREPARING)
                                 .setCompanyName("Gamma")
                                 .setPosition("Frontend")
-                                .setDeadline(LocalDate.now().plusDays(5).toString())
+                                .setDeadline(LocalDate.now().plusDays(5).toString()),
+                        base(userId, JobApplicationStatusEnum.INTERVIEW_1)
+                                .setCompanyName("Sigma")
+                                .setPosition("Platform")
+                                .setDeadline(LocalDate.now().plusDays(30).toString())
                 ));
 
         List<JobApplicationVo> dueToday = service.actionItems(userId, 20, "DUE_TODAY");
         List<JobApplicationVo> staleSubmitted = service.actionItems(userId, 20, "STALE_SUBMITTED");
+        List<JobApplicationVo> processNeedsFollowUp = service.actionItems(userId, 20, "PROCESS_NEEDS_FOLLOW_UP");
         List<JobApplicationVo> priorityA = service.actionItems(userId, 20, "A");
 
         assertThat(dueToday).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
         assertThat(staleSubmitted).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta");
+        assertThat(processNeedsFollowUp).extracting(JobApplicationVo::getCompanyName).containsExactly("Sigma");
         assertThat(priorityA).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
     }
 

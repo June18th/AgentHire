@@ -144,6 +144,7 @@ const ACTION_SCOPE_OPTIONS: Array<{ value: "all" | JobApplicationActionScope; la
   { value: "DUE_TODAY", label: "今日截止" },
   { value: "DUE_SOON", label: "临近截止" },
   { value: "STALE_SUBMITTED", label: "静默投递" },
+  { value: "PROCESS_NEEDS_FOLLOW_UP", label: "流程待跟进" },
 ]
 
 function normalizeActionScope(value: string | null): "all" | JobApplicationActionScope {

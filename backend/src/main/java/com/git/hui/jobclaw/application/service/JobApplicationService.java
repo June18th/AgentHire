@@ -408,6 +408,7 @@ public class JobApplicationService {
             case "DUE_TODAY" -> "DUE_TODAY".equals(item.getDeadlineRisk());
             case "DUE_SOON" -> "DUE_SOON".equals(item.getDeadlineRisk());
             case "STALE_SUBMITTED" -> isStaleSubmitted(item);
+            case "PROCESS_NEEDS_FOLLOW_UP" -> isProcessNeedsFollowUp(item);
             default -> true;
         };
     }
@@ -424,6 +425,10 @@ public class JobApplicationService {
                 && item.getSubmittedAt() <= System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000;
     }
 
+    private boolean isProcessNeedsFollowUp(JobApplicationVo item) {
+        return item != null && item.getNextFollowUpAt() == null && isProcessStatus(item);
+    }
+
     private boolean isSubmittedAndLater(JobApplicationVo item) {
         return item != null && List.of(
                 JobApplicationStatusEnum.SUBMITTED.getCode(),
@@ -433,6 +438,16 @@ public class JobApplicationService {
                 JobApplicationStatusEnum.HR_INTERVIEW.getCode(),
                 JobApplicationStatusEnum.OFFER.getCode(),
                 JobApplicationStatusEnum.ACCEPTED.getCode()
+        ).contains(item.getCurrentStatus());
+    }
+
+    private boolean isProcessStatus(JobApplicationVo item) {
+        return item != null && List.of(
+                JobApplicationStatusEnum.WRITTEN_TEST.getCode(),
+                JobApplicationStatusEnum.INTERVIEW_1.getCode(),
+                JobApplicationStatusEnum.INTERVIEW_2.getCode(),
+                JobApplicationStatusEnum.HR_INTERVIEW.getCode(),
+                JobApplicationStatusEnum.OFFER.getCode()
         ).contains(item.getCurrentStatus());
     }
 
