@@ -490,6 +490,7 @@ export default function ApplicationsPage() {
   const submittedAndLaterCount = useMemo(() => summaryRecords.filter((record) => ACTIVE_PROCESS_STATUS.includes(record.currentStatus)).length, [summaryRecords])
   const interviewCount = useMemo(() => summaryRecords.filter((record) => INTERVIEW_PROCESS_STATUS.includes(record.currentStatus)).length, [summaryRecords])
   const staleSubmittedRecords = useMemo(() => summaryRecords.filter(isStaleSubmittedRecord), [summaryRecords])
+  const processNeedsFollowUpRecords = useMemo(() => summaryRecords.filter(isProcessNeedsFollowUpRecord), [summaryRecords])
   const todayTodo = useMemo(() => {
     const today = formatDateOnly(Date.now())
     const toSubmit = summaryRecords.filter(
@@ -1408,6 +1409,71 @@ export default function ApplicationsPage() {
             </div>
             {staleSubmittedRecords.length > 4 ? (
               <div className="mt-2 text-center text-xs text-amber-800">还有 {staleSubmittedRecords.length - 4} 条，可在下方表格筛选“已投递”继续处理。</div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* AI-GENERATED AIDEV-NOTE: process gap review */}
+        {processNeedsFollowUpRecords.length ? (
+          <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-sky-950">流程断点处理</h2>
+                <p className="mt-1 text-xs text-sky-800">已进入笔面试、HR 或 Offer 阶段，但没有下一次跟进计划，建议补齐复盘结论和提醒。</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="rounded-md border-sky-300 bg-white text-sky-800">
+                  {processNeedsFollowUpRecords.length} 条待补跟进
+                </Badge>
+                <Button variant="outline" size="sm" className="h-8 border-sky-200 bg-white text-sky-800 hover:bg-sky-100" onClick={() => handleActionScopeChange("PROCESS_NEEDS_FOLLOW_UP")}>
+                  查看全部
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-2 lg:grid-cols-2">
+              {processNeedsFollowUpRecords.slice(0, 4).map((record) => (
+                <div key={record.id} className="rounded-md border border-sky-200 bg-white p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="rounded-md border-sky-200 bg-sky-50 text-sky-800">
+                          {record.currentStatusDesc || statusLabel(record.currentStatus)}
+                        </Badge>
+                        <span className="truncate text-sm font-medium text-content-primary">
+                          {record.companyName} / {record.position}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm text-content-secondary">{nextStepSuggestion(record)}</div>
+                      <div className="mt-1 text-xs text-content-tertiary">更新：{formatDate(record.updateTime)}</div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                      <Button variant="outline" size="sm" className="h-8" onClick={() => openDetail(record.id)}>
+                        详情
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 text-emerald-700 hover:text-emerald-800"
+                        disabled={completingFollowUpId === record.id}
+                        onClick={() => handleCompleteFollowUp(record, "流程断点处理：已补充阶段复盘并设置下次跟进")}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        已复盘
+                      </Button>
+                      {record.applyUrl ? (
+                        <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
+                          <a href={record.applyUrl} target="_blank" rel="noopener noreferrer" title="打开投递链接">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {processNeedsFollowUpRecords.length > 4 ? (
+              <div className="mt-2 text-center text-xs text-sky-800">还有 {processNeedsFollowUpRecords.length - 4} 条，可点击“查看全部”进入行动队列处理。</div>
             ) : null}
           </div>
         ) : null}
