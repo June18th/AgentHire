@@ -1156,16 +1156,24 @@ export default function ApplicationsPage() {
         </div>
 
         <div className="grid gap-3 lg:grid-cols-4">
-          <div className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+          <button
+            type="button"
+            className="rounded-lg border border-surface-border bg-white p-4 text-left shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
+            onClick={() => handleActionScopeChange("DUE_TODAY")}
+          >
             <div className="text-sm font-semibold text-content-primary">今日要投递</div>
             <div className="mt-2 text-2xl font-semibold text-blue-700">{todayTodo.toSubmit.length}</div>
             <MiniList items={todayTodo.toSubmit} emptyText="今天没有临近截止的准备项" />
-          </div>
-          <div className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+          </button>
+          <button
+            type="button"
+            className="rounded-lg border border-surface-border bg-white p-4 text-left shadow-sm transition-colors hover:border-emerald-200 hover:bg-emerald-50"
+            onClick={() => handleActionScopeChange("OVERDUE_FOLLOW_UP")}
+          >
             <div className="text-sm font-semibold text-content-primary">今日要跟进</div>
             <div className="mt-2 text-2xl font-semibold text-emerald-700">{todayTodo.toFollowUp.length}</div>
             <MiniList items={todayTodo.toFollowUp} emptyText="今天没有跟进安排" />
-          </div>
+          </button>
           <div className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
             <div className="text-sm font-semibold text-content-primary">今日笔面试</div>
             <div className="mt-2 text-2xl font-semibold text-purple-700">{todayEvents.length}</div>
@@ -1186,11 +1194,15 @@ export default function ApplicationsPage() {
               <div className="text-xs text-content-tertiary">今天没有笔试或面试安排</div>
             )}
           </div>
-          <div className={`rounded-lg border p-4 shadow-sm ${todayTodo.overdue.length > 0 ? "border-red-200 bg-red-50/70" : "border-surface-border bg-white"}`}>
+          <button
+            type="button"
+            className={`rounded-lg border p-4 text-left shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 ${todayTodo.overdue.length > 0 ? "border-red-200 bg-red-50/70" : "border-surface-border bg-white"}`}
+            onClick={() => handleActionScopeChange("OVERDUE_FOLLOW_UP")}
+          >
             <div className="text-sm font-semibold text-content-primary">已逾期</div>
             <div className={`mt-2 text-2xl font-semibold ${todayTodo.overdue.length > 0 ? "text-red-700" : "text-content-primary"}`}>{todayTodo.overdue.length}</div>
             <MiniList items={todayTodo.overdue} emptyText="没有逾期跟进" />
-          </div>
+          </button>
         </div>
 
         <div className="rounded-lg border border-surface-border bg-white p-4 shadow-sm">
