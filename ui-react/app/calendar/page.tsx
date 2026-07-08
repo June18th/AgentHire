@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Download,
   ExternalLink,
   RefreshCw,
 } from "lucide-react"
@@ -97,6 +98,11 @@ function formatTime(value?: number) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ""
   return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })
+}
+
+function escapeCsvCell(value: unknown) {
+  const text = value == null ? "" : String(value)
+  return `"${text.replace(/"/g, '""')}"`
 }
 
 function dateOnlyToTime(value: string, endOfDay = false) {
@@ -250,6 +256,23 @@ function eventUrgencyLabel(urgency?: string) {
   return ""
 }
 
+// AI-GENERATED AIDEV-NOTE: portable calendar export
+function buildCalendarCsv(items: CalendarItem[]) {
+  const header = ["日期", "时间", "类型", "公司", "岗位", "标题", "说明", "逾期", "准备建议"]
+  const rows = items.map((item) => [
+    item.dateKey,
+    item.time ? formatTime(item.time) : "",
+    item.title,
+    item.companyName || "",
+    item.position || "",
+    item.subtitle,
+    item.eventUrgency ? eventUrgencyLabel(item.eventUrgency) : "",
+    item.overdue ? "是" : "否",
+    item.suggestedPreparation || "",
+  ])
+  return [header, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\n")
+}
+
 function getVisibleDays(anchor: Date, mode: CalendarMode) {
   if (mode === "week") {
     const day = anchor.getDay() || 7
@@ -291,6 +314,7 @@ export default function CalendarPage() {
   const selectedItems = itemMap.get(selectedDateKey) || []
   const overdueItems = calendarItems.filter((item) => item.overdue)
   const upcomingItems = calendarItems.filter((item) => item.dateKey >= todayKey).slice(0, 6)
+  const visibleItems = calendarItems.filter((item) => item.dateKey >= visibleStartKey && item.dateKey <= visibleEndKey)
 
   const loadCalendar = async () => {
     if (!userInfo || visibleDays.length === 0) return
@@ -328,6 +352,23 @@ export default function CalendarPage() {
     const today = startOfDay(new Date())
     setAnchorDate(today)
     setSelectedDateKey(formatDateKey(today))
+  }
+
+  const exportVisibleItems = () => {
+    if (!visibleItems.length) {
+      toast({ title: "当前视图没有可导出的日程" })
+      return
+    }
+    const csv = `\uFEFF${buildCalendarCsv(visibleItems)}`
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `jobclaw-calendar-${visibleStartKey}-${visibleEndKey}.csv`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
   }
 
   if (!userInfo) {
@@ -369,6 +410,10 @@ export default function CalendarPage() {
               </Button>
               <Button variant="outline" size="sm" onClick={() => shiftCalendar(1)}>
                 <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1" onClick={exportVisibleItems}>
+                <Download className="h-4 w-4" />
+                导出
               </Button>
               <Button variant="outline" size="sm" className="gap-1" onClick={loadCalendar} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
