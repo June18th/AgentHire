@@ -88,6 +88,7 @@ interface MaterialsState {
   links: MaterialLink[]
   snippets: PitchSnippet[]
   checklist: ChecklistItem[]
+  lastExportedAt?: number
 }
 
 const EMPTY_STATE: MaterialsState = {
@@ -99,6 +100,7 @@ const EMPTY_STATE: MaterialsState = {
     label,
     checked: false,
   })),
+  lastExportedAt: undefined,
 }
 
 const EMPTY_RESUME_FORM = {
@@ -233,6 +235,7 @@ function normalizeMaterialsState(value: Partial<MaterialsState>): MaterialsState
     links: Array.isArray(value.links) ? value.links : [],
     snippets: Array.isArray(value.snippets) ? value.snippets : [],
     checklist: Array.isArray(value.checklist) && value.checklist.length ? value.checklist : EMPTY_STATE.checklist,
+    lastExportedAt: typeof value.lastExportedAt === "number" ? value.lastExportedAt : undefined,
   }
 }
 
@@ -302,6 +305,7 @@ export default function MaterialsPage() {
   const primaryResume = state.resumes.find((item) => item.isPrimary)
   const checkedCount = state.checklist.filter((item) => item.checked).length
   const checklistProgress = state.checklist.length ? Math.round((checkedCount / state.checklist.length) * 100) : 0
+  const backupStatus = state.lastExportedAt ? `最近备份：${formatTime(state.lastExportedAt)}` : "尚未导出备份"
   const materialActionItems = useMemo(() => {
     const directMatches = actionItems.filter((item) => {
       const suggested = item.suggestedNextAction || ""
@@ -404,11 +408,13 @@ export default function MaterialsPage() {
   }
 
   const exportMaterials = () => {
+    const exportedAt = Date.now()
+    const nextState = { ...state, lastExportedAt: exportedAt }
     const payload = {
       version: 1,
-      exportedAt: new Date().toISOString(),
+      exportedAt: new Date(exportedAt).toISOString(),
       userId: userInfo?.userId,
-      materials: state,
+      materials: nextState,
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" })
     const url = URL.createObjectURL(blob)
@@ -419,6 +425,8 @@ export default function MaterialsPage() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
+    setState(nextState)
+    toast({ title: "材料备份已导出", description: "已记录本次本地备份时间。" })
   }
 
   // AI-GENERATED AIDEV-NOTE: local material backup
@@ -432,8 +440,8 @@ export default function MaterialsPage() {
         throw new Error("Invalid materials backup")
       }
       const nextState = normalizeMaterialsState(imported)
-      setState(nextState)
-      toast({ title: "材料备份已导入", description: "已覆盖当前浏览器里的材料工作台数据。" })
+      setState({ ...nextState, lastExportedAt: nextState.lastExportedAt || Date.now() })
+      toast({ title: "材料备份已导入", description: "已覆盖当前浏览器里的材料工作台数据，并记录本次恢复时间。" })
     } catch {
       toast({ title: "导入失败", description: "请选择从 JobClaw 导出的材料 JSON 文件。", variant: "destructive" })
     } finally {
@@ -503,6 +511,7 @@ export default function MaterialsPage() {
             <div className="min-w-0">
               <div className="truncate text-base font-semibold text-content-primary">{displayName}</div>
               <div className="mt-1 text-sm text-content-tertiary">投递身份 ID：{userInfo.userId}</div>
+              <div className="mt-1 text-xs text-content-tertiary">{backupStatus}</div>
             </div>
           </div>
           <div className="grid gap-1 text-sm text-content-secondary sm:text-right">
