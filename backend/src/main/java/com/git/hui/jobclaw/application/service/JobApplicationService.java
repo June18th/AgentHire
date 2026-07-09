@@ -223,6 +223,7 @@ public class JobApplicationService {
         int dueToday = (int) all.stream().filter(item -> "DUE_TODAY".equals(item.getDeadlineRisk())).count();
         int dueSoon = (int) all.stream().filter(item -> "DUE_SOON".equals(item.getDeadlineRisk())).count();
         int thisWeek = (int) all.stream().filter(item -> "THIS_WEEK".equals(item.getDeadlineRisk())).count();
+        int expiredDeadline = (int) all.stream().filter(item -> "EXPIRED".equals(item.getDeadlineRisk())).count();
         int unknownDeadline = (int) all.stream().filter(item -> "UNKNOWN".equals(item.getDeadlineRisk())).count();
         int staleSubmitted = (int) all.stream().filter(this::isStaleSubmitted).count();
         int processNeedsFollowUp = (int) all.stream().filter(this::isProcessNeedsFollowUp).count();
@@ -267,6 +268,7 @@ public class JobApplicationService {
                 .setDueToday(dueToday)
                 .setDueSoon(dueSoon)
                 .setThisWeek(thisWeek)
+                .setExpiredDeadline(expiredDeadline)
                 .setUnknownDeadline(unknownDeadline)
                 .setSubmittedAndLater(submittedAndLater)
                 .setStaleSubmitted(staleSubmitted)
@@ -275,7 +277,8 @@ public class JobApplicationService {
                 .setOffer(offer)
                 .setTodayEvents(todayEvents)
                 .setNext7DayEvents(next7DayEvents)
-                .setSummary(buildBriefSummary(actionItems.size(), overdueFollowUps, dueToday, dueSoon, unknownDeadline,
+                .setSummary(buildBriefSummary(actionItems.size(), overdueFollowUps, dueToday, dueSoon,
+                        expiredDeadline, unknownDeadline,
                         staleSubmitted, processNeedsFollowUp, interview, offer, todayEvents))
                 .setUpcomingEvents(upcomingEvents)
                 .setTopActions(actionItems.stream().limit(size).toList());
@@ -415,6 +418,7 @@ public class JobApplicationService {
             case "DUE_TODAY" -> "DUE_TODAY".equals(item.getDeadlineRisk());
             case "DUE_SOON" -> "DUE_SOON".equals(item.getDeadlineRisk());
             case "THIS_WEEK" -> "THIS_WEEK".equals(item.getDeadlineRisk());
+            case "EXPIRED_DEADLINE" -> "EXPIRED".equals(item.getDeadlineRisk());
             case "UNKNOWN_DEADLINE" -> "UNKNOWN".equals(item.getDeadlineRisk());
             case "STALE_SUBMITTED" -> isStaleSubmitted(item);
             case "PROCESS_NEEDS_FOLLOW_UP" -> isProcessNeedsFollowUp(item);
@@ -555,7 +559,8 @@ public class JobApplicationService {
                 .orElse(null);
     }
 
-    private String buildBriefSummary(int actionCount, int overdueFollowUps, int dueToday, int dueSoon, int unknownDeadline,
+    private String buildBriefSummary(int actionCount, int overdueFollowUps, int dueToday, int dueSoon,
+                                     int expiredDeadline, int unknownDeadline,
                                      int staleSubmitted, int processNeedsFollowUp, int interview,
                                      int offer, int todayEvents) {
         if (overdueFollowUps > 0) {
@@ -572,6 +577,9 @@ public class JobApplicationService {
         }
         if (dueSoon > 0) {
             return "有 " + dueSoon + " 个岗位临近截止，建议尽快安排投递。";
+        }
+        if (expiredDeadline > 0) {
+            return "有 " + expiredDeadline + " 个活跃岗位截止时间已过，建议确认是否仍开放，或关闭失效目标。";
         }
         if (staleSubmitted > 0) {
             return "有 " + staleSubmitted + " 条投递超过 7 天未跟进，建议检查通知渠道并设置提醒。";

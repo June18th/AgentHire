@@ -18,6 +18,7 @@ public class JobApplicationBriefVo {
     private Integer dueToday;
     private Integer dueSoon;
     private Integer thisWeek;
+    private Integer expiredDeadline;
     private Integer unknownDeadline;
     private Integer submittedAndLater;
     private Integer staleSubmitted;

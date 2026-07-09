@@ -33,6 +33,7 @@ class ApplicationBriefCommandHandlerTest {
                 .setDueSoon(2)
                 .setStaleSubmitted(1)
                 .setProcessNeedsFollowUp(3)
+                .setExpiredDeadline(4)
                 .setUnknownDeadline(4)
                 .setTodayEvents(1)
                 .setNext7DayEvents(1)
@@ -64,6 +65,7 @@ class ApplicationBriefCommandHandlerTest {
         assertThat(response.get()).contains("行动 2 项");
         assertThat(response.get()).contains("今日截止 1");
         assertThat(response.get()).contains("临近截止 2");
+        assertThat(response.get()).contains("已过截止 4");
         assertThat(response.get()).contains("截止未知 4");
         assertThat(response.get()).contains("静默投递 1");
         assertThat(response.get()).contains("流程待跟进 3");

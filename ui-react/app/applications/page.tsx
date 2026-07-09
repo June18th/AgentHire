@@ -145,6 +145,7 @@ const ACTION_SCOPE_OPTIONS: Array<{ value: "all" | JobApplicationActionScope; la
   { value: "DUE_TODAY", label: "今日截止" },
   { value: "DUE_SOON", label: "临近截止" },
   { value: "THIS_WEEK", label: "本周截止" },
+  { value: "EXPIRED_DEADLINE", label: "已过截止" },
   { value: "UNKNOWN_DEADLINE", label: "截止未知" },
   { value: "STALE_SUBMITTED", label: "静默投递" },
   { value: "PROCESS_NEEDS_FOLLOW_UP", label: "流程待跟进" },
@@ -504,6 +505,7 @@ export default function ApplicationsPage() {
       toFollowUp,
       dueSoon: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "DUE_SOON"),
       thisWeek: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "THIS_WEEK"),
+      expiredDeadline: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "EXPIRED"),
       unknownDeadline: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "UNKNOWN"),
       overdue: summaryRecords.filter(recordFollowUpOverdue),
     }
@@ -1224,7 +1226,7 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
           <button
             type="button"
             className="rounded-lg border border-surface-border bg-white p-4 text-left shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
@@ -1251,6 +1253,15 @@ export default function ApplicationsPage() {
             <div className="text-sm font-semibold text-content-primary">本周截止</div>
             <div className={`mt-2 text-2xl font-semibold ${todayTodo.thisWeek.length > 0 ? "text-indigo-700" : "text-content-primary"}`}>{todayTodo.thisWeek.length}</div>
             <MiniList items={todayTodo.thisWeek} emptyText="4-7 天内没有待处理截止项" />
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg border p-4 text-left shadow-sm transition-colors hover:border-rose-200 hover:bg-rose-50 ${todayTodo.expiredDeadline.length > 0 ? "border-rose-200 bg-rose-50/70" : "border-surface-border bg-white"}`}
+            onClick={() => handleActionScopeChange("EXPIRED_DEADLINE")}
+          >
+            <div className="text-sm font-semibold text-content-primary">已过截止</div>
+            <div className={`mt-2 text-2xl font-semibold ${todayTodo.expiredDeadline.length > 0 ? "text-rose-700" : "text-content-primary"}`}>{todayTodo.expiredDeadline.length}</div>
+            <MiniList items={todayTodo.expiredDeadline} emptyText="没有已过截止的活跃岗位" />
           </button>
           <button
             type="button"

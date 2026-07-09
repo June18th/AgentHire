@@ -108,6 +108,26 @@ class JobApplicationServiceTest {
     }
 
     @Test
+    void briefSummarizesExpiredDeadlines() {
+        JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
+        JobApplicationService service = newService(applicationRepository);
+        Long userId = 7L;
+        when(applicationRepository.findByUserIdAndStateNot(userId, -1)).thenReturn(List.of(
+                base(userId, JobApplicationStatusEnum.PREPARING)
+                        .setCompanyName("Zeta")
+                        .setPosition("Data")
+                        .setDeadline(LocalDate.now().minusDays(1).toString())
+        ));
+
+        JobApplicationBriefVo brief = service.brief(userId, 5);
+
+        assertThat(brief.getActionCount()).isEqualTo(1);
+        assertThat(brief.getPriorityB()).isEqualTo(1);
+        assertThat(brief.getExpiredDeadline()).isEqualTo(1);
+        assertThat(brief.getSummary()).contains("截止时间已过");
+    }
+
+    @Test
     void briefSummarizesProcessFollowUpGaps() {
         JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
         JobApplicationService service = newService(applicationRepository);
@@ -206,11 +226,16 @@ class JobApplicationServiceTest {
                                 .setDeadline(LocalDate.now().plusDays(30).toString()),
                         base(userId, JobApplicationStatusEnum.PREPARING)
                                 .setCompanyName("Delta")
+                                .setPosition("Data"),
+                        base(userId, JobApplicationStatusEnum.PREPARING)
+                                .setCompanyName("Zeta")
                                 .setPosition("Data")
+                                .setDeadline(LocalDate.now().minusDays(1).toString())
                 ));
 
         List<JobApplicationVo> dueToday = service.actionItems(userId, 20, "DUE_TODAY");
         List<JobApplicationVo> thisWeek = service.actionItems(userId, 20, "THIS_WEEK");
+        List<JobApplicationVo> expiredDeadline = service.actionItems(userId, 20, "EXPIRED_DEADLINE");
         List<JobApplicationVo> unknownDeadline = service.actionItems(userId, 20, "UNKNOWN_DEADLINE");
         List<JobApplicationVo> staleSubmitted = service.actionItems(userId, 20, "STALE_SUBMITTED");
         List<JobApplicationVo> processNeedsFollowUp = service.actionItems(userId, 20, "PROCESS_NEEDS_FOLLOW_UP");
@@ -218,6 +243,7 @@ class JobApplicationServiceTest {
 
         assertThat(dueToday).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
         assertThat(thisWeek).extracting(JobApplicationVo::getCompanyName).containsExactly("Gamma");
+        assertThat(expiredDeadline).extracting(JobApplicationVo::getCompanyName).containsExactly("Zeta");
         assertThat(unknownDeadline).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta", "Delta");
         assertThat(staleSubmitted).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta");
         assertThat(processNeedsFollowUp).extracting(JobApplicationVo::getCompanyName).containsExactly("Sigma");
