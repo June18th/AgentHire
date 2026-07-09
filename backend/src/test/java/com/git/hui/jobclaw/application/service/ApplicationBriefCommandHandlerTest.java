@@ -103,6 +103,8 @@ class ApplicationBriefCommandHandlerTest {
                 .setOverdueFollowUps(1)
                 .setStaleSubmitted(2)
                 .setProcessNeedsFollowUp(3)
+                .setExpiredDeadline(4)
+                .setUnknownDeadline(5)
                 .setSummary("本周复盘发现 2 条投递超过 7 天未跟进，建议集中补一次状态确认。"));
 
         AtomicReference<String> response = new AtomicReference<>();
@@ -118,6 +120,8 @@ class ApplicationBriefCommandHandlerTest {
         assertThat(response.get()).contains("逾期跟进 1");
         assertThat(response.get()).contains("静默投递 2");
         assertThat(response.get()).contains("流程待跟进 3");
+        assertThat(response.get()).contains("已过截止 4");
+        assertThat(response.get()).contains("截止未知 5");
         verify(service).review(7L);
     }
 

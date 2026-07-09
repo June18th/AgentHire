@@ -140,6 +140,8 @@ export interface JobApplicationReview {
   overdueFollowUps: number
   staleSubmitted: number
   processNeedsFollowUp: number
+  expiredDeadline: number
+  unknownDeadline: number
   summary: string
 }
 

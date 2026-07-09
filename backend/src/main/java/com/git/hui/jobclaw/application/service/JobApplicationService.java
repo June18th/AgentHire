@@ -306,6 +306,8 @@ public class JobApplicationService {
         int overdueFollowUps = (int) all.stream().filter(item -> Boolean.TRUE.equals(item.getFollowUpOverdue())).count();
         int staleSubmitted = (int) all.stream().filter(this::isStaleSubmitted).count();
         int processNeedsFollowUp = (int) all.stream().filter(this::isProcessNeedsFollowUp).count();
+        int expiredDeadline = (int) all.stream().filter(item -> "EXPIRED".equals(item.getDeadlineRisk())).count();
+        int unknownDeadline = (int) all.stream().filter(item -> "UNKNOWN".equals(item.getDeadlineRisk())).count();
 
         return new JobApplicationReviewVo()
                 .setWeekStart(weekStart.getTime())
@@ -318,8 +320,11 @@ public class JobApplicationService {
                 .setOverdueFollowUps(overdueFollowUps)
                 .setStaleSubmitted(staleSubmitted)
                 .setProcessNeedsFollowUp(processNeedsFollowUp)
+                .setExpiredDeadline(expiredDeadline)
+                .setUnknownDeadline(unknownDeadline)
                 .setSummary(buildReviewSummary(createdThisWeek, submittedAndLaterThisWeek, interviewThisWeek,
-                        offerThisWeek, overdueFollowUps, staleSubmitted, processNeedsFollowUp));
+                        offerThisWeek, overdueFollowUps, staleSubmitted, processNeedsFollowUp,
+                        expiredDeadline, unknownDeadline));
     }
 
     @Transactional
@@ -601,7 +606,7 @@ public class JobApplicationService {
 
     private String buildReviewSummary(int createdThisWeek, int submittedAndLaterThisWeek, int interviewThisWeek,
                                       int offerThisWeek, int overdueFollowUps, int staleSubmitted,
-                                      int processNeedsFollowUp) {
+                                      int processNeedsFollowUp, int expiredDeadline, int unknownDeadline) {
         if (overdueFollowUps > 0) {
             return "本周复盘优先处理 " + overdueFollowUps + " 条已到期跟进，避免投递线索断档。";
         }
@@ -610,6 +615,12 @@ public class JobApplicationService {
         }
         if (processNeedsFollowUp > 0) {
             return "本周复盘发现 " + processNeedsFollowUp + " 条流程已推进但未设置跟进，建议补齐复盘和下一次提醒。";
+        }
+        if (expiredDeadline > 0) {
+            return "本周复盘发现 " + expiredDeadline + " 个活跃岗位已过截止时间，建议确认是否仍开放或关闭失效目标。";
+        }
+        if (unknownDeadline > 0) {
+            return "本周复盘发现 " + unknownDeadline + " 个活跃岗位截止时间未知，建议补齐日期提升投递节奏判断。";
         }
         if (offerThisWeek > 0) {
             return "本周已有 " + offerThisWeek + " 条 Offer 阶段进展，建议记录选择依据和沟通结论。";

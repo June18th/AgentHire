@@ -16,5 +16,7 @@ public class JobApplicationReviewVo {
     private Integer overdueFollowUps;
     private Integer staleSubmitted;
     private Integer processNeedsFollowUp;
+    private Integer expiredDeadline;
+    private Integer unknownDeadline;
     private String summary;
 }

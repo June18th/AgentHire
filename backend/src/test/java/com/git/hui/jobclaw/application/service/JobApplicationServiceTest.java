@@ -291,9 +291,33 @@ class JobApplicationServiceTest {
         assertThat(review.getOfferThisWeek()).isEqualTo(1);
         assertThat(review.getStaleSubmitted()).isEqualTo(2);
         assertThat(review.getProcessNeedsFollowUp()).isEqualTo(2);
+        assertThat(review.getExpiredDeadline()).isZero();
+        assertThat(review.getUnknownDeadline()).isEqualTo(5);
         assertThat(review.getWeekStart()).isNotNull();
         assertThat(review.getWeekEnd()).isNotNull();
         assertThat(review.getSummary()).contains("投递超过 7 天未跟进");
+    }
+
+    @Test
+    void reviewSummarizesDeadlineHygieneRisks() {
+        JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
+        JobApplicationService service = newService(applicationRepository);
+        Long userId = 7L;
+        when(applicationRepository.findByUserIdAndStateNot(userId, -1)).thenReturn(List.of(
+                base(userId, JobApplicationStatusEnum.PREPARING)
+                        .setCompanyName("Zeta")
+                        .setPosition("Data")
+                        .setDeadline(LocalDate.now().minusDays(1).toString()),
+                base(userId, JobApplicationStatusEnum.PREPARING)
+                        .setCompanyName("Eta")
+                        .setPosition("Backend")
+        ));
+
+        JobApplicationReviewVo review = service.review(userId);
+
+        assertThat(review.getExpiredDeadline()).isEqualTo(1);
+        assertThat(review.getUnknownDeadline()).isEqualTo(1);
+        assertThat(review.getSummary()).contains("已过截止时间");
     }
 
     @Test
