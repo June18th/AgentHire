@@ -225,6 +225,7 @@ public class JobApplicationService {
         int thisWeek = (int) all.stream().filter(item -> "THIS_WEEK".equals(item.getDeadlineRisk())).count();
         int expiredDeadline = (int) all.stream().filter(item -> "EXPIRED".equals(item.getDeadlineRisk())).count();
         int unknownDeadline = (int) all.stream().filter(item -> "UNKNOWN".equals(item.getDeadlineRisk())).count();
+        int missingApplyUrl = (int) all.stream().filter(this::isMissingApplyUrl).count();
         int staleSubmitted = (int) all.stream().filter(this::isStaleSubmitted).count();
         int processNeedsFollowUp = (int) all.stream().filter(this::isProcessNeedsFollowUp).count();
         int submittedAndLater = (int) all.stream().filter(item -> List.of(
@@ -270,6 +271,7 @@ public class JobApplicationService {
                 .setThisWeek(thisWeek)
                 .setExpiredDeadline(expiredDeadline)
                 .setUnknownDeadline(unknownDeadline)
+                .setMissingApplyUrl(missingApplyUrl)
                 .setSubmittedAndLater(submittedAndLater)
                 .setStaleSubmitted(staleSubmitted)
                 .setProcessNeedsFollowUp(processNeedsFollowUp)
@@ -279,7 +281,7 @@ public class JobApplicationService {
                 .setNext7DayEvents(next7DayEvents)
                 .setSummary(buildBriefSummary(actionItems.size(), overdueFollowUps, dueToday, dueSoon,
                         expiredDeadline, unknownDeadline,
-                        staleSubmitted, processNeedsFollowUp, interview, offer, todayEvents))
+                        missingApplyUrl, staleSubmitted, processNeedsFollowUp, interview, offer, todayEvents))
                 .setUpcomingEvents(upcomingEvents)
                 .setTopActions(actionItems.stream().limit(size).toList());
     }
@@ -308,6 +310,7 @@ public class JobApplicationService {
         int processNeedsFollowUp = (int) all.stream().filter(this::isProcessNeedsFollowUp).count();
         int expiredDeadline = (int) all.stream().filter(item -> "EXPIRED".equals(item.getDeadlineRisk())).count();
         int unknownDeadline = (int) all.stream().filter(item -> "UNKNOWN".equals(item.getDeadlineRisk())).count();
+        int missingApplyUrl = (int) all.stream().filter(this::isMissingApplyUrl).count();
 
         return new JobApplicationReviewVo()
                 .setWeekStart(weekStart.getTime())
@@ -322,9 +325,10 @@ public class JobApplicationService {
                 .setProcessNeedsFollowUp(processNeedsFollowUp)
                 .setExpiredDeadline(expiredDeadline)
                 .setUnknownDeadline(unknownDeadline)
+                .setMissingApplyUrl(missingApplyUrl)
                 .setSummary(buildReviewSummary(createdThisWeek, submittedAndLaterThisWeek, interviewThisWeek,
                         offerThisWeek, overdueFollowUps, staleSubmitted, processNeedsFollowUp,
-                        expiredDeadline, unknownDeadline));
+                        expiredDeadline, unknownDeadline, missingApplyUrl));
     }
 
     @Transactional
@@ -425,6 +429,7 @@ public class JobApplicationService {
             case "THIS_WEEK" -> "THIS_WEEK".equals(item.getDeadlineRisk());
             case "EXPIRED_DEADLINE" -> "EXPIRED".equals(item.getDeadlineRisk());
             case "UNKNOWN_DEADLINE" -> "UNKNOWN".equals(item.getDeadlineRisk());
+            case "MISSING_APPLY_URL" -> isMissingApplyUrl(item);
             case "STALE_SUBMITTED" -> isStaleSubmitted(item);
             case "PROCESS_NEEDS_FOLLOW_UP" -> isProcessNeedsFollowUp(item);
             default -> true;
@@ -445,6 +450,16 @@ public class JobApplicationService {
 
     private boolean isProcessNeedsFollowUp(JobApplicationVo item) {
         return item != null && item.getNextFollowUpAt() == null && isProcessStatus(item);
+    }
+
+    private boolean isMissingApplyUrl(JobApplicationVo item) {
+        return item != null && !Boolean.TRUE.equals(item.getTerminal())
+                && !StringUtils.hasText(item.getApplyUrl())
+                && List.of(
+                        JobApplicationStatusEnum.INTERESTED.getCode(),
+                        JobApplicationStatusEnum.PREPARING.getCode(),
+                        JobApplicationStatusEnum.SUBMITTED.getCode()
+                ).contains(item.getCurrentStatus());
     }
 
     private boolean isSubmittedAndLater(JobApplicationVo item) {
@@ -566,7 +581,7 @@ public class JobApplicationService {
 
     private String buildBriefSummary(int actionCount, int overdueFollowUps, int dueToday, int dueSoon,
                                      int expiredDeadline, int unknownDeadline,
-                                     int staleSubmitted, int processNeedsFollowUp, int interview,
+                                     int missingApplyUrl, int staleSubmitted, int processNeedsFollowUp, int interview,
                                      int offer, int todayEvents) {
         if (overdueFollowUps > 0) {
             return "有 " + overdueFollowUps + " 条跟进已到期，建议优先处理。";
@@ -595,6 +610,9 @@ public class JobApplicationService {
         if (unknownDeadline > 0) {
             return "有 " + unknownDeadline + " 个活跃岗位截止时间未知，建议先补齐日期再安排投递节奏。";
         }
+        if (missingApplyUrl > 0) {
+            return "有 " + missingApplyUrl + " 条活跃投递缺少投递链接，建议补齐官网、内推或网申入口。";
+        }
         if (interview > 0) {
             return "当前有 " + interview + " 条笔面试流程，建议记录安排和复盘。";
         }
@@ -606,7 +624,8 @@ public class JobApplicationService {
 
     private String buildReviewSummary(int createdThisWeek, int submittedAndLaterThisWeek, int interviewThisWeek,
                                       int offerThisWeek, int overdueFollowUps, int staleSubmitted,
-                                      int processNeedsFollowUp, int expiredDeadline, int unknownDeadline) {
+                                      int processNeedsFollowUp, int expiredDeadline, int unknownDeadline,
+                                      int missingApplyUrl) {
         if (overdueFollowUps > 0) {
             return "本周复盘优先处理 " + overdueFollowUps + " 条已到期跟进，避免投递线索断档。";
         }
@@ -621,6 +640,9 @@ public class JobApplicationService {
         }
         if (unknownDeadline > 0) {
             return "本周复盘发现 " + unknownDeadline + " 个活跃岗位截止时间未知，建议补齐日期提升投递节奏判断。";
+        }
+        if (missingApplyUrl > 0) {
+            return "本周复盘发现 " + missingApplyUrl + " 条活跃投递缺少投递链接，建议补齐网申、官网或内推入口。";
         }
         if (offerThisWeek > 0) {
             return "本周已有 " + offerThisWeek + " 条 Offer 阶段进展，建议记录选择依据和沟通结论。";

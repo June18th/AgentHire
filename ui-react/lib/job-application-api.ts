@@ -18,7 +18,7 @@ export type JobApplicationStatus =
   | "CLOSED"
 
 export type JobApplicationFollowUpScope = "PENDING" | "OVERDUE"
-export type JobApplicationActionScope = "A" | "OVERDUE_FOLLOW_UP" | "DUE_TODAY" | "DUE_SOON" | "THIS_WEEK" | "EXPIRED_DEADLINE" | "UNKNOWN_DEADLINE" | "STALE_SUBMITTED" | "PROCESS_NEEDS_FOLLOW_UP"
+export type JobApplicationActionScope = "A" | "OVERDUE_FOLLOW_UP" | "DUE_TODAY" | "DUE_SOON" | "THIS_WEEK" | "EXPIRED_DEADLINE" | "UNKNOWN_DEADLINE" | "MISSING_APPLY_URL" | "STALE_SUBMITTED" | "PROCESS_NEEDS_FOLLOW_UP"
 export type JobApplicationDeadlineRisk = "NONE" | "UNKNOWN" | "EXPIRED" | "DUE_TODAY" | "DUE_SOON" | "THIS_WEEK" | "NORMAL" | string
 export type JobApplicationActionPriority = "A" | "B" | "C" | "NONE" | string
 export type JobApplicationEventUrgency = "UNKNOWN" | "PAST" | "TODAY" | "TOMORROW" | "THIS_WEEK" | "LATER" | string
@@ -117,6 +117,7 @@ export interface JobApplicationBrief {
   thisWeek: number
   expiredDeadline: number
   unknownDeadline: number
+  missingApplyUrl: number
   submittedAndLater: number
   staleSubmitted: number
   processNeedsFollowUp: number
@@ -142,6 +143,7 @@ export interface JobApplicationReview {
   processNeedsFollowUp: number
   expiredDeadline: number
   unknownDeadline: number
+  missingApplyUrl: number
   summary: string
 }
 

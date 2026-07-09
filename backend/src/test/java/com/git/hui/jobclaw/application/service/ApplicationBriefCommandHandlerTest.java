@@ -35,6 +35,7 @@ class ApplicationBriefCommandHandlerTest {
                 .setProcessNeedsFollowUp(3)
                 .setExpiredDeadline(4)
                 .setUnknownDeadline(4)
+                .setMissingApplyUrl(5)
                 .setTodayEvents(1)
                 .setNext7DayEvents(1)
                 .setSummary("有 1 条跟进已到期，建议优先处理。")
@@ -67,6 +68,7 @@ class ApplicationBriefCommandHandlerTest {
         assertThat(response.get()).contains("临近截止 2");
         assertThat(response.get()).contains("已过截止 4");
         assertThat(response.get()).contains("截止未知 4");
+        assertThat(response.get()).contains("链接缺失 5");
         assertThat(response.get()).contains("静默投递 1");
         assertThat(response.get()).contains("流程待跟进 3");
         assertThat(response.get()).contains("Alpha / Backend");
@@ -105,6 +107,7 @@ class ApplicationBriefCommandHandlerTest {
                 .setProcessNeedsFollowUp(3)
                 .setExpiredDeadline(4)
                 .setUnknownDeadline(5)
+                .setMissingApplyUrl(6)
                 .setSummary("本周复盘发现 2 条投递超过 7 天未跟进，建议集中补一次状态确认。"));
 
         AtomicReference<String> response = new AtomicReference<>();
@@ -122,6 +125,7 @@ class ApplicationBriefCommandHandlerTest {
         assertThat(response.get()).contains("流程待跟进 3");
         assertThat(response.get()).contains("已过截止 4");
         assertThat(response.get()).contains("截止未知 5");
+        assertThat(response.get()).contains("链接缺失 6");
         verify(service).review(7L);
     }
 

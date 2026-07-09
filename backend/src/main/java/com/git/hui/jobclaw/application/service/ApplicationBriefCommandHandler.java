@@ -99,6 +99,7 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
                 .append("，临近截止 ").append(value(brief.getDueSoon()))
                 .append("，已过截止 ").append(value(brief.getExpiredDeadline()))
                 .append("，截止未知 ").append(value(brief.getUnknownDeadline()))
+                .append("，链接缺失 ").append(value(brief.getMissingApplyUrl()))
                 .append("，静默投递 ").append(value(brief.getStaleSubmitted()))
                 .append("，流程待跟进 ").append(value(brief.getProcessNeedsFollowUp()))
                 .append("，今日日程 ").append(value(brief.getTodayEvents()))
@@ -137,6 +138,7 @@ public class ApplicationBriefCommandHandler implements SystemCommandHandler {
                 .append("，流程待跟进 ").append(value(review.getProcessNeedsFollowUp()))
                 .append("，已过截止 ").append(value(review.getExpiredDeadline()))
                 .append("，截止未知 ").append(value(review.getUnknownDeadline()))
+                .append("，链接缺失 ").append(value(review.getMissingApplyUrl()))
                 .append("。\n");
         sb.append("建议：先处理逾期和静默投递，再补齐面试复盘、下一次跟进时间、截止日期和材料版本。");
         return sb.toString();

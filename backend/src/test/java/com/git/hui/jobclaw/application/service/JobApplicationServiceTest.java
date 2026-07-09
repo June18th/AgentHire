@@ -128,6 +128,26 @@ class JobApplicationServiceTest {
     }
 
     @Test
+    void briefSummarizesMissingApplyUrls() {
+        JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
+        JobApplicationService service = newService(applicationRepository);
+        Long userId = 7L;
+        when(applicationRepository.findByUserIdAndStateNot(userId, -1)).thenReturn(List.of(
+                base(userId, JobApplicationStatusEnum.PREPARING)
+                        .setCompanyName("Theta")
+                        .setPosition("Backend")
+                        .setDeadline(LocalDate.now().plusDays(14).toString())
+        ));
+
+        JobApplicationBriefVo brief = service.brief(userId, 5);
+
+        assertThat(brief.getActionCount()).isEqualTo(1);
+        assertThat(brief.getPriorityC()).isEqualTo(1);
+        assertThat(brief.getMissingApplyUrl()).isEqualTo(1);
+        assertThat(brief.getSummary()).contains("缺少投递链接");
+    }
+
+    @Test
     void briefSummarizesProcessFollowUpGaps() {
         JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
         JobApplicationService service = newService(applicationRepository);
@@ -211,14 +231,17 @@ class JobApplicationServiceTest {
                         base(userId, JobApplicationStatusEnum.PREPARING)
                                 .setCompanyName("Alpha")
                                 .setPosition("Java backend")
+                                .setApplyUrl("https://alpha.example/apply")
                                 .setDeadline(LocalDate.now().toString()),
                         base(userId, JobApplicationStatusEnum.SUBMITTED)
                                 .setCompanyName("Beta")
                                 .setPosition("Platform")
+                                .setApplyUrl("https://beta.example/apply")
                                 .setSubmittedAt(Date.from(LocalDate.now().minusDays(8).atStartOfDay(ZoneId.systemDefault()).toInstant())),
                         base(userId, JobApplicationStatusEnum.PREPARING)
                                 .setCompanyName("Gamma")
                                 .setPosition("Frontend")
+                                .setApplyUrl("https://gamma.example/apply")
                                 .setDeadline(LocalDate.now().plusDays(5).toString()),
                         base(userId, JobApplicationStatusEnum.INTERVIEW_1)
                                 .setCompanyName("Sigma")
@@ -226,17 +249,24 @@ class JobApplicationServiceTest {
                                 .setDeadline(LocalDate.now().plusDays(30).toString()),
                         base(userId, JobApplicationStatusEnum.PREPARING)
                                 .setCompanyName("Delta")
-                                .setPosition("Data"),
+                                .setPosition("Data")
+                                .setApplyUrl("https://delta.example/apply"),
                         base(userId, JobApplicationStatusEnum.PREPARING)
                                 .setCompanyName("Zeta")
                                 .setPosition("Data")
-                                .setDeadline(LocalDate.now().minusDays(1).toString())
+                                .setApplyUrl("https://zeta.example/apply")
+                                .setDeadline(LocalDate.now().minusDays(1).toString()),
+                        base(userId, JobApplicationStatusEnum.PREPARING)
+                                .setCompanyName("Theta")
+                                .setPosition("Backend")
+                                .setDeadline(LocalDate.now().plusDays(14).toString())
                 ));
 
         List<JobApplicationVo> dueToday = service.actionItems(userId, 20, "DUE_TODAY");
         List<JobApplicationVo> thisWeek = service.actionItems(userId, 20, "THIS_WEEK");
         List<JobApplicationVo> expiredDeadline = service.actionItems(userId, 20, "EXPIRED_DEADLINE");
         List<JobApplicationVo> unknownDeadline = service.actionItems(userId, 20, "UNKNOWN_DEADLINE");
+        List<JobApplicationVo> missingApplyUrl = service.actionItems(userId, 20, "MISSING_APPLY_URL");
         List<JobApplicationVo> staleSubmitted = service.actionItems(userId, 20, "STALE_SUBMITTED");
         List<JobApplicationVo> processNeedsFollowUp = service.actionItems(userId, 20, "PROCESS_NEEDS_FOLLOW_UP");
         List<JobApplicationVo> priorityA = service.actionItems(userId, 20, "A");
@@ -245,6 +275,7 @@ class JobApplicationServiceTest {
         assertThat(thisWeek).extracting(JobApplicationVo::getCompanyName).containsExactly("Gamma");
         assertThat(expiredDeadline).extracting(JobApplicationVo::getCompanyName).containsExactly("Zeta");
         assertThat(unknownDeadline).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta", "Delta");
+        assertThat(missingApplyUrl).extracting(JobApplicationVo::getCompanyName).containsExactly("Theta");
         assertThat(staleSubmitted).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta");
         assertThat(processNeedsFollowUp).extracting(JobApplicationVo::getCompanyName).containsExactly("Sigma");
         assertThat(priorityA).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
@@ -293,6 +324,7 @@ class JobApplicationServiceTest {
         assertThat(review.getProcessNeedsFollowUp()).isEqualTo(2);
         assertThat(review.getExpiredDeadline()).isZero();
         assertThat(review.getUnknownDeadline()).isEqualTo(5);
+        assertThat(review.getMissingApplyUrl()).isEqualTo(3);
         assertThat(review.getWeekStart()).isNotNull();
         assertThat(review.getWeekEnd()).isNotNull();
         assertThat(review.getSummary()).contains("投递超过 7 天未跟进");
@@ -307,6 +339,7 @@ class JobApplicationServiceTest {
                 base(userId, JobApplicationStatusEnum.PREPARING)
                         .setCompanyName("Zeta")
                         .setPosition("Data")
+                        .setApplyUrl("https://zeta.example/apply")
                         .setDeadline(LocalDate.now().minusDays(1).toString()),
                 base(userId, JobApplicationStatusEnum.PREPARING)
                         .setCompanyName("Eta")
@@ -317,6 +350,7 @@ class JobApplicationServiceTest {
 
         assertThat(review.getExpiredDeadline()).isEqualTo(1);
         assertThat(review.getUnknownDeadline()).isEqualTo(1);
+        assertThat(review.getMissingApplyUrl()).isEqualTo(1);
         assertThat(review.getSummary()).contains("已过截止时间");
     }
 

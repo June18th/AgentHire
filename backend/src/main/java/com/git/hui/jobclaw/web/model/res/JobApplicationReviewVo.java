@@ -18,5 +18,6 @@ public class JobApplicationReviewVo {
     private Integer processNeedsFollowUp;
     private Integer expiredDeadline;
     private Integer unknownDeadline;
+    private Integer missingApplyUrl;
     private String summary;
 }

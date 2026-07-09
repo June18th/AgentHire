@@ -147,6 +147,7 @@ const ACTION_SCOPE_OPTIONS: Array<{ value: "all" | JobApplicationActionScope; la
   { value: "THIS_WEEK", label: "本周截止" },
   { value: "EXPIRED_DEADLINE", label: "已过截止" },
   { value: "UNKNOWN_DEADLINE", label: "截止未知" },
+  { value: "MISSING_APPLY_URL", label: "链接缺失" },
   { value: "STALE_SUBMITTED", label: "静默投递" },
   { value: "PROCESS_NEEDS_FOLLOW_UP", label: "流程待跟进" },
 ]
@@ -328,6 +329,10 @@ function isProcessNeedsFollowUpRecord(record: JobApplicationItem) {
   return FOLLOW_UP_REQUIRED_PROCESS_STATUS.includes(record.currentStatus) && !record.nextFollowUpAt
 }
 
+function isMissingApplyUrlRecord(record: JobApplicationItem) {
+  return !record.terminal && ["INTERESTED", "PREPARING", "SUBMITTED"].includes(record.currentStatus) && !record.applyUrl?.trim()
+}
+
 function staleSubmittedDays(record: JobApplicationItem, now = Date.now()) {
   if (!record.submittedAt) return 0
   return Math.max(0, Math.floor((now - Number(record.submittedAt)) / 86_400_000))
@@ -426,12 +431,14 @@ function weeklyReviewHint(stats: {
   processNeedsFollowUp: number
   expiredDeadline: number
   unknownDeadline: number
+  missingApplyUrl: number
 }) {
   if (stats.overdue > 0) return `本周还有 ${stats.overdue} 条跟进已到期，建议先清空逾期队列。`
   if (stats.stale > 0) return `有 ${stats.stale} 条静默投递需要复盘，建议检查邮箱、短信和官网状态。`
   if (stats.processNeedsFollowUp > 0) return `有 ${stats.processNeedsFollowUp} 条流程已推进但没有下一次跟进，建议补齐复盘和提醒。`
   if (stats.expiredDeadline > 0) return `有 ${stats.expiredDeadline} 个活跃岗位已过截止时间，建议确认是否仍开放或关闭失效目标。`
   if (stats.unknownDeadline > 0) return `有 ${stats.unknownDeadline} 个活跃岗位截止时间未知，建议先补齐日期再安排投递节奏。`
+  if (stats.missingApplyUrl > 0) return `有 ${stats.missingApplyUrl} 条活跃投递缺少投递链接，建议补齐官网、网申或内推入口。`
   if (stats.interviews > 0) return `本周已有 ${stats.interviews} 条笔面试推进，建议补充复盘和下一轮安排。`
   if (stats.submittedAndLater > 0) return `本周已有 ${stats.submittedAndLater} 条进入正式流程，继续补齐跟进提醒。`
   if (stats.created > 0) return `本周新增 ${stats.created} 条投递记录，建议优先完成材料匹配和截止日期确认。`
@@ -511,6 +518,7 @@ export default function ApplicationsPage() {
       thisWeek: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "THIS_WEEK"),
       expiredDeadline: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "EXPIRED"),
       unknownDeadline: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "UNKNOWN"),
+      missingApplyUrl: summaryRecords.filter(isMissingApplyUrlRecord),
       overdue: summaryRecords.filter(recordFollowUpOverdue),
     }
   }, [summaryRecords])
@@ -571,6 +579,7 @@ export default function ApplicationsPage() {
       processNeedsFollowUp: summaryRecords.filter(isProcessNeedsFollowUpRecord).length,
       expiredDeadline: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "EXPIRED").length,
       unknownDeadline: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "UNKNOWN").length,
+      missingApplyUrl: summaryRecords.filter(isMissingApplyUrlRecord).length,
     }
     return {
       ...stats,
@@ -589,6 +598,7 @@ export default function ApplicationsPage() {
       processNeedsFollowUp: serverWeeklyReview.processNeedsFollowUp || 0,
       expiredDeadline: serverWeeklyReview.expiredDeadline || 0,
       unknownDeadline: serverWeeklyReview.unknownDeadline || 0,
+      missingApplyUrl: serverWeeklyReview.missingApplyUrl || 0,
     }
     return {
       ...stats,
@@ -1190,7 +1200,7 @@ export default function ApplicationsPage() {
               周一至今
             </Badge>
           </div>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-9">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-10">
             <div className="rounded-md border border-surface-border bg-gray-50 px-3 py-2">
               <div className="text-lg font-semibold text-content-primary">{weeklyReview.created}</div>
               <div className="text-xs text-content-tertiary">新增记录</div>
@@ -1247,10 +1257,18 @@ export default function ApplicationsPage() {
               <div className="text-lg font-semibold text-cyan-700">{weeklyReview.unknownDeadline}</div>
               <div className="text-xs text-content-tertiary">截止未知</div>
             </button>
+            <button
+              type="button"
+              className="rounded-md border border-surface-border bg-gray-50 px-3 py-2 text-left transition-colors hover:border-violet-200 hover:bg-violet-50"
+              onClick={() => handleActionScopeChange("MISSING_APPLY_URL")}
+            >
+              <div className="text-lg font-semibold text-violet-700">{weeklyReview.missingApplyUrl}</div>
+              <div className="text-xs text-content-tertiary">链接缺失</div>
+            </button>
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-9">
           <button
             type="button"
             className="rounded-lg border border-surface-border bg-white p-4 text-left shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
@@ -1295,6 +1313,15 @@ export default function ApplicationsPage() {
             <div className="text-sm font-semibold text-content-primary">截止未知</div>
             <div className={`mt-2 text-2xl font-semibold ${todayTodo.unknownDeadline.length > 0 ? "text-cyan-700" : "text-content-primary"}`}>{todayTodo.unknownDeadline.length}</div>
             <MiniList items={todayTodo.unknownDeadline} emptyText="活跃岗位都已补齐截止时间" />
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg border p-4 text-left shadow-sm transition-colors hover:border-violet-200 hover:bg-violet-50 ${todayTodo.missingApplyUrl.length > 0 ? "border-violet-200 bg-violet-50/60" : "border-surface-border bg-white"}`}
+            onClick={() => handleActionScopeChange("MISSING_APPLY_URL")}
+          >
+            <div className="text-sm font-semibold text-content-primary">链接缺失</div>
+            <div className={`mt-2 text-2xl font-semibold ${todayTodo.missingApplyUrl.length > 0 ? "text-violet-700" : "text-content-primary"}`}>{todayTodo.missingApplyUrl.length}</div>
+            <MiniList items={todayTodo.missingApplyUrl} emptyText="活跃投递都已补齐入口" />
           </button>
           <button
             type="button"
