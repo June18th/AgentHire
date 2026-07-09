@@ -145,6 +145,7 @@ const ACTION_SCOPE_OPTIONS: Array<{ value: "all" | JobApplicationActionScope; la
   { value: "DUE_TODAY", label: "今日截止" },
   { value: "DUE_SOON", label: "临近截止" },
   { value: "THIS_WEEK", label: "本周截止" },
+  { value: "UNKNOWN_DEADLINE", label: "截止未知" },
   { value: "STALE_SUBMITTED", label: "静默投递" },
   { value: "PROCESS_NEEDS_FOLLOW_UP", label: "流程待跟进" },
 ]
@@ -503,6 +504,7 @@ export default function ApplicationsPage() {
       toFollowUp,
       dueSoon: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "DUE_SOON"),
       thisWeek: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "THIS_WEEK"),
+      unknownDeadline: summaryRecords.filter((record) => !record.terminal && record.deadlineRisk === "UNKNOWN"),
       overdue: summaryRecords.filter(recordFollowUpOverdue),
     }
   }, [summaryRecords])
@@ -1222,7 +1224,7 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
           <button
             type="button"
             className="rounded-lg border border-surface-border bg-white p-4 text-left shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
@@ -1249,6 +1251,15 @@ export default function ApplicationsPage() {
             <div className="text-sm font-semibold text-content-primary">本周截止</div>
             <div className={`mt-2 text-2xl font-semibold ${todayTodo.thisWeek.length > 0 ? "text-indigo-700" : "text-content-primary"}`}>{todayTodo.thisWeek.length}</div>
             <MiniList items={todayTodo.thisWeek} emptyText="4-7 天内没有待处理截止项" />
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg border p-4 text-left shadow-sm transition-colors hover:border-cyan-200 hover:bg-cyan-50 ${todayTodo.unknownDeadline.length > 0 ? "border-cyan-200 bg-cyan-50/60" : "border-surface-border bg-white"}`}
+            onClick={() => handleActionScopeChange("UNKNOWN_DEADLINE")}
+          >
+            <div className="text-sm font-semibold text-content-primary">截止未知</div>
+            <div className={`mt-2 text-2xl font-semibold ${todayTodo.unknownDeadline.length > 0 ? "text-cyan-700" : "text-content-primary"}`}>{todayTodo.unknownDeadline.length}</div>
+            <MiniList items={todayTodo.unknownDeadline} emptyText="活跃岗位都已补齐截止时间" />
           </button>
           <button
             type="button"

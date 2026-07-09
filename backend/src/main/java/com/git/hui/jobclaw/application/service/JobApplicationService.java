@@ -223,6 +223,7 @@ public class JobApplicationService {
         int dueToday = (int) all.stream().filter(item -> "DUE_TODAY".equals(item.getDeadlineRisk())).count();
         int dueSoon = (int) all.stream().filter(item -> "DUE_SOON".equals(item.getDeadlineRisk())).count();
         int thisWeek = (int) all.stream().filter(item -> "THIS_WEEK".equals(item.getDeadlineRisk())).count();
+        int unknownDeadline = (int) all.stream().filter(item -> "UNKNOWN".equals(item.getDeadlineRisk())).count();
         int staleSubmitted = (int) all.stream().filter(this::isStaleSubmitted).count();
         int processNeedsFollowUp = (int) all.stream().filter(this::isProcessNeedsFollowUp).count();
         int submittedAndLater = (int) all.stream().filter(item -> List.of(
@@ -266,6 +267,7 @@ public class JobApplicationService {
                 .setDueToday(dueToday)
                 .setDueSoon(dueSoon)
                 .setThisWeek(thisWeek)
+                .setUnknownDeadline(unknownDeadline)
                 .setSubmittedAndLater(submittedAndLater)
                 .setStaleSubmitted(staleSubmitted)
                 .setProcessNeedsFollowUp(processNeedsFollowUp)
@@ -273,7 +275,7 @@ public class JobApplicationService {
                 .setOffer(offer)
                 .setTodayEvents(todayEvents)
                 .setNext7DayEvents(next7DayEvents)
-                .setSummary(buildBriefSummary(actionItems.size(), overdueFollowUps, dueToday, dueSoon,
+                .setSummary(buildBriefSummary(actionItems.size(), overdueFollowUps, dueToday, dueSoon, unknownDeadline,
                         staleSubmitted, processNeedsFollowUp, interview, offer, todayEvents))
                 .setUpcomingEvents(upcomingEvents)
                 .setTopActions(actionItems.stream().limit(size).toList());
@@ -413,6 +415,7 @@ public class JobApplicationService {
             case "DUE_TODAY" -> "DUE_TODAY".equals(item.getDeadlineRisk());
             case "DUE_SOON" -> "DUE_SOON".equals(item.getDeadlineRisk());
             case "THIS_WEEK" -> "THIS_WEEK".equals(item.getDeadlineRisk());
+            case "UNKNOWN_DEADLINE" -> "UNKNOWN".equals(item.getDeadlineRisk());
             case "STALE_SUBMITTED" -> isStaleSubmitted(item);
             case "PROCESS_NEEDS_FOLLOW_UP" -> isProcessNeedsFollowUp(item);
             default -> true;
@@ -552,7 +555,7 @@ public class JobApplicationService {
                 .orElse(null);
     }
 
-    private String buildBriefSummary(int actionCount, int overdueFollowUps, int dueToday, int dueSoon,
+    private String buildBriefSummary(int actionCount, int overdueFollowUps, int dueToday, int dueSoon, int unknownDeadline,
                                      int staleSubmitted, int processNeedsFollowUp, int interview,
                                      int offer, int todayEvents) {
         if (overdueFollowUps > 0) {
@@ -575,6 +578,9 @@ public class JobApplicationService {
         }
         if (processNeedsFollowUp > 0) {
             return "有 " + processNeedsFollowUp + " 条流程已推进但未设置跟进，建议补齐阶段复盘和下一次提醒。";
+        }
+        if (unknownDeadline > 0) {
+            return "有 " + unknownDeadline + " 个活跃岗位截止时间未知，建议先补齐日期再安排投递节奏。";
         }
         if (interview > 0) {
             return "当前有 " + interview + " 条笔面试流程，建议记录安排和复盘。";

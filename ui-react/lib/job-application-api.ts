@@ -18,7 +18,7 @@ export type JobApplicationStatus =
   | "CLOSED"
 
 export type JobApplicationFollowUpScope = "PENDING" | "OVERDUE"
-export type JobApplicationActionScope = "A" | "OVERDUE_FOLLOW_UP" | "DUE_TODAY" | "DUE_SOON" | "THIS_WEEK" | "STALE_SUBMITTED" | "PROCESS_NEEDS_FOLLOW_UP"
+export type JobApplicationActionScope = "A" | "OVERDUE_FOLLOW_UP" | "DUE_TODAY" | "DUE_SOON" | "THIS_WEEK" | "UNKNOWN_DEADLINE" | "STALE_SUBMITTED" | "PROCESS_NEEDS_FOLLOW_UP"
 export type JobApplicationDeadlineRisk = "NONE" | "UNKNOWN" | "EXPIRED" | "DUE_TODAY" | "DUE_SOON" | "THIS_WEEK" | "NORMAL" | string
 export type JobApplicationActionPriority = "A" | "B" | "C" | "NONE" | string
 export type JobApplicationEventUrgency = "UNKNOWN" | "PAST" | "TODAY" | "TOMORROW" | "THIS_WEEK" | "LATER" | string
@@ -115,6 +115,7 @@ export interface JobApplicationBrief {
   dueToday: number
   dueSoon: number
   thisWeek: number
+  unknownDeadline: number
   submittedAndLater: number
   staleSubmitted: number
   processNeedsFollowUp: number

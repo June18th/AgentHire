@@ -89,6 +89,25 @@ class JobApplicationServiceTest {
     }
 
     @Test
+    void briefSummarizesUnknownDeadlines() {
+        JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
+        JobApplicationService service = newService(applicationRepository);
+        Long userId = 7L;
+        when(applicationRepository.findByUserIdAndStateNot(userId, -1)).thenReturn(List.of(
+                base(userId, JobApplicationStatusEnum.PREPARING)
+                        .setCompanyName("Epsilon")
+                        .setPosition("Algorithm")
+        ));
+
+        JobApplicationBriefVo brief = service.brief(userId, 5);
+
+        assertThat(brief.getActionCount()).isEqualTo(1);
+        assertThat(brief.getPriorityC()).isEqualTo(1);
+        assertThat(brief.getUnknownDeadline()).isEqualTo(1);
+        assertThat(brief.getSummary()).contains("截止时间未知");
+    }
+
+    @Test
     void briefSummarizesProcessFollowUpGaps() {
         JobApplicationRepository applicationRepository = mock(JobApplicationRepository.class);
         JobApplicationService service = newService(applicationRepository);
@@ -184,17 +203,22 @@ class JobApplicationServiceTest {
                         base(userId, JobApplicationStatusEnum.INTERVIEW_1)
                                 .setCompanyName("Sigma")
                                 .setPosition("Platform")
-                                .setDeadline(LocalDate.now().plusDays(30).toString())
+                                .setDeadline(LocalDate.now().plusDays(30).toString()),
+                        base(userId, JobApplicationStatusEnum.PREPARING)
+                                .setCompanyName("Delta")
+                                .setPosition("Data")
                 ));
 
         List<JobApplicationVo> dueToday = service.actionItems(userId, 20, "DUE_TODAY");
         List<JobApplicationVo> thisWeek = service.actionItems(userId, 20, "THIS_WEEK");
+        List<JobApplicationVo> unknownDeadline = service.actionItems(userId, 20, "UNKNOWN_DEADLINE");
         List<JobApplicationVo> staleSubmitted = service.actionItems(userId, 20, "STALE_SUBMITTED");
         List<JobApplicationVo> processNeedsFollowUp = service.actionItems(userId, 20, "PROCESS_NEEDS_FOLLOW_UP");
         List<JobApplicationVo> priorityA = service.actionItems(userId, 20, "A");
 
         assertThat(dueToday).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
         assertThat(thisWeek).extracting(JobApplicationVo::getCompanyName).containsExactly("Gamma");
+        assertThat(unknownDeadline).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta", "Delta");
         assertThat(staleSubmitted).extracting(JobApplicationVo::getCompanyName).containsExactly("Beta");
         assertThat(processNeedsFollowUp).extracting(JobApplicationVo::getCompanyName).containsExactly("Sigma");
         assertThat(priorityA).extracting(JobApplicationVo::getCompanyName).containsExactly("Alpha");
