@@ -27,12 +27,14 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { AuthGuard } from "@/components/auth/AuthGuard"
+import { RUNNER_AGENT, RUNNER_IM_FETCH } from "@/lib/admin-workbench"
 
 interface AdminMenuItem {
   label: string
   path: string
   href?: string
   tab?: string
+  runner?: string
   icon: LucideIcon
 }
 
@@ -53,7 +55,32 @@ const menuGroups: AdminMenuGroup[] = [
   },
   {
     title: "Agent 作业台",
-    items: [{ label: "作业链", path: "/admin/progress", icon: Bot }],
+    items: [
+      { label: "作业链", path: "/admin/progress", icon: Bot },
+      {
+        label: "Agent 任务",
+        path: "/admin/entry",
+        href: `/admin/entry?tab=tasks&runner=${RUNNER_AGENT}`,
+        tab: "tasks",
+        runner: RUNNER_AGENT,
+        icon: ListChecks,
+      },
+      {
+        label: "Agent 草稿",
+        path: "/admin/drafts",
+        href: `/admin/drafts?runner=${RUNNER_AGENT}`,
+        runner: RUNNER_AGENT,
+        icon: Files,
+      },
+      {
+        label: "IM 采集任务",
+        path: "/admin/entry",
+        href: `/admin/entry?tab=tasks&runner=${RUNNER_IM_FETCH}`,
+        tab: "tasks",
+        runner: RUNNER_IM_FETCH,
+        icon: ListChecks,
+      },
+    ],
   },
   {
     title: "采集源管理",
@@ -72,10 +99,38 @@ const menuGroups: AdminMenuGroup[] = [
   },
 ]
 
+function isMenuItemActive(
+  item: AdminMenuItem,
+  pathname: string,
+  currentEntryTab: string,
+  currentRunner: string
+) {
+  if (item.tab) {
+    if (pathname !== item.path || currentEntryTab !== item.tab) {
+      return false
+    }
+    if (item.runner) {
+      return currentRunner === item.runner
+    }
+    return !currentRunner
+  }
+
+  if (item.runner) {
+    return (pathname === item.path || pathname.startsWith(`${item.path}/`)) && currentRunner === item.runner
+  }
+
+  if (pathname !== item.path && !pathname.startsWith(`${item.path}/`)) {
+    return false
+  }
+
+  return !currentRunner
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const currentEntryTab = searchParams.get("tab") || "entry"
+  const currentRunner = searchParams.get("runner") || ""
 
   return (
     <AuthGuard
@@ -99,9 +154,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <SidebarMenu className="gap-1.5">
                     {group.items.map((item) => {
                       const Icon = item.icon
-                      const active = item.tab
-                        ? pathname === item.path && currentEntryTab === item.tab
-                        : pathname === item.path || pathname.startsWith(`${item.path}/`)
+                      const active = isMenuItemActive(item, pathname, currentEntryTab, currentRunner)
 
                       return (
                         <SidebarMenuItem key={`${group.title}-${item.label}`}>

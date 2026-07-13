@@ -2,6 +2,7 @@ package com.git.hui.jobclaw.components.mq;
 
 import com.git.hui.jobclaw.configs.MqProperties;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -9,11 +10,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class PlatformEventPublisher {
     private final MqProperties mqProperties;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectProvider<KafkaTemplate<String, Object>> kafkaTemplateProvider;
 
-    public PlatformEventPublisher(MqProperties mqProperties, KafkaTemplate<String, Object> kafkaTemplate) {
+    public PlatformEventPublisher(MqProperties mqProperties,
+                                  ObjectProvider<KafkaTemplate<String, Object>> kafkaTemplateProvider) {
         this.mqProperties = mqProperties;
-        this.kafkaTemplate = kafkaTemplate;
+        this.kafkaTemplateProvider = kafkaTemplateProvider;
     }
 
     public void publishDomainEvent(String key, Object payload) {
@@ -31,6 +33,11 @@ public class PlatformEventPublisher {
         }
         if (!"kafka".equalsIgnoreCase(mqProperties.getProvider())) {
             log.warn("Unsupported MQ provider={}, skip event topic={}, key={}", mqProperties.getProvider(), topic, key);
+            return;
+        }
+        KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
+        if (kafkaTemplate == null) {
+            log.warn("KafkaTemplate unavailable, skip event topic={}, key={}", topic, key);
             return;
         }
         kafkaTemplate.send(topic, key, payload).whenComplete((result, ex) -> {

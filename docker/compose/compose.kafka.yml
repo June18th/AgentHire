@@ -25,7 +25,7 @@ services:
       # Host clients use localhost:${KAFKA_PORT:-9092}; Kafka is not an HTTP service.
       - "${KAFKA_PORT:-9092}:29092"
     volumes:
-      - jobclaw-kafka-data:/bitnami/kafka
+      - jobclaw-kafka-data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null"]
       interval: 10s

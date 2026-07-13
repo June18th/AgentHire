@@ -27,3 +27,4 @@ if (-not $env:MAVEN_LOCAL_REPO -and (Test-Path -LiteralPath $mavenRepo)) {
 }
 
 docker compose --env-file $envFile -f docker/compose/compose.prod.yml up --build -d
+Write-Host "Production stack started. Optional infra is controlled by COMPOSE_PROFILES in $envFile."

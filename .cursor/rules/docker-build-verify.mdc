@@ -1,0 +1,87 @@
+---
+description: JobClaw 改动后必须 Docker 构建、重启并验证
+alwaysApply: true
+---
+
+# Docker：构建、重启与验证
+
+用户偏好：**涉及会进入镜像的改动后，必须 Docker 构建并重启**，不能仅改源码就结束。
+
+详细流程见：`docs/docker.md`（命令与场景以该文档及 `AGENTS.md` Docker 章节为准）。
+
+## 默认本地栈（轻量）
+
+除非用户明确要求，**只**构建/启动：
+
+- `mysql`
+- `jobclaw`（后端 API）
+- `jobclaw-web`（前端静态）
+- `jobclaw-gateway`（统一入口）
+
+**不要**默认叠加：`compose.elasticsearch.yml`、`compose.redis.yml`、`compose.kafka.yml`、`compose.minio.yml`。
+
+## Compose 文件组合
+
+```text
+-f docker/compose/compose.dev.yml
+-f docker/compose/compose.mysql.yml
+-f docker/compose/compose.frontend.yml
+```
+
+也可使用：`.\build\docker-split.ps1`
+
+## 何时 rebuild 哪个服务
+
+| 改动范围 | 重建服务 |
+|---------|---------|
+| `backend/**`、各 `agents/`、`core/` 等后端模块 | `jobclaw` |
+| `ui-react/**` | `jobclaw-web`（必要时 `jobclaw-gateway`） |
+| `docker/**`、Compose 文件、Dockerfile | 按影响范围重建应用服务 |
+| 仅 `docs/**`、`README` | 通常不构建 |
+
+## 标准命令（PowerShell）
+
+仅后端：
+
+```powershell
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d jobclaw
+```
+
+仅前端：
+
+```powershell
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d jobclaw-web jobclaw-gateway
+```
+
+前后端都改：
+
+```powershell
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml build jobclaw jobclaw-web
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml up -d --no-deps jobclaw jobclaw-web
+```
+
+## 构建后检查
+
+```powershell
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml ps jobclaw jobclaw-web jobclaw-gateway
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.frontend.yml logs --tail 120 jobclaw
+```
+
+最小验证：浏览器访问 `http://localhost:8088/`，确认无 502/404/空白页。
+
+## 禁止未经用户确认
+
+- `docker compose down -v`
+- 删除 MySQL / 数据 volume
+- 任何会清空数据库的数据破坏性命令
+
+## 完成前自检
+
+改了镜像内内容时，答复前须确认已 build、up、查 ps/日志、做最小验证；否则说明未构建原因。
+
+## 与本地 dev 的关系
+
+- 用户通常已在跑 `pnpm dev`（`http://localhost:8088`）；**不要**擅自重启前端 dev server，除非用户要求或确认不可用。
+- Docker 验证与本地 dev 并行存在时，按用户当次任务选择验证方式，并在答复中说明用了哪一种。

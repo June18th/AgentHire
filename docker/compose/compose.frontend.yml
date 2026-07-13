@@ -11,6 +11,8 @@ services:
         MAVEN_PROFILE: prod
     image: jobclaw-api:prod
     container_name: jobclaw
+    env_file:
+      - ../../.env
     ports:
       - "8087:8087"
       - "8099:8099"
@@ -37,7 +39,6 @@ services:
       REDIS_DATABASE: ${REDIS_DATABASE:-0}
       AGENT_WORKSPACE: "file:/app/workspace/"
       JOBCLAW_IMG_ABS_TMP_PATH: "/app/workspace/storage/"
-      AGENT_TOOL_PLAYWRIGHT_ENABLED: "false"
       AGENT_MCP_CLIENT_ENABLED: "false"
       AGENT_CHANNEL_WECHAT_CLAWBOT_ENABLED: "true"
       AGENT_CHANNEL_DINGDING_ENABLED: "true"

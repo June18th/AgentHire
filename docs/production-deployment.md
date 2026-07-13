@@ -67,6 +67,7 @@ Copy-Item .env.production.example .env.production
 Edit `.env.production` and replace every `CHANGE_ME_*` value. At minimum, set:
 
 ```text
+COMPOSE_PROFILES
 MYSQL_ROOT_PASSWORD
 REDIS_PASSWORD
 MINIO_ACCESS_KEY
@@ -74,6 +75,14 @@ MINIO_SECRET_KEY
 JOBCLAW_JWT_SECRET
 JOBCLAW_SITE_WEB_SITE_URL
 ```
+
+`COMPOSE_PROFILES` controls optional infrastructure. Example full stack:
+
+```env
+COMPOSE_PROFILES=redis,kafka,elasticsearch,minio
+```
+
+Match application toggles (`JOBCLAW_REDIS_ENABLED`, `JOBCLAW_MQ_ENABLED`, `JOBCLAW_SEARCH_ES_ENABLED`, `JOBCLAW_IMG_STORAGE_TYPE`) to the profiles you enable. The API only hard-depends on MySQL; other components degrade when disabled or unreachable.
 
 Use a strong JWT secret:
 

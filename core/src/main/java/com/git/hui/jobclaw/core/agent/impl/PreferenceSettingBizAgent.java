@@ -70,7 +70,7 @@ public class PreferenceSettingBizAgent extends AbsBizAgent {
 
     @Override
     public List<AgentIntro> getSupportedIntents() {
-        return List.of(PresetAgentIntro.PREFERENCE_SETTING, PresetAgentIntro.DEFAULT);
+        return List.of(PresetAgentIntro.PREFERENCE_SETTING, PresetAgentIntro.PROFILE, PresetAgentIntro.DEFAULT);
     }
 
     @Override

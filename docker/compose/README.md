@@ -27,7 +27,9 @@ Add these only when the task needs the capability:
 
 ## Production
 
-- `compose.prod.yml`: single-host production baseline with internal MySQL, Redis, Kafka, Elasticsearch, MinIO, API, web, and gateway services.
+- `compose.prod.yml`: single-host production baseline with internal MySQL, optional Redis/Kafka/Elasticsearch/MinIO (via Compose Profiles), API, web, and gateway services.
+
+Optional infra uses profiles: `redis`, `kafka`, `elasticsearch`, `minio`. Set `COMPOSE_PROFILES` in `.env.production` (see `.env.production.example`). The API only hard-depends on MySQL; other components degrade when disabled or unreachable.
 
 Production is expected to run behind HTTPS termination from a cloud load balancer, CDN, Caddy, host-level Nginx, or the optional TLS gateway example.
 

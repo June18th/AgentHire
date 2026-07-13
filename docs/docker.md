@@ -198,6 +198,77 @@ docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql
 docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.elasticsearch.yml -f docker/compose/compose.frontend.yml up -d --build mysql elasticsearch jobclaw jobclaw-web jobclaw-gateway
 ```
 
+## Elasticsearch 岗位搜索
+
+岗位列表/关键词搜索支持 Elasticsearch 多字段全文检索，配置项见 `application.yml` 中 `jobclaw.search.elasticsearch`。
+
+设计约定：
+
+- **MySQL 为权威数据源**：事务、增删改以 MySQL 为准。
+- **ES 双写**：岗位发布、编辑、状态变更、草稿入库时同步写 ES；写入失败仅记日志。
+- **无自动补偿**：不做后台自动重试或补偿队列；索引不一致时由管理端 `POST /api/admin/oc/reindex` 手动全量重建。
+- **查询降级**：ES 未启用或调用异常时，自动回退 MySQL（含 `keyword` 多字段 LIKE）。
+- **推荐走 MySQL**：Agent 岗位推荐（`IJobSearchService.recommend`）始终查 MySQL，不依赖 ES。
+- **默认关闭**：`JOBCLAW_SEARCH_ES_ENABLED=false`（见 `.env.example`）。
+
+本地启用 ES 示例：
+
+```powershell
+docker compose -f docker/compose/compose.dev.yml -f docker/compose/compose.mysql.yml -f docker/compose/compose.elasticsearch.yml -f docker/compose/compose.frontend.yml up -d --build mysql elasticsearch jobclaw jobclaw-web jobclaw-gateway
+```
+
+验证搜索：
+
+```text
+GET http://localhost:8088/api/oc/search?keyword=java&page=1&size=5
+```
+
+## 生产 Compose 与组件开关
+
+单服务器生产基线见 `docker/compose/compose.prod.yml`，详细运维说明见 [production-deployment.md](production-deployment.md)。
+
+生产编排包含 Gateway / API / Web / MySQL，以及可选的 Redis / Kafka / Elasticsearch / MinIO。可选组件通过 **Compose Profiles** 控制：
+
+```env
+# .env.production
+COMPOSE_PROFILES=redis,kafka,elasticsearch,minio
+JOBCLAW_REDIS_ENABLED=true
+JOBCLAW_MQ_ENABLED=true
+JOBCLAW_SEARCH_ES_ENABLED=true
+JOBCLAW_IMG_STORAGE_TYPE=minio
+```
+
+- 只启 MySQL + 应用：`COMPOSE_PROFILES=`（留空），并设 `JOBCLAW_*_ENABLED=false` / `JOBCLAW_IMG_STORAGE_TYPE=local`。
+- 关闭 ES 但保留其他组件：从 `COMPOSE_PROFILES` 去掉 `elasticsearch`，设 `JOBCLAW_SEARCH_ES_ENABLED=false`。
+- API **仅强依赖 MySQL**；Redis/Kafka/ES/MinIO 不可用时应用仍可启动，对应能力降级（缓存本地、MQ 跳过、搜索回 MySQL、图片走本地）。
+
+## Playwright 浏览器工具（Docker）
+
+`jobclaw` 镜像已预装 Playwright headless Chromium 及系统依赖（`docker/api/Dockerfile`、根目录 `Dockerfile`）。**默认仍关闭**，不影响容器启动与内存占用习惯。
+
+在 `.env` 或 `.env.production` 中开启：
+
+```env
+AGENT_TOOL_PLAYWRIGHT_ENABLED=true
+AGENT_PLAYWRIGHT_HEADLESS=true
+```
+
+Compose 中对应变量会传入 `jobclaw` 服务（如 `compose.prod.yml` 已支持 `${AGENT_TOOL_PLAYWRIGHT_ENABLED:-false}`）。本地前后端分离栈可在 `compose.frontend.yml` 的 `jobclaw.environment` 中改为 `"true"`，或在自己的 override 文件里设置。
+
+说明：
+
+- 浏览器安装在镜像内固定路径 `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`，版本与 `plugins/playwright/pom.xml` 中 `playwright.version`（当前 1.52.0）一致。
+- 升级 Playwright 依赖后需同步修改 Dockerfile 中 `PLAYWRIGHT_VERSION` 并重建 `jobclaw` 镜像。
+- 若 Chromium 在容器中偶发 OOM 或崩溃，可为 `jobclaw` 增加 `ipc: host`（见 [Playwright Docker 文档](https://playwright.dev/java/docs/docker)）；root 用户下 Chromium 沙箱会自动禁用。
+
+启动：
+
+```powershell
+Copy-Item .env.production.example .env.production
+# 修改密钥与 COMPOSE_PROFILES
+.\build\docker-prod.ps1
+```
+
 ## 前端开发
 
 本地开发 UI 时通常不需要复制静态产物到后端：

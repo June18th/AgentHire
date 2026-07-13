@@ -2,6 +2,20 @@
 
 This file provides guidance to Qoder (qoder.com) when working with code in this repository.
 
+## 沟通语言
+
+与用户交流一律使用**简体中文**，不使用繁体中文。以 `.cursor/rules/simplified-chinese.mdc`（`alwaysApply: true`）为准。
+
+## 对话标题
+
+完成首轮实质性回复后，用 `rename_chat` 将对话标题改为**简体中文**短标题（4–16 字）。
+
+## Docker（Agent 必遵）
+
+涉及会进入镜像的代码或配置改动后，必须按 `.cursor/rules/docker-build-verify.mdc` 及 `docs/docker.md` 执行构建、重启与验证。默认只启 `mysql`、`jobclaw`、`jobclaw-web`、`jobclaw-gateway`。
+
+---
+
 ## Project Overview
 
 JobClaw (求职派) is an OpenClaw-style multi-agent practice project for job-search scenarios. It uses IM channels (WeChat/DingDing/FeiShu) as the user-facing entry, routes messages through a shared agent kernel, and composes identity collection, job fetching, job recommendation, task handling, model preferences, providers, and tools as replaceable modules.

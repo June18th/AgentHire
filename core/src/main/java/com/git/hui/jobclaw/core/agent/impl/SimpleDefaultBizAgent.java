@@ -72,8 +72,7 @@ public class SimpleDefaultBizAgent extends AbsBizAgent {
 
     @Override
     public List<AgentIntro> getSupportedIntents() {
-        // 支持所有意图类型
-        return List.of(PresetAgentIntro.DEFAULT);
+        return List.of(PresetAgentIntro.DEFAULT, PresetAgentIntro.UNKNOWN, PresetAgentIntro.SUBSCRIBE, PresetAgentIntro.QUERY);
     }
 
     @Override

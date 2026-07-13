@@ -27,6 +27,9 @@ import com.lark.oapi.service.cardkit.v1.model.ContentCardElementResp;
 import com.lark.oapi.service.cardkit.v1.model.CreateCardReq;
 import com.lark.oapi.service.cardkit.v1.model.CreateCardReqBody;
 import com.lark.oapi.service.cardkit.v1.model.CreateCardResp;
+import com.lark.oapi.service.cardkit.v1.model.PatchCardElementReq;
+import com.lark.oapi.service.cardkit.v1.model.PatchCardElementReqBody;
+import com.lark.oapi.service.cardkit.v1.model.PatchCardElementResp;
 import com.lark.oapi.service.cardkit.v1.model.SettingsCardReq;
 import com.lark.oapi.service.cardkit.v1.model.SettingsCardReqBody;
 import com.lark.oapi.service.cardkit.v1.model.SettingsCardResp;
@@ -56,6 +59,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -733,12 +737,14 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
     public static class StreamCardManager {
         private static final long STREAM_CARD_UPDATE_INTERVAL_MS = 500L;
         private static final int STREAM_CARD_UPDATE_MIN_DELTA_CHARS = 24;
+        private static final String THINKING_PANEL_ID = "thinking_panel";
 
         private com.lark.oapi.Client client;
         // 每个卡片的计数序号，用于更新卡片时传入这个序号，要求单调递增
         private Map<String, Integer> aiCardSeq = new ConcurrentHashMap<>();
         // AIDEV-NOTE: throttle high-frequency Feishu card updates
         private Map<String, StreamCardUpdateState> updateStates = new ConcurrentHashMap<>();
+        private final Set<String> collapsedThinkingPanels = ConcurrentHashMap.newKeySet();
 
         private com.git.hui.jobclaw.channels.FeiShuBotProperties.FeiShuBotAccount account;
 
@@ -804,6 +810,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                                                 "header": {
                                                 },
                                                 "config": {
+                                                    "update_multi": true,
                                                     "streaming_mode": true,
                                                     "summary": {
                                                         "content": ""
@@ -828,6 +835,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
                                                     "elements": [
                                                         {
                                                           "tag": "collapsible_panel",
+                                                          "element_id": "thinking_panel",
                                                           "expanded": true,
                                                           "header": {
                                                             "title": {
@@ -972,8 +980,34 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
         }
 
         private void autoCloseThinkingHeader(String cardId) {
-            // todo 待实现
-            return;
+            if (StringUtils.isBlank(cardId) || !collapsedThinkingPanels.add(cardId)) {
+                return;
+            }
+            try {
+                int seq = incrSeq(cardId);
+                PatchCardElementReq req = PatchCardElementReq.newBuilder()
+                        .cardId(cardId)
+                        .elementId(THINKING_PANEL_ID)
+                        .patchCardElementReqBody(PatchCardElementReqBody.newBuilder()
+                                .partialElement("{\"expanded\":false}")
+                                .uuid(UUID.randomUUID().toString())
+                                .sequence(seq)
+                                .build())
+                        .build();
+                PatchCardElementResp resp = client.cardkit().v1().cardElement().patch(req);
+                if (resp == null || !resp.success()) {
+                    collapsedThinkingPanels.remove(cardId);
+                    log.warn("[FeiShu] Collapse thinking panel failed. cardId={}, response={}",
+                            cardId, Jsons.DEFAULT.toJson(resp));
+                    return;
+                }
+                if (log.isDebugEnabled()) {
+                    log.debug("[FeiShu] Collapsed thinking panel. cardId={}, seq={}", cardId, seq);
+                }
+            } catch (Exception e) {
+                collapsedThinkingPanels.remove(cardId);
+                log.warn("[FeiShu] Collapse thinking panel error. cardId={}", cardId, e);
+            }
         }
 
         private void completeCard(String cardId) {
@@ -1036,6 +1070,7 @@ public class FeiShuBotChannel extends AbsStreamChannel<FeiShuBotChannel.ChatbotM
             } finally {
                 removeSeq(cardId);
                 updateStates.remove(cardId);
+                collapsedThinkingPanels.remove(cardId);
             }
         }
 

@@ -27,7 +27,6 @@ services:
       AGENT_WORKSPACE: "file:/app/workspace/"
       JOBCLAW_IMG_ABS_TMP_PATH: "/app/workspace/storage/"
       JOBCLAW_IMG_CDN_HOST: "http://localhost:8087"
-      AGENT_TOOL_PLAYWRIGHT_ENABLED: "false"
       AGENT_MCP_CLIENT_ENABLED: "false"
       AGENT_CHANNEL_WECHAT_CLAWBOT_ENABLED: "true"
       AGENT_CHANNEL_DINGDING_ENABLED: "true"

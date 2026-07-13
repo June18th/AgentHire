@@ -16,6 +16,8 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
+
 /**
  * 任务提醒类的业务Agent
  * @author YiHui
@@ -41,6 +43,11 @@ public class TaskBizAgent extends AbsBizAgent {
     @Override
     public AgentIntro getAgentIntro() {
         return PresetAgentIntro.TASK;
+    }
+
+    @Override
+    public List<AgentIntro> getSupportedIntents() {
+        return List.of(PresetAgentIntro.TASK);
     }
 
     @Override

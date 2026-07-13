@@ -34,17 +34,23 @@ public class DefaultAgentRegistry implements AgentRegistry {
 
     // 意图类型 -> Agent ID列表（按优先级）
     // AIDEV-NOTE: 可配置化
-    private static final Map<PresetAgentIntro, List<String>> INTENT_AGENT_MAPPING = Map.of(
-            PresetAgentIntro.COLLECT, List.of(PresetAgentIntro.COLLECT.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
-            PresetAgentIntro.RECOMMEND, List.of(PresetAgentIntro.RECOMMEND.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
-            PresetAgentIntro.SUBSCRIBE, List.of(PresetAgentIntro.SUBSCRIBE.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
-            PresetAgentIntro.QUERY, List.of(PresetAgentIntro.QUERY.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
-            PresetAgentIntro.PROFILE, List.of(PresetAgentIntro.PROFILE.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
-            PresetAgentIntro.HELP, List.of(PresetAgentIntro.HELP.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId()),
-            PresetAgentIntro.DEFAULT, List.of(PresetAgentIntro.DEFAULT.getAgentId()),
-            PresetAgentIntro.SWITCH_AGENT, List.of(),
-            PresetAgentIntro.LIST_AGENTS, List.of(),
-            PresetAgentIntro.RESET, List.of()
+    private static final Map<PresetAgentIntro, List<String>> INTENT_AGENT_MAPPING = Map.ofEntries(
+            Map.entry(PresetAgentIntro.COLLECT, List.of(PresetAgentIntro.COLLECT.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.RECOMMEND, List.of(PresetAgentIntro.RECOMMEND.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId())),
+            // AIDEV-NOTE: 订阅/查询暂无独立 Agent，兜底到 default
+            Map.entry(PresetAgentIntro.SUBSCRIBE, List.of(PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.QUERY, List.of(PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.PROFILE, List.of(PresetAgentIntro.PREFERENCE_SETTING.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.CHAT, List.of(PresetAgentIntro.CHAT.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.TASK, List.of(PresetAgentIntro.TASK.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.PLAN, List.of(PresetAgentIntro.PLAN.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.PREFERENCE_SETTING, List.of(PresetAgentIntro.PREFERENCE_SETTING.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.UNKNOWN, List.of(PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.HELP, List.of(PresetAgentIntro.HELP.getAgentId(), PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.DEFAULT, List.of(PresetAgentIntro.DEFAULT.getAgentId())),
+            Map.entry(PresetAgentIntro.SWITCH_AGENT, List.of()),
+            Map.entry(PresetAgentIntro.LIST_AGENTS, List.of()),
+            Map.entry(PresetAgentIntro.RESET, List.of())
     );
 
     @Override
