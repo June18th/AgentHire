@@ -4,17 +4,23 @@ import com.git.hui.jobclaw.agents.jobfetch.service.JobFetchService;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
 import com.git.hui.jobclaw.core.agent.IIdentityAgent;
 import com.git.hui.jobclaw.core.agent.impl.AbsBizAgent;
+import com.git.hui.jobclaw.core.agent.llm.BizAgentLlmCaller;
 import com.git.hui.jobclaw.core.agent.models.LlmRspCell;
 import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.apis.permission.AgentPermission;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import com.git.hui.jobclaw.core.providers.ModelProviders;
 import com.git.hui.jobclaw.core.router.intent.PresetAgentIntro;
+import com.git.hui.jobclaw.core.tools.AgentMcpToolCallbacksHolder;
+import com.git.hui.jobclaw.core.tools.AutoDiscoveredTool;
+import com.git.hui.jobclaw.core.tools.DomainToolCallbacks;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
@@ -36,10 +42,38 @@ public class JobFetchAgent extends AbsBizAgent {
 
     private final JobAgentTools jobAgentTools;
 
-    public JobFetchAgent(ModelProviders modelProviders, JobFetchService jobFetchService, IIdentityAgent identityAgent, ChatMemory chatMemory, JobAgentTools jobAgentTools) {
+    private final List<AutoDiscoveredTool<?>> autoDiscoveredTools;
+
+    @Autowired(required = false)
+    private AgentMcpToolCallbacksHolder mcpToolCallbacksHolder;
+
+    public JobFetchAgent(ModelProviders modelProviders,
+                         JobFetchService jobFetchService,
+                         IIdentityAgent identityAgent,
+                         ChatMemory chatMemory,
+                         JobAgentTools jobAgentTools,
+                         List<AutoDiscoveredTool<?>> autoDiscoveredTools) {
         super(modelProviders, chatMemory, identityAgent);
         this.jobFetchService = jobFetchService;
         this.jobAgentTools = jobAgentTools;
+        this.autoDiscoveredTools = autoDiscoveredTools;
+    }
+
+    /**
+     * AIDEV-NOTE: 合并业务工具 + Playwright + MCP Client，集成路径完整但默认由配置关闭
+     */
+    @PostConstruct
+    @Override
+    public void init() {
+        ToolCallback[] mcpCallbacks = mcpToolCallbacksHolder == null
+                ? new ToolCallback[0]
+                : mcpToolCallbacksHolder.getToolCallbacks();
+        ToolCallback[] mergedTools = DomainToolCallbacks.merge(
+                jobAgentTools,
+                DomainToolCallbacks.playwrightOnly(autoDiscoveredTools),
+                mcpCallbacks);
+        this.llmCaller = new BizAgentLlmCaller(chatMemory, identityAgent, modelProviders, getSystemPrompt(), mergedTools);
+        log.info("JobFetchAgent 已注册 {} 个工具（业务工具 + Playwright + MCP）", mergedTools.length);
     }
 
     private static final String SYSTEM_PROMPT = """
@@ -131,6 +165,10 @@ public class JobFetchAgent extends AbsBizAgent {
             用户查看草稿后说: "确认发布" 或 "可以上线"
             → 调用 publishDraftsToOfficial(之前查询到的ID列表)
                         
+            ## 增强抓取能力（需管理员开启配置）
+            - 当普通 URL 抓取失败或页面需要登录/动态渲染时,可尝试 Playwright 浏览器工具
+            - 当已配置 MCP Client 时,可调用外部 MCP 工具辅助抓取与解析
+
             ## 其他情况
             - 如果用户询问任务进度,引导他们使用 `/task <任务ID>` 命令
             - 如果用户的问题与职位获取无关,可以正常对话

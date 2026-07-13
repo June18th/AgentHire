@@ -190,8 +190,10 @@ agent:
     plan-notebook:
       enabled: ${AGENT_TOOL_PLAN_NOTEBOOK_ENABLED:true}
     playwright:
-      enabled: ${AGENT_TOOL_PLAYWRIGHT_ENABLED:true} # 是否启用playwright
+      enabled: ${AGENT_TOOL_PLAYWRIGHT_ENABLED:false} # 是否启用 Playwright 浏览器工具，默认关闭
       headless: ${AGENT_PLAYWRIGHT_HEADLESS:true} # 是否启用无头模式
+    audit:
+      enabled: ${AGENT_TOOL_AUDIT_ENABLED:true} # 是否记录 Function Calling 审计
     dynamic-discovery:
       enabled: ${AGENT_TOOL_DYNAMIC_DISCOVERY_ENABLED:true}
       max-results: ${AGENT_TOOL_DYNAMIC_DISCOVERY_MAX_RESULTS:10}

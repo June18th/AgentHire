@@ -45,6 +45,9 @@ public class JobFetchTaskService {
     @Autowired
     private JobInfoPersistService jobInfoSaveService;
 
+    @Autowired(required = false)
+    private JobFetchGatherRegistrar jobFetchGatherRegistrar;
+
     /**
      * 创建URL抓取任务
      */
@@ -66,6 +69,7 @@ public class JobFetchTaskService {
                 .setJobCount(0);
 
         taskRepository.save(task);
+        linkGatherTask(task, userConversationInfo);
         log.info("创建URL抓取任务: taskId={}, url={}", taskId, url);
 
         // 异步执行任务
@@ -95,6 +99,7 @@ public class JobFetchTaskService {
                 .setJobCount(0);
 
         taskRepository.save(task);
+        linkGatherTask(task, userConversationInfo);
         log.info("创建文本/文件提取任务: taskId={}, type={}", taskId, task.getTaskType());
 
         // 异步执行任务
@@ -146,12 +151,12 @@ public class JobFetchTaskService {
 
             log.info("URL抓取任务完成: taskId={}, jobCount={}", taskId, jobCount);
 
-            // TODO: 推送结果给用户(SSE或WebSocket)
             pushTaskResult(task, jobs);
 
         } catch (Exception e) {
             log.error("URL抓取任务失败: taskId={}", taskId, e);
             updateTaskFailed(task, e.getMessage());
+            pushTaskFailure(task, e.getMessage());
         }
     }
 
@@ -186,12 +191,12 @@ public class JobFetchTaskService {
 
             log.info("文本/文件提取任务完成: taskId={}, jobCount={}", taskId, jobCount);
 
-            // TODO: 推送结果给用户(SSE或WebSocket)
             pushTaskResult(task, jobs);
 
         } catch (Exception e) {
             log.error("文本/文件提取任务失败: taskId={}", taskId, e);
             updateTaskFailed(task, e.getMessage());
+            pushTaskFailure(task, e.getMessage());
         }
     }
 
@@ -232,8 +237,16 @@ public class JobFetchTaskService {
         task.setErrorMessage(errorMessage);
         if (status == JobFetchTaskStatus.RUNNING) {
             task.setStartTime(LocalDateTime.now());
+            syncGatherRunning(task);
         }
         taskRepository.save(task);
+    }
+
+    private void syncGatherRunning(JobFetchTaskEntity task) {
+        if (jobFetchGatherRegistrar == null || task == null || task.getGatherTaskId() == null) {
+            return;
+        }
+        jobFetchGatherRegistrar.markRunning(task.getGatherTaskId());
     }
 
     /**
@@ -254,6 +267,38 @@ public class JobFetchTaskService {
         task.setErrorMessage(errorMessage);
         task.setFinishTime(LocalDateTime.now());
         taskRepository.save(task);
+        syncGatherFailure(task, errorMessage);
+    }
+
+    private void linkGatherTask(JobFetchTaskEntity task, UserConversationInfo userConversationInfo) {
+        if (jobFetchGatherRegistrar == null || task == null) {
+            return;
+        }
+        JobFetchGatherRegistrar.GatherLink link = jobFetchGatherRegistrar.register(
+                userConversationInfo,
+                task.getTaskType(),
+                task.getInputContent()
+        );
+        if (link == null) {
+            return;
+        }
+        task.setGatherTaskId(link.gatherTaskId());
+        task.setGatherSourceId(link.gatherSourceId());
+        taskRepository.save(task);
+    }
+
+    private void syncGatherSuccess(JobFetchTaskEntity task, JobInfoPersistService.SaveRes res) {
+        if (jobFetchGatherRegistrar == null || task == null || task.getGatherTaskId() == null || res == null) {
+            return;
+        }
+        jobFetchGatherRegistrar.markSuccess(task.getGatherTaskId(), res.insertDraftIds(), res.updateDraftIds());
+    }
+
+    private void syncGatherFailure(JobFetchTaskEntity task, String errorMessage) {
+        if (jobFetchGatherRegistrar == null || task == null || task.getGatherTaskId() == null) {
+            return;
+        }
+        jobFetchGatherRegistrar.markFailed(task.getGatherTaskId(), errorMessage);
     }
 
     /**
@@ -320,7 +365,12 @@ public class JobFetchTaskService {
     
         // 保存职位信息并获取统计结果
         if (jobs != null && !jobs.isEmpty()) {
-            JobInfoPersistService.SaveRes res = jobInfoSaveService.save(jobs);
+            JobInfoPersistService.SaveRes res = jobInfoSaveService.save(
+                    jobs,
+                    task.getGatherSourceId(),
+                    task.getGatherTaskId()
+            );
+            syncGatherSuccess(task, res);
                 
             // 构建友好的提示消息
             String resultMessage = buildTaskCompletionMessage(task, res);
@@ -333,6 +383,7 @@ public class JobFetchTaskService {
                     resultMessage
             );
         } else {
+            syncGatherSuccess(task, new JobInfoPersistService.SaveRes(0, 0));
             // 没有提取到职位信息
             String emptyMessage = buildEmptyResultMessage(task);
             channelEventPublisher.publishProactiveMessage("JOB_TASK_" + task.getTaskId(),
@@ -383,6 +434,27 @@ public class JobFetchTaskService {
         sb.append("• 确认文本/文件中包含完整的招聘信息\n\n");
         sb.append("• 尝试其他来源或格式\n\n");
             
+        return sb.toString();
+    }
+
+    private void pushTaskFailure(JobFetchTaskEntity task, String errorMessage) {
+        String message = buildFailureMessage(task, errorMessage);
+        channelEventPublisher.publishProactiveMessage(
+                "JOB_TASK_FAIL_" + task.getTaskId(),
+                task.getJobClawUserId(),
+                task.getChannel(),
+                message
+        );
+    }
+
+    private String buildFailureMessage(JobFetchTaskEntity task, String errorMessage) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("❌ 任务执行失败\n\n");
+        sb.append(String.format("📋 任务ID: `%s`\n\n", task.getTaskId()));
+        sb.append(String.format("原因: %s\n\n", errorMessage == null || errorMessage.isBlank() ? "未知错误" : errorMessage));
+        sb.append("💡 建议:\n\n");
+        sb.append("• 检查链接或文件内容是否有效\n\n");
+        sb.append("• 稍后重试，或更换输入来源\n\n");
         return sb.toString();
     }
 }

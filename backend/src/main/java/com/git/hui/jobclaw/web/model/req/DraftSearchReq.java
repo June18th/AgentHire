@@ -73,6 +73,16 @@ public class DraftSearchReq extends PageReq {
 
     private Long sourceTaskId;
 
+    /**
+     * 按采集源作业类型过滤，如 draft_only / agent。
+     */
+    private String runnerType;
+
+    /**
+     * 内部使用：按多个采集源 id 过滤。
+     */
+    private java.util.List<Long> sourceIds;
+
     // AIDEV-NOTE: AI-GENERATED task draft filter
     public List<Long> parseDraftIds() {
         if (draftIds == null || draftIds.isBlank()) {

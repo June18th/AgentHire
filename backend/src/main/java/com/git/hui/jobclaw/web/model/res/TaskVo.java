@@ -44,9 +44,29 @@ public class TaskVo {
     private Integer sourceVersion;
 
     /**
-     * 执行来源：draft_only / agent。
+     * 同一采集源下的第几次运行（从 1 开始）。
+     */
+    private Integer sourceRunIndex;
+
+    /**
+     * 执行来源：draft_only / agent / im_fetch。
      */
     private String runnerType;
+
+    /**
+     * 关联的 IM JobFetch 业务任务 ID（如 job_xxx）。
+     */
+    private String jobFetchBizTaskId;
+
+    /**
+     * IM 渠道标识。
+     */
+    private String jobFetchChannel;
+
+    /**
+     * IM 用户 ID。
+     */
+    private String jobFetchUserId;
 
     /**
      * 传入的数据

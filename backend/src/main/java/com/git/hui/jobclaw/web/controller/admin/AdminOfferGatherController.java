@@ -3,6 +3,8 @@ package com.git.hui.jobclaw.web.controller.admin;
 import com.git.hui.jobclaw.agents.AgentExecutor;
 import com.git.hui.jobclaw.agents.OcAgentState;
 import com.git.hui.jobclaw.components.async.AsyncUtil;
+import com.git.hui.jobclaw.core.bizexception.BizException;
+import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.core.apis.context.ReqInfoContext;
 import com.git.hui.jobclaw.constants.gather.GatherTargetTypeEnum;
 import com.git.hui.jobclaw.constants.gather.GatherTaskStateEnum;
@@ -13,6 +15,7 @@ import com.git.hui.jobclaw.gather.dao.entity.GatherTaskEntity;
 import com.git.hui.jobclaw.gather.model.GatherFileBo;
 import com.git.hui.jobclaw.gather.model.GatherTaskSaveBo;
 import com.git.hui.jobclaw.gather.service.GatherSourceService;
+import com.git.hui.jobclaw.gather.service.GatherTaskNotifyService;
 import com.git.hui.jobclaw.gather.service.GatherTaskService;
 import com.git.hui.jobclaw.gather.service.OfferGatherService;
 import com.git.hui.jobclaw.core.utils.json.IntBaseEnum;
@@ -52,15 +55,19 @@ public class AdminOfferGatherController {
 
     private final GatherSourceService gatherSourceService;
 
+    private final GatherTaskNotifyService gatherTaskNotifyService;
+
     private final AgentExecutor agentExecutor;
 
 
     @Autowired
     public AdminOfferGatherController(OfferGatherService offerGatherService, GatherTaskService gatherTaskService,
-                                      GatherSourceService gatherSourceService, AgentExecutor agentExecutor) {
+                                      GatherSourceService gatherSourceService, GatherTaskNotifyService gatherTaskNotifyService,
+                                      AgentExecutor agentExecutor) {
         this.offerGatherService = offerGatherService;
         this.gatherTaskService = gatherTaskService;
         this.gatherSourceService = gatherSourceService;
+        this.gatherTaskNotifyService = gatherTaskNotifyService;
         this.agentExecutor = agentExecutor;
     }
 
@@ -93,14 +100,18 @@ public class AdminOfferGatherController {
      * @throws Exception
      */
     @RequestMapping(path = "asyncSubmit")
-    public Boolean asyncSubmit(GatherReq req, HttpServletRequest request) throws Exception {
+    public Long asyncSubmit(GatherReq req, HttpServletRequest request) throws Exception {
+        if (!StringUtils.hasText(req.model())) {
+            throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS_MIXED, "请先选择模型后再提交任务");
+        }
         MultipartFile file = null;
         if (request instanceof MultipartHttpServletRequest) {
             file = ((MultipartHttpServletRequest) request).getFile("file");
         }
         GatherTargetTypeEnum type = IntBaseEnum.getEnumByCode(GatherTargetTypeEnum.class, req.type());
         GatherTaskSaveBo saveBo = new GatherTaskSaveBo(type, req.model(), req.content(), file);
-        return gatherTaskService.addTask(saveBo, GatherSourceService.OWNER_ADMIN, GatherSourceService.RUNNER_DRAFT_ONLY) != null;
+        GatherTaskEntity task = gatherTaskService.addTask(saveBo, GatherSourceService.OWNER_ADMIN, GatherSourceService.RUNNER_DRAFT_ONLY);
+        return task == null ? null : task.getId();
     }
 
     @RequestMapping(path = "list")
@@ -127,6 +138,15 @@ public class AdminOfferGatherController {
     public Boolean reRun(Long taskId) {
         Assert.notNull(taskId, "taskId can not be null");
         return gatherTaskService.resetTaskState(taskId);
+    }
+
+    /**
+     * Agent 作业任务重跑：创建新任务并返回 taskId，前端需调用 autoInvoke 执行。
+     */
+    @RequestMapping("/agentReRun")
+    public Long agentReRun(Long taskId) {
+        Assert.notNull(taskId, "taskId can not be null");
+        return gatherTaskService.reRunAgentTask(taskId);
     }
 
     @GetMapping(path = "/agentRun")
@@ -167,8 +187,12 @@ public class AdminOfferGatherController {
         Assert.notNull(sourceId, "sourceId can not be null");
         var source = gatherSourceService.getSource(sourceId);
         Assert.isTrue(GatherSourceService.STATUS_ACTIVE.equals(source.getStatus()), "source is not active");
+        if (GatherSourceService.RUNNER_IM_FETCH.equals(source.getRunnerType())) {
+            throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS_MIXED, "IM 抓取来源由用户对话触发，不支持后台重新采集");
+        }
         String taskModel = StringUtils.hasText(model) ? model : source.getLastModel();
-        GatherTaskEntity task = gatherTaskService.addTaskFromSource(source, taskModel);
+        boolean triggerOfferGather = GatherSourceService.isOfferGatherRunnable(source.getRunnerType());
+        GatherTaskEntity task = gatherTaskService.addTaskFromSource(source, taskModel, triggerOfferGather);
         return task.getId();
     }
 
@@ -189,5 +213,12 @@ public class AdminOfferGatherController {
         GatherTaskEntity task = gatherTaskService.getTask(taskId);
         AsyncUtil.submit(() -> agentExecutor.invoke(task));
         return sseEmitter;
+    }
+
+    @GetMapping(path = "taskStream", produces = {org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE})
+    public SseEmitter taskStream(Long taskId) {
+        Assert.notNull(taskId, "taskId can not be null");
+        gatherTaskService.getTask(taskId);
+        return gatherTaskNotifyService.subscribe(taskId);
     }
 }

@@ -29,6 +29,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 岗位 Elasticsearch 索引服务。
+ * <p>
+ * AIDEV-NOTE: MySQL 为权威源；ES 双写失败仅记日志，不做自动补偿，需管理端 reindex 手动重建。
+ * 岗位推荐（{@code ocRepository.recommend}）始终走 MySQL，不依赖 ES。
+ */
 @Slf4j
 @Service
 public class OcSearchIndexService {

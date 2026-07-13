@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Archive,
   DatabaseZap,
@@ -22,10 +22,14 @@ import {
   fetchDraftList,
   fetchGatherSourceList,
   reRunGatherSource,
+  connectGatherTaskStream,
+  formatGatherTaskStreamToast,
+  runAgentGatherTask,
   updateGatherSourceStatus,
   type GatherSourceItem,
   type GatherSourceListQuery,
 } from "@/lib/api"
+import { isAgentRunner, RUNNER_IM_FETCH, runnerLabels } from "@/lib/admin-workbench"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
@@ -45,12 +49,8 @@ const typeLabels: Record<number, string> = {
 const ownerLabels: Record<string, string> = {
   admin: "Admin",
   agent: "Agent",
+  im: "IM",
   system: "System",
-}
-
-const runnerLabels: Record<string, string> = {
-  draft_only: "生成草稿",
-  agent: "Agent 作业",
 }
 
 const statusLabels: Record<string, string> = {
@@ -210,6 +210,7 @@ export default function AdminSourcesPage() {
   const [error, setError] = useState<string | null>(null)
   const [reRunId, setReRunId] = useState<number | null>(null)
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null)
+  const taskStreamCloseRef = useRef<(() => void) | null>(null)
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / (query.size || PAGE_SIZE))), [query.size, total])
 
@@ -260,6 +261,13 @@ export default function AdminSourcesPage() {
     loadSummary()
   }, [loadSummary])
 
+  useEffect(() => {
+    return () => {
+      taskStreamCloseRef.current?.()
+      taskStreamCloseRef.current = null
+    }
+  }, [])
+
   const handleSearch = () => {
     setQuery((current) => ({ ...current, page: 1, keyword: keyword.trim() || undefined }))
   }
@@ -277,8 +285,47 @@ export default function AdminSourcesPage() {
     setReRunId(source.id)
     try {
       const taskId = await reRunGatherSource(source.id)
-      toast({ title: "已重新采集", description: `任务 #${taskId} 已加入采集队列` })
+      if (isAgentRunner(source.runnerType)) {
+        toast({ title: "Agent 任务已创建", description: `任务 #${taskId} 正在执行…` })
+      } else {
+        toast({ title: "已重新采集", description: `任务 #${taskId} 已加入采集队列` })
+      }
       await loadSources()
+      taskStreamCloseRef.current?.()
+      if (isAgentRunner(source.runnerType)) {
+        taskStreamCloseRef.current = runAgentGatherTask(taskId, {
+          onTaskDone: (payload) => {
+            toast(formatGatherTaskStreamToast(payload))
+            void loadSources()
+            taskStreamCloseRef.current?.()
+            taskStreamCloseRef.current = null
+          },
+          onError: (streamError) => {
+            toast({
+              title: "Agent 执行连接失败",
+              description: streamError.message,
+              variant: "destructive",
+            })
+          },
+        })
+      } else {
+        taskStreamCloseRef.current = connectGatherTaskStream(
+          taskId,
+          (payload) => {
+            toast(formatGatherTaskStreamToast(payload))
+            void loadSources()
+            taskStreamCloseRef.current?.()
+            taskStreamCloseRef.current = null
+          },
+          (streamError) => {
+            toast({
+              title: "任务通知连接失败",
+              description: streamError.message,
+              variant: "destructive",
+            })
+          }
+        )
+      }
     } catch (err) {
       toast({
         title: "重新采集失败",
@@ -526,7 +573,7 @@ export default function AdminSourcesPage() {
                             variant="outline"
                             className="h-8 gap-1.5"
                             onClick={() => handleReRun(source)}
-                            disabled={source.status !== "active" || reRunId === source.id}
+                            disabled={source.status !== "active" || source.runnerType === RUNNER_IM_FETCH || reRunId === source.id}
                           >
                             {reRunId === source.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}
                             重新采集

@@ -46,12 +46,15 @@ public class GatherTaskService {
 
     private final GatherSourceService gatherSourceService;
 
+    private final JobFetchTaskEnricher jobFetchTaskEnricher;
+
     @Autowired
     public GatherTaskService(GatherTaskRepository gatherTaskRepository, LocalStorageHelper localStorageHelper,
-                             GatherSourceService gatherSourceService) {
+                             GatherSourceService gatherSourceService, JobFetchTaskEnricher jobFetchTaskEnricher) {
         this.gatherTaskRepository = gatherTaskRepository;
         this.localStorageHelper = localStorageHelper;
         this.gatherSourceService = gatherSourceService;
+        this.jobFetchTaskEnricher = jobFetchTaskEnricher;
     }
 
 
@@ -110,12 +113,23 @@ public class GatherTaskService {
     }
 
     public GatherTaskEntity addTaskFromSource(GatherSourceEntity source, String model) {
+        return addTaskFromSource(source, model, true);
+    }
+
+    /**
+     * 从采集源创建任务；仅 draft_only 来源且 triggerOfferGather=true 时发布 INIT 触发 OfferGather 调度。
+     */
+    public GatherTaskEntity addTaskFromSource(GatherSourceEntity source, String model, boolean triggerOfferGather) {
+        String runnerType = org.apache.commons.lang3.StringUtils.defaultIfBlank(
+                source.getRunnerType(),
+                GatherSourceService.RUNNER_DRAFT_ONLY
+        );
         GatherTaskEntity taskEntity = new GatherTaskEntity()
                 .setType(source.getType())
                 .setModel(model)
                 .setSourceId(source.getId())
                 .setSourceVersion(source.getVersion())
-                .setRunnerType(GatherSourceService.RUNNER_DRAFT_ONLY)
+                .setRunnerType(runnerType)
                 .setContent(source.getContent())
                 .setState(GatherTaskStateEnum.INIT.getValue())
                 .setProcessTime(null)
@@ -125,9 +139,26 @@ public class GatherTaskService {
         gatherTaskRepository.saveAndFlush(taskEntity);
         gatherSourceService.markTaskCreated(source, taskEntity);
 
-        // 发布任务新增事件，主动触发一次任务调度
-        SpringUtil.getContext().publishEvent(new TaskChangeListener(this, taskEntity.getId(), GatherTaskStateEnum.INIT));
+        if (triggerOfferGather && GatherSourceService.isOfferGatherRunnable(runnerType)) {
+            SpringUtil.getContext().publishEvent(new TaskChangeListener(this, taskEntity.getId(), GatherTaskStateEnum.INIT));
+        }
         return taskEntity;
+    }
+
+    /**
+     * Agent 作业任务重跑：基于原任务关联来源创建新任务，由 AgentExecutor 执行，不走 OfferGather 调度。
+     */
+    public Long reRunAgentTask(Long taskId) {
+        GatherTaskEntity task = getTask(taskId);
+        if (!GatherSourceService.RUNNER_AGENT.equals(task.getRunnerType())) {
+            throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS_MIXED, "仅 Agent 作业任务支持该重跑方式");
+        }
+        if (task.getSourceId() == null) {
+            throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS_MIXED, "任务未关联采集源，无法重跑");
+        }
+        GatherSourceEntity source = gatherSourceService.getSource(task.getSourceId());
+        GatherTaskEntity newTask = addTaskFromSource(source, task.getModel(), false);
+        return newTask.getId();
     }
 
     public GatherTaskEntity directAddTask(GatherTaskSaveBo taskBo) throws IOException {
@@ -164,7 +195,10 @@ public class GatherTaskService {
      * @return
      */
     public GatherTaskProcessBo pickUnProcessTaskToProcess() {
-        GatherTaskEntity tasks = gatherTaskRepository.findFirstByStateOrderByCreateTimeAsc(GatherTaskStateEnum.INIT.getValue());
+        GatherTaskEntity tasks = gatherTaskRepository.findFirstSchedulableByStateOrderByCreateTimeAsc(
+                GatherTaskStateEnum.INIT.getValue(),
+                GatherSourceService.RUNNER_DRAFT_ONLY
+        );
         if (tasks == null || tasks.getId() == null) {
             // 没找到的场景下不需要继续处理了
             return null;
@@ -202,6 +236,20 @@ public class GatherTaskService {
     }
 
     /**
+     * 外部执行器（如 IM JobFetch）开始处理时，将 gather 任务标记为处理中。
+     */
+    public void markExternalTaskProcessing(Long taskId) {
+        GatherTaskEntity tasks = gatherTaskRepository.findById(taskId).orElse(null);
+        if (tasks == null || GatherSourceService.isOfferGatherRunnable(tasks.getRunnerType())) {
+            return;
+        }
+        if (!GatherTaskStateEnum.INIT.getValue().equals(tasks.getState())) {
+            return;
+        }
+        markTaskProcessing(tasks);
+    }
+
+    /**
      * 保存任务处理结果
      *
      * @param taskId 任务id
@@ -235,6 +283,9 @@ public class GatherTaskService {
         if (tasks == null) {
             throw new BizException(StatusEnum.RECORDS_NOT_EXISTS, taskId + "非法");
         }
+        if (!GatherSourceService.isOfferGatherRunnable(tasks.getRunnerType())) {
+            throw new BizException(StatusEnum.ILLEGAL_ARGUMENTS_MIXED, "该任务由外部执行器处理，不支持 Admin 重跑");
+        }
 
         tasks.setState(GatherTaskStateEnum.INIT.getValue());
         tasks.setUpdateTime(new Date());
@@ -263,6 +314,14 @@ public class GatherTaskService {
                 return s.getContent();
             }
         });
+        list.forEach(taskVo -> {
+            if (taskVo.getSourceId() != null && taskVo.getTaskId() != null) {
+                int runIndex = (int) gatherTaskRepository.countBySourceIdAndIdLessThanEqual(
+                        taskVo.getSourceId(), taskVo.getTaskId());
+                taskVo.setSourceRunIndex(Math.max(runIndex, 1));
+            }
+        });
+        jobFetchTaskEnricher.enrich(list);
         return PageListVo.of(list, page.getTotal(), page.getPage(), page.getSize());
     }
 

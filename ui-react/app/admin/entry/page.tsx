@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertCircle,
@@ -35,13 +35,21 @@ import {
   devWxLogin,
   fetchTaskList,
   reRunTask,
+  reRunAgentTask,
+  runAgentGatherTask,
   submitAIEntry,
+  connectGatherTaskStream,
+  formatGatherTaskStreamToast,
   type AdminLlmProviderConfig,
+  type GatherTaskStreamMessage,
   type GlobalConfigItemValue,
   type TaskListItem,
   type UserModelConfig,
 } from "@/lib/api"
 import { getConfigValue } from "@/lib/config"
+import { GatherTaskDetailDialog } from "@/components/gather/gather-task-detail-dialog"
+import { getWorkbenchScopeLabel, RUNNER_AGENT, RUNNER_DRAFT_ONLY, canAdminReRunGatherTask, runnerLabels, isAgentRunner, isImFetchRunner, formatGatherTaskModelDisplay } from "@/lib/admin-workbench"
+import { buildDraftListHref, findTaskInList, formatDateTimeStr as formatGatherDateTime, getTaskDraftIds, parseTaskDraftResult } from "@/lib/gather-task-utils"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { useLoginUser } from "@/hooks/useLoginUser"
@@ -81,17 +89,6 @@ interface LlmModelOption {
   billingType?: string
   label: string
   description: string
-}
-
-interface TaskDraftResult {
-  parsed: boolean
-  raw: string
-  msg: string
-  insertDraftIds: number[]
-  updateDraftIds: number[]
-  unchangedDraftIds: number[]
-  skipDraftIds: number[]
-  failedItems: string[]
 }
 
 interface StoredUserInfo {
@@ -154,21 +151,6 @@ function getErrorMessage(error: unknown) {
     }
   }
   return "接口返回异常，请确认已使用管理员账号登录并检查后端服务"
-}
-
-function formatDateTimeStr(value?: string | number | null) {
-  if (value === undefined || value === null || value === "") {
-    return "-"
-  }
-
-  const normalized =
-    typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value
-  const date = new Date(normalized)
-  if (Number.isNaN(date.getTime())) {
-    return String(value)
-  }
-
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`
 }
 
 function getOptionLabel(options: GlobalConfigItemValue[], value?: string | number | null) {
@@ -260,93 +242,6 @@ function getInputPlaceholder(aiType: string) {
   return "粘贴招聘公告、岗位 JD、内推信息或其他职位线索"
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function toDraftIdList(value: unknown) {
-  const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : []
-  return Array.from(
-    new Set(
-      source
-        .map((item) => Number(String(item).trim()))
-        .filter((id) => Number.isInteger(id) && id > 0)
-    )
-  )
-}
-
-function toFailedItemList(value: unknown) {
-  const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : []
-  return source
-    .map((item) => {
-      if (typeof item === "string" || typeof item === "number") {
-        return String(item).trim()
-      }
-      if (isRecord(item)) {
-        const title = item.title ?? item.position ?? item.name ?? item.reason ?? item.msg
-        return title === undefined || title === null ? JSON.stringify(item) : String(title).trim()
-      }
-      return ""
-    })
-    .filter(Boolean)
-}
-
-function emptyTaskDraftResult(raw = ""): TaskDraftResult {
-  return {
-    parsed: false,
-    raw,
-    msg: "",
-    insertDraftIds: [],
-    updateDraftIds: [],
-    unchangedDraftIds: [],
-    skipDraftIds: [],
-    failedItems: [],
-  }
-}
-
-function parseTaskDraftResult(result?: string | null): TaskDraftResult {
-  const raw = result?.trim() || ""
-  if (!raw) {
-    return emptyTaskDraftResult()
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (!isRecord(parsed)) {
-      return emptyTaskDraftResult(raw)
-    }
-    return {
-      parsed: true,
-      raw,
-      msg: typeof parsed.msg === "string" ? parsed.msg : "",
-      insertDraftIds: toDraftIdList(parsed.insertDraftIds ?? parsed.insert),
-      updateDraftIds: toDraftIdList(parsed.updateDraftIds ?? parsed.update),
-      unchangedDraftIds: toDraftIdList(parsed.unchangedDraftIds ?? parsed.unchanged),
-      skipDraftIds: toDraftIdList(parsed.skipDraftIds ?? parsed.skip),
-      failedItems: toFailedItemList(parsed.failedItems ?? parsed.failed),
-    }
-  } catch {
-    return emptyTaskDraftResult(raw)
-  }
-}
-
-function getTaskDraftIds(result: TaskDraftResult) {
-  return Array.from(new Set([
-    ...result.insertDraftIds,
-    ...result.updateDraftIds,
-    ...result.unchangedDraftIds,
-    ...result.skipDraftIds,
-  ]))
-}
-
-function buildDraftListHref(taskId: number, draftIds: number[]) {
-  const params = new URLSearchParams({
-    draftIds: draftIds.join(","),
-    sourceTaskId: String(taskId),
-  })
-  return `/admin/drafts?${params.toString()}`
-}
-
 function DraftChangeLine({ label, ids, tone }: { label: string; ids: number[]; tone: "insert" | "update" | "unchanged" | "skip" }) {
   if (ids.length === 0) {
     return null
@@ -436,7 +331,7 @@ function TaskResultView({ task }: { task: TaskListItem }) {
       </div>
       {draftIds.length > 0 && (
         <Button asChild size="xs" variant="outline" className="h-8 border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
-          <Link href={buildDraftListHref(task.taskId, draftIds)}>
+          <Link href={buildDraftListHref(task.taskId, draftIds, task.sourceId, task.runnerType)}>
             <ExternalLink className="h-3.5 w-3.5" />
             查看草稿
           </Link>
@@ -483,8 +378,13 @@ function isLocalhost() {
   return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
 }
 
+function buildGatherTaskToast(payload: GatherTaskStreamMessage) {
+  return formatGatherTaskStreamToast(payload)
+}
+
 export default function EntryPage() {
   // AIDEV-NOTE: AI-GENERATED admin entry polish
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<EntryTab>("entry")
   const [aiType, setAiType] = useState("")
@@ -510,6 +410,8 @@ export default function EntryPage() {
   const [taskLoading, setTaskLoading] = useState(false)
   const [taskError, setTaskError] = useState<string | null>(null)
   const [reRunLoadingId, setReRunLoadingId] = useState<number | null>(null)
+  const [detailTask, setDetailTask] = useState<TaskListItem | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [companyTypeOptions, setCompanyTypeOptions] = useState<GlobalConfigItemValue[]>([])
   const [recruitmentTypeOptions, setRecruitmentTypeOptions] = useState<GlobalConfigItemValue[]>([])
   const [recruitmentTargetOptions, setRecruitmentTargetOptions] = useState<GlobalConfigItemValue[]>([])
@@ -519,6 +421,7 @@ export default function EntryPage() {
   const [taskStateOptions, setTaskStateOptions] = useState<GlobalConfigItemValue[]>([])
   const [taskTypeOptions, setTaskTypeOptions] = useState<GlobalConfigItemValue[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const taskStreamCloseRef = useRef<(() => void) | null>(null)
   const { toast } = useToast()
   const { setUserInfo } = useLoginUser()
 
@@ -564,10 +467,21 @@ export default function EntryPage() {
   useEffect(() => {
     setTab(searchParams.get("tab") === "tasks" ? "tasks" : "entry")
     const nextSourceId = searchParams.get("sourceId") || ""
-    if (nextSourceId) {
-      setTaskQuery((current) => ({ ...current, page: 1, sourceId: nextSourceId }))
-    }
+    const nextRunner = searchParams.get("runner") || ""
+    const nextTaskId = searchParams.get("taskId") || ""
+    setTaskQuery((current) => ({
+      ...current,
+      page: 1,
+      sourceId: nextSourceId,
+      runnerType: nextRunner || ALL_VALUE,
+      taskId: nextTaskId,
+    }))
   }, [searchParams])
+
+  const workbenchScopeLabel = useMemo(
+    () => getWorkbenchScopeLabel(searchParams.get("runner")),
+    [searchParams]
+  )
 
   useEffect(() => {
     let active = true
@@ -694,6 +608,69 @@ export default function EntryPage() {
     }
   }, [tab, taskQuery, toast])
 
+  const deepLinkTaskId = useMemo(() => {
+    const raw = searchParams.get("taskId")
+    if (!raw || !/^\d+$/.test(raw)) {
+      return null
+    }
+    return Number(raw)
+  }, [searchParams])
+
+  const openTaskDetail = useCallback((task: TaskListItem) => {
+    setDetailTask(task)
+    setDetailOpen(true)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("tab", "tasks")
+    params.set("taskId", String(task.taskId))
+    if (task.sourceId) {
+      params.set("sourceId", String(task.sourceId))
+    }
+    router.replace(`/admin/entry?${params.toString()}`, { scroll: false })
+  }, [router, searchParams])
+
+  const closeTaskDetail = useCallback((open: boolean) => {
+    setDetailOpen(open)
+    if (!open) {
+      setDetailTask(null)
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("taskId")
+      const query = params.toString()
+      router.replace(query ? `/admin/entry?${query}` : "/admin/entry", { scroll: false })
+    }
+  }, [router, searchParams])
+
+  useEffect(() => {
+    if (!deepLinkTaskId || taskLoading) {
+      return
+    }
+    const matched = findTaskInList(taskList, deepLinkTaskId)
+    if (matched) {
+      setDetailTask(matched)
+      setDetailOpen(true)
+    }
+  }, [deepLinkTaskId, taskList, taskLoading])
+
+  useEffect(() => {
+    if (tab !== "tasks") {
+      return
+    }
+    const hasPendingTask = taskList.some((task) => task.state === 0 || task.state === 1)
+    if (!hasPendingTask || taskLoading) {
+      return
+    }
+    const timer = window.setInterval(() => {
+      refreshTasks()
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [tab, taskList, taskLoading])
+
+  useEffect(() => {
+    return () => {
+      taskStreamCloseRef.current?.()
+      taskStreamCloseRef.current = null
+    }
+  }, [])
+
   const refreshTasks = () => {
     setTaskQuery((current) => ({ ...current }))
   }
@@ -735,7 +712,7 @@ export default function EntryPage() {
     setAiLoading(true)
     try {
       await ensureAdminSession()
-      await submitAIEntry({
+      const taskId = await submitAIEntry({
         content: aiInput,
         model: aiModel,
         type: aiType,
@@ -744,11 +721,33 @@ export default function EntryPage() {
       setSubmitStatus({
         tone: "success",
         title: "已加入采集任务队列",
-        description: "任务创建后可在任务队列中查看状态并重跑。",
+        description: taskId > 0 ? `任务 #${taskId} 已创建，完成后将自动通知。` : "任务创建后可在任务队列中查看状态并重跑。",
       })
       setAiInput("")
       setSelectedFile(null)
-      setTaskQuery((current) => ({ ...current, page: 1 }))
+      setTaskQuery((current) => ({ ...current, page: 1, taskId: taskId > 0 ? String(taskId) : current.taskId }))
+      router.push("/admin/entry?tab=tasks")
+      setTab("tasks")
+
+      if (taskId > 0) {
+        taskStreamCloseRef.current?.()
+        taskStreamCloseRef.current = connectGatherTaskStream(
+          taskId,
+          (payload) => {
+            toast(buildGatherTaskToast(payload))
+            refreshTasks()
+            taskStreamCloseRef.current?.()
+            taskStreamCloseRef.current = null
+          },
+          (error) => {
+            toast({
+              title: "任务通知连接失败",
+              description: error.message,
+              variant: "destructive",
+            })
+          }
+        )
+      }
     } catch (error: unknown) {
       setSubmitStatus({
         tone: "error",
@@ -760,12 +759,52 @@ export default function EntryPage() {
     }
   }
 
-  const handleReRun = async (taskId: number) => {
+  const handleReRun = async (taskId: number, runnerType?: string | null) => {
     setReRunLoadingId(taskId)
     try {
+      if (isAgentRunner(runnerType)) {
+        const newTaskId = await reRunAgentTask(taskId)
+        toast({ title: "Agent 任务已创建", description: `任务 #${newTaskId} 正在执行…` })
+        refreshTasks()
+        taskStreamCloseRef.current?.()
+        taskStreamCloseRef.current = runAgentGatherTask(newTaskId, {
+          onTaskDone: (payload) => {
+            toast(buildGatherTaskToast(payload))
+            refreshTasks()
+            taskStreamCloseRef.current?.()
+            taskStreamCloseRef.current = null
+          },
+          onError: (error) => {
+            toast({
+              title: "Agent 执行连接失败",
+              description: error.message,
+              variant: "destructive",
+            })
+          },
+        })
+        return
+      }
+
       await reRunTask(taskId)
       toast({ title: "任务已重新加入队列" })
       refreshTasks()
+      taskStreamCloseRef.current?.()
+      taskStreamCloseRef.current = connectGatherTaskStream(
+        taskId,
+        (payload) => {
+          toast(buildGatherTaskToast(payload))
+          refreshTasks()
+          taskStreamCloseRef.current?.()
+          taskStreamCloseRef.current = null
+        },
+        (error) => {
+          toast({
+            title: "任务通知连接失败",
+            description: error.message,
+            variant: "destructive",
+          })
+        }
+      )
     } catch (error: unknown) {
       toast({
         title: "重跑失败",
@@ -1069,10 +1108,27 @@ export default function EntryPage() {
               <div className="border-b border-surface-border px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-semibold text-content-primary">采集任务</h2>
-                    <p className="mt-1 text-sm text-content-tertiary">共 {taskTotal} 条任务，结果按新增、更新、无变化、跳过和失败分类展示</p>
+                    <h2 className="text-base font-semibold text-content-primary">
+                      采集任务
+                      {searchParams.get("runner") === RUNNER_AGENT ? (
+                        <Badge variant="outline" className="ml-2 border-violet-200 bg-violet-50 text-violet-700">
+                          Agent 作业
+                        </Badge>
+                      ) : null}
+                    </h2>
+                    <p className="mt-1 text-sm text-content-tertiary">
+                      当前范围：{workbenchScopeLabel} · 共 {taskTotal} 条任务，结果按新增、更新、无变化、跳过和失败分类展示
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {searchParams.get("runner") === RUNNER_AGENT ? (
+                      <Button asChild variant="outline" className="h-10 gap-2">
+                        <Link href="/admin/progress">
+                          <Play className="h-4 w-4" />
+                          Agent 作业链
+                        </Link>
+                      </Button>
+                    ) : null}
                     <Button variant="outline" className="h-10 gap-2" onClick={resetTaskFilters}>
                       <X className="h-4 w-4" />
                       重置
@@ -1113,6 +1169,7 @@ export default function EntryPage() {
                       <SelectItem value={ALL_VALUE}>全部作业</SelectItem>
                       <SelectItem value="draft_only">Admin 投料</SelectItem>
                       <SelectItem value="agent">Agent 作业</SelectItem>
+                      <SelectItem value="im_fetch">IM 抓取</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={taskQuery.model} onValueChange={(value) => setTaskQuery((current) => ({ ...current, model: value, page: 1 }))}>
@@ -1200,16 +1257,53 @@ export default function EntryPage() {
                           const fullText = task.content || ""
                           const displayText = fullText.length > 180 ? `${fullText.slice(0, 180)}...` : fullText
                           return (
-                            <TableRow key={task.taskId} className="bg-white">
-                              <TableCell className="font-medium text-content-primary">#{task.taskId}</TableCell>
+                            <TableRow
+                              key={task.taskId}
+                              className={cn(
+                                "bg-white",
+                                deepLinkTaskId === task.taskId && "bg-blue-50/60 ring-1 ring-inset ring-blue-200"
+                              )}
+                            >
+                              <TableCell className="font-medium text-content-primary">
+                                <button
+                                  type="button"
+                                  className="rounded px-1 text-left text-blue-700 hover:bg-blue-50 hover:underline"
+                                  onClick={() => openTaskDetail(task)}
+                                  title="查看任务详情"
+                                >
+                                  #{task.taskId}
+                                </button>
+                              </TableCell>
                               <TableCell>
                                 {task.sourceId ? (
-                                  <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100">
-                                    <Link href={`/admin/sources/detail?id=${task.sourceId}`}>
-                                      <DatabaseZap className="h-3.5 w-3.5" />
-                                      #{task.sourceId}
-                                    </Link>
-                                  </Button>
+                                  <div className="space-y-1">
+                                    <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100">
+                                      <Link href={`/admin/sources/detail?id=${task.sourceId}`}>
+                                        <DatabaseZap className="h-3.5 w-3.5" />
+                                        #{task.sourceId}
+                                      </Link>
+                                    </Button>
+                                    <div className="text-xs text-content-tertiary">
+                                      {task.sourceRunIndex ? `第 ${task.sourceRunIndex} 次运行` : "-"}
+                                      {task.sourceVersion ? ` · v${task.sourceVersion}` : ""}
+                                    </div>
+                                    {task.runnerType ? (
+                                      <div className="text-xs text-content-tertiary">
+                                        {runnerLabels[task.runnerType] || task.runnerType}
+                                      </div>
+                                    ) : null}
+                                    {task.jobFetchBizTaskId ? (
+                                      <button
+                                        type="button"
+                                        className="text-left text-xs text-blue-700 hover:underline"
+                                        onClick={() => openTaskDetail(task)}
+                                        title="查看 IM 任务详情"
+                                      >
+                                        IM 任务 `{task.jobFetchBizTaskId}`
+                                        {task.jobFetchChannel ? ` · ${task.jobFetchChannel}` : ""}
+                                      </button>
+                                    ) : null}
+                                  </div>
                                 ) : (
                                   <span className="text-sm text-content-muted">-</span>
                                 )}
@@ -1220,7 +1314,9 @@ export default function EntryPage() {
                                   {getOptionLabel(taskTypeOptions, task.type)}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-content-secondary">{getModelOptionLabel(aiModelOptions, task.model)}</TableCell>
+                              <TableCell className="text-content-secondary">
+                                {formatGatherTaskModelDisplay(task, (model) => getModelOptionLabel(aiModelOptions, model))}
+                              </TableCell>
                               <TableCell>
                                 <Badge variant="outline" className={cn("border-slate-200 bg-white", stateClass[task.state])}>
                                   {getOptionLabel(taskStateOptions, task.state)}
@@ -1273,22 +1369,58 @@ export default function EntryPage() {
                               <TableCell className="max-w-[320px] text-sm text-content-secondary">
                                 <TaskResultView task={task} />
                               </TableCell>
-                              <TableCell className="text-sm text-content-tertiary">{formatDateTimeStr(task.updateTime)}</TableCell>
+                              <TableCell className="text-sm text-content-tertiary">{formatGatherDateTime(task.updateTime)}</TableCell>
                               <TableCell className="text-right">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 gap-1.5"
-                                  disabled={reRunLoadingId === task.taskId}
-                                  onClick={() => handleReRun(task.taskId)}
-                                >
-                                  {reRunLoadingId === task.taskId ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <RefreshCcw className="h-3.5 w-3.5" />
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {(isImFetchRunner(task.runnerType) || task.jobFetchBizTaskId) && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 px-2 text-content-secondary"
+                                      onClick={() => openTaskDetail(task)}
+                                    >
+                                      详情
+                                    </Button>
                                   )}
-                                  重跑
-                                </Button>
+                                  {isAgentRunner(task.runnerType) ? (
+                                    <Button asChild size="sm" variant="ghost" className="h-8 px-2">
+                                      <Link href="/admin/progress">作业链</Link>
+                                    </Button>
+                                  ) : null}
+                                {canAdminReRunGatherTask(task.runnerType) ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5"
+                                    disabled={reRunLoadingId === task.taskId}
+                                    onClick={() => handleReRun(task.taskId, task.runnerType)}
+                                  >
+                                    {reRunLoadingId === task.taskId ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <RefreshCcw className="h-3.5 w-3.5" />
+                                    )}
+                                    重跑
+                                  </Button>
+                                ) : isAgentRunner(task.runnerType) ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1.5"
+                                    disabled={reRunLoadingId === task.taskId}
+                                    onClick={() => handleReRun(task.taskId, task.runnerType)}
+                                  >
+                                    {reRunLoadingId === task.taskId ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Play className="h-3.5 w-3.5" />
+                                    )}
+                                    执行
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-content-muted">外部执行</span>
+                                )}
+                                </div>
                               </TableCell>
                             </TableRow>
                           )
@@ -1343,6 +1475,14 @@ export default function EntryPage() {
           />
         </div>
       )}
+
+      <GatherTaskDetailDialog
+        task={detailTask}
+        open={detailOpen}
+        onOpenChange={closeTaskDetail}
+        typeLabel={(type) => getOptionLabel(taskTypeOptions, type)}
+        modelLabel={(model) => getModelOptionLabel(aiModelOptions, model)}
+      />
     </div>
   )
 }

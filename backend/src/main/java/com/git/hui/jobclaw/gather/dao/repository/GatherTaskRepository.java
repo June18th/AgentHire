@@ -19,12 +19,26 @@ public interface GatherTaskRepository extends JpaRepository<GatherTaskEntity, Lo
 
 
     /**
-     * 找到最早提交的待处理任务
-     *
-     * @param state
-     * @return
+     * 找到最早提交的、可由 OfferGather 调度的待处理任务（仅 draft_only 或历史无 runner 标记）。
      */
-    GatherTaskEntity findFirstByStateOrderByCreateTimeAsc(Integer state);
+    default GatherTaskEntity findFirstSchedulableByStateOrderByCreateTimeAsc(Integer state, String runnerType) {
+        Specification<GatherTaskEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("state"), state));
+            predicates.add(cb.or(
+                    cb.isNull(root.get("runnerType")),
+                    cb.equal(root.get("runnerType"), runnerType)
+            ));
+            query.orderBy(cb.asc(root.get("createTime")));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        return findAll(spec, PageRequest.of(0, 1)).stream().findFirst().orElse(null);
+    }
+
+    /**
+     * 统计同一采集源下，不晚于指定任务 id 的执行次数（用于展示「第 N 次运行」）。
+     */
+    long countBySourceIdAndIdLessThanEqual(Long sourceId, Long id);
 
 
     default PageListVo<GatherTaskEntity> findList(GatherTaskSearchReq req) {

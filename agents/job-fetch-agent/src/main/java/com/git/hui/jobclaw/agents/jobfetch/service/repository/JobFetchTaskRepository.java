@@ -30,4 +30,6 @@ public interface JobFetchTaskRepository extends JpaRepository<JobFetchTaskEntity
      * 查询用户的所有任务(按创建时间倒序)
      */
     List<JobFetchTaskEntity> findByJobClawUserIdOrderByCreateTimeDesc(String jobClawUserId);
+
+    Optional<JobFetchTaskEntity> findFirstByGatherTaskId(Long gatherTaskId);
 }

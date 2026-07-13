@@ -80,6 +80,21 @@ public interface OcRepository extends JpaRepository<OcInfoEntity, Long>, JpaSpec
             if (req.getNotState() != null) {
                 predicates.add(criteriaBuilder.notEqual(root.get("state"), req.getNotState()));
             }
+            // AIDEV-NOTE: ES 不可用时的 keyword 降级，多字段 LIKE 近似全文检索
+            if (req.getKeyword() != null && !req.getKeyword().isBlank()) {
+                String keyword = "%" + req.getKeyword().trim() + "%";
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(root.get("companyName"), keyword),
+                        criteriaBuilder.like(root.get("position"), keyword),
+                        criteriaBuilder.like(root.get("jobLocation"), keyword),
+                        criteriaBuilder.like(root.get("companyIndustry"), keyword),
+                        criteriaBuilder.like(root.get("companyType"), keyword),
+                        criteriaBuilder.like(root.get("recruitmentType"), keyword),
+                        criteriaBuilder.like(root.get("recruitmentTarget"), keyword),
+                        criteriaBuilder.like(root.get("jobAnnouncement"), keyword),
+                        criteriaBuilder.like(root.get("remarks"), keyword)
+                ));
+            }
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
 

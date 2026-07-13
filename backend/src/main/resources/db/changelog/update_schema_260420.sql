@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS job_fetch_task (
     channel varchar(50) not null default '' comment '渠道',
     conversion_id varchar(50) not null default '' comment '转换id',
     error_message TEXT COMMENT '错误信息',
+    gather_task_id BIGINT NULL COMMENT '关联 gather_task.id',
+    gather_source_id BIGINT NULL COMMENT '关联 gather_source.id',
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     start_time TIMESTAMP NULL COMMENT '开始执行时间',
     finish_time TIMESTAMP NULL COMMENT '完成时间',

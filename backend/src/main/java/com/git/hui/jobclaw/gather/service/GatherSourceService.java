@@ -21,12 +21,25 @@ import java.util.Set;
 public class GatherSourceService {
     public static final String OWNER_ADMIN = "admin";
     public static final String OWNER_AGENT = "agent";
+    public static final String OWNER_IM = "im";
     public static final String RUNNER_DRAFT_ONLY = "draft_only";
     public static final String RUNNER_AGENT = "agent";
+    public static final String RUNNER_IM_FETCH = "im_fetch";
     public static final String STATUS_ACTIVE = "active";
     public static final String STATUS_PAUSED = "paused";
     public static final String STATUS_ARCHIVED = "archived";
     public static final String STATUS_INVALID = "invalid";
+
+    /**
+     * 仅 Admin 投料任务可被 OfferGather 调度；IM/Agent 外部执行器任务需排除。
+     */
+    public static boolean isOfferGatherRunnable(String runnerType) {
+        return runnerType == null || runnerType.isBlank() || RUNNER_DRAFT_ONLY.equals(runnerType);
+    }
+
+    public static boolean isExternalRunner(String runnerType) {
+        return RUNNER_AGENT.equals(runnerType) || RUNNER_IM_FETCH.equals(runnerType);
+    }
 
     private static final Set<String> SOURCE_STATUSES = Set.of(STATUS_ACTIVE, STATUS_PAUSED, STATUS_ARCHIVED, STATUS_INVALID);
 

@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
   CircleDashed,
+  ExternalLink,
   FileText,
   Layers3,
   Loader2,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/api";
 import { getConfigValue } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import { buildGatherTaskQueueHref, RUNNER_AGENT } from "@/lib/admin-workbench";
 import { useToast } from "@/hooks/use-toast";
 import { useLoginUser } from "@/hooks/useLoginUser";
 
@@ -634,6 +637,13 @@ export default function ProgressPage() {
               </p>
             </div>
             <div className="flex items-center gap-3 text-sm text-slate-500">
+              <Button asChild variant="outline" size="sm" className="h-8 gap-1.5">
+                <Link href={buildGatherTaskQueueHref({ runner: RUNNER_AGENT })}>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Agent 任务队列
+                </Link>
+              </Button>
+              <span className="h-4 w-px bg-slate-200" />
               <span>
                 已完成{" "}
                 <span className="font-semibold text-slate-950">

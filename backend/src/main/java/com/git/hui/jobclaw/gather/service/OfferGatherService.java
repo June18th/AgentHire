@@ -12,6 +12,9 @@ import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.configs.service.CommonDictService;
 import com.git.hui.jobclaw.constants.gather.GatherTargetTypeEnum;
+import com.git.hui.jobclaw.constants.gather.GatherTaskStateEnum;
+import com.git.hui.jobclaw.gather.dao.entity.GatherTaskEntity;
+import com.git.hui.jobclaw.gather.dao.repository.GatherTaskRepository;
 import com.git.hui.jobclaw.gather.model.GatherFileBo;
 import com.git.hui.jobclaw.gather.model.GatherOcDraftBo;
 import com.git.hui.jobclaw.gather.model.GatherTaskProcessBo;
@@ -76,13 +79,21 @@ public class OfferGatherService {
 
     private final GatherTaskService gatherTaskService;
 
+    private final GatherTaskRepository gatherTaskRepository;
+
+    private final GatherTaskNotifyService gatherTaskNotifyService;
+
     private final CommonDictService commonDictService;
 
     @Autowired
-    public OfferGatherService(GatherAiAgent gatherAiAgent, GatherService gatherService, GatherTaskService gatherTaskService, CommonDictService commonDictService) {
+    public OfferGatherService(GatherAiAgent gatherAiAgent, GatherService gatherService, GatherTaskService gatherTaskService,
+                              GatherTaskRepository gatherTaskRepository, GatherTaskNotifyService gatherTaskNotifyService,
+                              CommonDictService commonDictService) {
         this.gatherAiAgent = gatherAiAgent;
         this.gatherService = gatherService;
         this.gatherTaskService = gatherTaskService;
+        this.gatherTaskRepository = gatherTaskRepository;
+        this.gatherTaskNotifyService = gatherTaskNotifyService;
         this.commonDictService = commonDictService;
     }
 
@@ -95,11 +106,48 @@ public class OfferGatherService {
     @EventListener(TaskChangeListener.class)
     public void taskListener(TaskChangeListener listener) {
         switch (listener.getState()) {
-            // 触发任务执行
-            case INIT -> scheduleToLoadTask();
-            case SUCCEED, FAILED, PROCESSING -> {
-                log.info("任务执行，可以给用户发送一个消息通知<任务编号:{} 状态:{}>", listener.getTaskId(), listener.getState());
+            // 仅 draft_only 任务触发 OfferGather 调度，Agent/IM 外部执行器任务忽略 INIT
+            case INIT -> {
+                GatherTaskEntity task = gatherTaskRepository.findById(listener.getTaskId()).orElse(null);
+                if (task != null && GatherSourceService.isOfferGatherRunnable(task.getRunnerType())) {
+                    scheduleToLoadTask();
+                }
             }
+            case SUCCEED, FAILED -> notifyTaskFinished(listener.getTaskId(), listener.getState());
+            case PROCESSING -> log.debug("任务处理中: taskId={}", listener.getTaskId());
+        }
+    }
+
+    private void notifyTaskFinished(Long taskId, GatherTaskStateEnum state) {
+        GatherTaskEntity task = gatherTaskRepository.findById(taskId).orElse(null);
+        if (task == null) {
+            return;
+        }
+        GatherTaskResultBo resultBo = parseTaskResult(task.getResult());
+        gatherTaskNotifyService.notifyTaskUpdate(taskId, Map.of(
+                "cmd", state == GatherTaskStateEnum.SUCCEED ? "success" : "error",
+                "taskId", taskId,
+                "state", task.getState(),
+                "sourceId", task.getSourceId() == null ? 0L : task.getSourceId(),
+                "insertCount", resultBo == null ? 0 : resultBo.insertDraftIds().size(),
+                "updateCount", resultBo == null ? 0 : resultBo.updateDraftIds().size(),
+                "unchangedCount", resultBo == null ? 0 : resultBo.unchangedDraftIds().size(),
+                "skipCount", resultBo == null ? 0 : resultBo.skipDraftIds().size(),
+                "failedCount", resultBo == null ? 0 : resultBo.failedItems().size(),
+                "message", resultBo == null ? "" : String.valueOf(resultBo.msg())
+        ));
+        log.info("采集任务完成通知: taskId={}, state={}", taskId, state);
+    }
+
+    private GatherTaskResultBo parseTaskResult(String raw) {
+        if (StringUtils.isBlank(raw)) {
+            return null;
+        }
+        try {
+            return JsonUtil.toObj(raw, GatherTaskResultBo.class);
+        } catch (Exception ex) {
+            log.warn("解析采集任务结果失败: {}", raw, ex);
+            return null;
         }
     }
 

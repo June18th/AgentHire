@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { fetchDraftList, DraftItem, DraftListQuery, DraftListResponse, batchPublishDrafts, updateDraft, deleteDraft, GlobalConfigItemValue } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { getConfigValue } from "@/lib/config"
+import { getWorkbenchScopeLabel, RUNNER_AGENT, buildGatherTaskQueueHref } from "@/lib/admin-workbench"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
     Pagination,
@@ -50,14 +51,16 @@ export default function DraftsPage() {
     const linkedDraftIds = useMemo(() => sanitizeDraftIds(searchParams.get("draftIds")), [searchParams])
     const sourceTaskId = useMemo(() => sanitizeNumberParam(searchParams.get("sourceTaskId")), [searchParams])
     const sourceId = useMemo(() => sanitizeNumberParam(searchParams.get("sourceId")), [searchParams])
+    const runnerType = useMemo(() => searchParams.get("runner") || "", [searchParams])
     const linkedDraftIdList = useMemo(() => linkedDraftIds ? linkedDraftIds.split(",") : [], [linkedDraftIds])
     const initialFilters = useMemo<DraftListQuery>(
         () => ({
             ...(linkedDraftIds ? { draftIds: linkedDraftIds } : {}),
             ...(sourceId ? { sourceId: Number(sourceId) } : {}),
             ...(sourceTaskId ? { sourceTaskId: Number(sourceTaskId) } : {}),
+            ...(runnerType ? { runnerType } : {}),
         }),
-        [linkedDraftIds, sourceId, sourceTaskId]
+        [linkedDraftIds, sourceId, sourceTaskId, runnerType]
     )
     const [drafts, setDrafts] = useState<DraftItem[]>([])
     const [loading, setLoading] = useState(false)
@@ -78,6 +81,7 @@ export default function DraftsPage() {
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
     const hasSourceContext = Boolean(linkedDraftIds || sourceId || sourceTaskId)
+    const workbenchScopeLabel = getWorkbenchScopeLabel(runnerType)
 
     // AIDEV-NOTE: AI-GENERATED task link filter
     useEffect(() => {
@@ -98,10 +102,16 @@ export default function DraftsPage() {
             } else {
                 delete next.sourceTaskId
             }
+            if (runnerType) {
+                next.runnerType = runnerType
+            } else {
+                delete next.runnerType
+            }
             if (
                 prev.draftIds === next.draftIds &&
                 prev.sourceId === next.sourceId &&
-                prev.sourceTaskId === next.sourceTaskId
+                prev.sourceTaskId === next.sourceTaskId &&
+                prev.runnerType === next.runnerType
             ) {
                 return prev
             }
@@ -109,7 +119,7 @@ export default function DraftsPage() {
         })
         setSelectedIds([])
         setPage(1)
-    }, [linkedDraftIds, sourceId, sourceTaskId])
+    }, [linkedDraftIds, sourceId, sourceTaskId, runnerType])
 
     const fetchData = async (params: DraftListQuery = {}) => {
         setLoading(true)
@@ -147,6 +157,13 @@ export default function DraftsPage() {
         params.delete("draftIds")
         params.delete("sourceTaskId")
         params.delete("sourceId")
+        const query = params.toString()
+        router.replace(query ? `/admin/drafts?${query}` : "/admin/drafts")
+    }
+
+    const clearRunnerFilter = () => {
+        const params = new URLSearchParams(searchParams.toString())
+        params.delete("runner")
         const query = params.toString()
         router.replace(query ? `/admin/drafts?${query}` : "/admin/drafts")
     }
@@ -262,6 +279,23 @@ export default function DraftsPage() {
     return (
         <div className="min-h-screen bg-surface-muted">
             <div className="mx-auto max-w-[1440px] px-6 py-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-surface-border bg-white p-4 shadow-sm">
+                    <div>
+                        <h1 className="text-lg font-semibold text-content-primary">草稿审核</h1>
+                        <p className="mt-1 text-sm text-content-tertiary">当前范围：{workbenchScopeLabel}</p>
+                    </div>
+                    {runnerType === RUNNER_AGENT && !hasSourceContext && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 border-violet-200 bg-white text-violet-700 hover:bg-violet-50"
+                            onClick={clearRunnerFilter}
+                        >
+                            <X className="h-3.5 w-3.5" />
+                            查看全部草稿
+                        </Button>
+                    )}
+                </div>
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-surface-border bg-white p-4 shadow-sm">
                     <div className="flex flex-wrap items-center gap-2">
                     <Input placeholder="公司名称" className="w-32" value={filters.companyName || ''} onChange={e => handleFilterChange('companyName', e.target.value)} />
@@ -414,9 +448,12 @@ export default function DraftsPage() {
                                                 )}
                                                 {draft.sourceTaskId && (
                                                     <Button asChild size="sm" variant="outline" className="h-7 gap-1 border-slate-200 bg-white px-2 text-xs text-slate-700 hover:bg-slate-50">
-                                                        <Link href={`/admin/entry?tab=tasks${draft.sourceId ? `&sourceId=${draft.sourceId}` : ""}`}>
+                                                        <Link href={buildGatherTaskQueueHref({
+                                                            taskId: draft.sourceTaskId,
+                                                            sourceId: draft.sourceId,
+                                                        })}>
                                                             <ExternalLink className="h-3 w-3" />
-                                                            任务
+                                                            #{draft.sourceTaskId}
                                                         </Link>
                                                     </Button>
                                                 )}

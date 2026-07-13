@@ -268,7 +268,7 @@ export async function submitAIEntry(params: {
   model: string;
   type: string;
   file: any;
-}) {
+}): Promise<number> {
   const async = true;
   if (params.file) {
     // 传文件的方式
@@ -280,7 +280,7 @@ export async function submitAIEntry(params: {
       headers: { "Content-Type": "multipart/form-data" },
     });
     if (ans.data && ans.data.code === 0) {
-      return ans.data.data;
+      return Number(ans.data.data);
     } else {
       throw new Error(ans.data?.msg || "AI录入失败");
     }
@@ -290,9 +290,191 @@ export async function submitAIEntry(params: {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
   if (res.data && res.data.code === 0) {
-    return res.data.data;
+    return Number(res.data.data);
   }
   throw new Error(res.data?.msg || "AI录入失败");
+}
+
+export interface GatherTaskStreamMessage {
+  cmd: "success" | "error";
+  taskId: number;
+  state: number;
+  sourceId?: number;
+  insertCount?: number;
+  updateCount?: number;
+  unchangedCount?: number;
+  skipCount?: number;
+  failedCount?: number;
+  message?: string;
+}
+
+/**
+ * 订阅 Admin 异步采集任务完成事件。
+ */
+export function connectGatherTaskStream(
+  taskId: string | number,
+  onMessage: (payload: GatherTaskStreamMessage) => void,
+  onError: (error: Error) => void,
+  onComplete?: () => void
+) {
+  let controller: AbortController | null = new AbortController();
+  let isClosed = false;
+
+  async function startFetch() {
+    try {
+      const headers = new Headers();
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("oc-token") : null;
+      if (token) {
+        headers.append("X-OC-TOKEN", token);
+      }
+
+      const url = `${BASE_URL}/api/admin/gather/taskStream?taskId=${encodeURIComponent(
+        String(taskId)
+      )}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers,
+        signal: controller?.signal,
+      });
+
+      if (!response.ok) {
+        let message = `HTTP error! status: ${response.status}`;
+        try {
+          const data: unknown = await response.json();
+          message = getApiResponseMessage(data) || message;
+        } catch {
+          if (response.status === 403) {
+            message = "无权限或登录态已失效，请使用管理员账号登录";
+          }
+        }
+        throw new Error(message);
+      }
+
+      if (!response.body) {
+        throw new Error("ReadableStream not supported in this browser");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (!isClosed) {
+        const { done, value } = await reader.read();
+        if (done) {
+          const tail = decoder.decode();
+          if (tail) {
+            buffer += tail;
+          }
+          if (buffer) {
+            buffer = processBuffer(buffer, true);
+          }
+          if (onComplete && !isClosed) {
+            onComplete();
+          }
+          close();
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        buffer = processBuffer(buffer);
+      }
+    } catch (error) {
+      if (
+        !isClosed &&
+        !(error instanceof DOMException && error.name === "AbortError")
+      ) {
+        onError(
+          new Error(
+            `任务通知连接失败: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          )
+        );
+        close();
+      }
+    }
+  }
+
+  function processBuffer(nextBuffer: string, flush = false) {
+    const normalized = nextBuffer.replace(/\r\n/g, "\n");
+    const events = normalized.split(/\n\n+/);
+    const remainder = flush ? "" : events.pop() ?? "";
+
+    events.forEach(processEvent);
+    if (flush && remainder.trim()) {
+      processEvent(remainder);
+    }
+    return remainder;
+  }
+
+  function processEvent(event: string) {
+    const dataLines: string[] = [];
+    event.split("\n").forEach((rawLine) => {
+      const line = rawLine.trimEnd();
+      if (line.startsWith("data:")) {
+        dataLines.push(line.slice(5).trimStart());
+      } else if (line.trim() && !line.startsWith(":")) {
+        dataLines.push(line.trim());
+      }
+    });
+
+    const data = dataLines.join("\n").trim();
+    if (data) {
+      processMessage(data);
+    }
+  }
+
+  function processMessage(data: string) {
+    if (isClosed) return;
+    try {
+      const payload = JSON.parse(data) as GatherTaskStreamMessage;
+      onMessage(payload);
+    } catch (error) {
+      onError(
+        new Error(
+          `解析任务通知失败: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      );
+    }
+  }
+
+  function close() {
+    if (isClosed) return;
+    isClosed = true;
+    if (controller) {
+      controller.abort();
+      controller = null;
+    }
+  }
+
+  startFetch();
+  return close;
+}
+
+export function formatGatherTaskStreamToast(payload: GatherTaskStreamMessage) {
+  const parts = [
+    payload.insertCount ? `新增 ${payload.insertCount}` : "",
+    payload.updateCount ? `更新 ${payload.updateCount}` : "",
+    payload.unchangedCount ? `无变化 ${payload.unchangedCount}` : "",
+    payload.skipCount ? `跳过 ${payload.skipCount}` : "",
+    payload.failedCount ? `失败 ${payload.failedCount}` : "",
+  ].filter(Boolean)
+
+  if (payload.cmd === "error") {
+    return {
+      title: `任务 #${payload.taskId} 执行失败`,
+      description: payload.message || "请前往任务队列查看详情",
+      variant: "destructive" as const,
+    }
+  }
+
+  return {
+    title: `任务 #${payload.taskId} 已完成`,
+    description: parts.length > 0 ? parts.join(" · ") : "任务已结束，可在任务队列查看结果",
+  }
 }
 
 /**
@@ -595,7 +777,11 @@ export interface TaskListItem {
   state: number;
   sourceId?: number;
   sourceVersion?: number;
+  sourceRunIndex?: number;
   runnerType?: string;
+  jobFetchBizTaskId?: string;
+  jobFetchChannel?: string;
+  jobFetchUserId?: string;
   content: string;
   cnt: number;
   result: string;
@@ -630,6 +816,44 @@ export async function reRunTask(taskId: number): Promise<boolean> {
     return res.data.data === true;
   }
   throw new Error(res.data?.msg || "重跑任务失败");
+}
+
+export async function reRunAgentTask(taskId: number): Promise<number> {
+  const res = await api.get(`/api/admin/gather/agentReRun?taskId=${taskId}`);
+  if (res.data && res.data.code === 0) {
+    return Number(res.data.data);
+  }
+  throw new Error(res.data?.msg || "Agent 任务重跑失败");
+}
+
+/**
+ * 触发 Agent 作业执行：autoInvoke SSE + taskStream 完成通知。
+ */
+export function runAgentGatherTask(
+  taskId: number,
+  handlers: {
+    onTaskDone: (payload: GatherTaskStreamMessage) => void;
+    onError: (error: Error) => void;
+  }
+): () => void {
+  const closes: Array<() => void> = [];
+  closes.push(
+    connectGatherTaskStream(
+      taskId,
+      handlers.onTaskDone,
+      handlers.onError
+    )
+  );
+  closes.push(
+    connectSSEByTaskId(
+      String(taskId),
+      () => {},
+      handlers.onError
+    )
+  );
+  return () => {
+    closes.forEach((close) => close());
+  };
 }
 
 export interface GatherSourceListQuery {
@@ -709,6 +933,7 @@ export interface DraftListQuery {
   draftIds?: string;
   sourceId?: number;
   sourceTaskId?: number;
+  runnerType?: string;
   companyName?: string;
   companyType?: string;
   jobLocation?: string;

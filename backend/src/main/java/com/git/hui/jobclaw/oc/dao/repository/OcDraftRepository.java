@@ -111,6 +111,9 @@ public interface OcDraftRepository extends JpaRepository<OcDraftEntity, Long>, J
             if (req.getSourceId() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("sourceId"), req.getSourceId()));
             }
+            if (req.getSourceIds() != null && !req.getSourceIds().isEmpty()) {
+                predicates.add(root.get("sourceId").in(req.getSourceIds()));
+            }
             if (req.getSourceTaskId() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("sourceTaskId"), req.getSourceTaskId()));
             }

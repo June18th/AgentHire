@@ -6,6 +6,7 @@ import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.constants.oc.DraftProcessEnum;
 import com.git.hui.jobclaw.constants.oc.DraftStateEnum;
 import com.git.hui.jobclaw.constants.oc.OcStateEnum;
+import com.git.hui.jobclaw.gather.dao.repository.GatherSourceRepository;
 import com.git.hui.jobclaw.oc.convert.DraftConvert;
 import com.git.hui.jobclaw.oc.dao.entity.OcDraftEntity;
 import com.git.hui.jobclaw.oc.dao.entity.OcInfoEntity;
@@ -46,18 +47,29 @@ public class GatherService implements JobInfoPersistService {
     private final OcInfoTransfer ocInfoTransfer;
     private final OcSearchIndexService searchIndexService;
 
+    private final GatherSourceRepository gatherSourceRepository;
+
     @Autowired
     public GatherService(OcDraftRepository repository, OcRepository ocRepository, OcInfoTransfer ocInfoTransfer,
-                         OcSearchIndexService searchIndexService) {
+                         OcSearchIndexService searchIndexService, GatherSourceRepository gatherSourceRepository) {
         this.draftRepository = repository;
         this.ocRepository = ocRepository;
         this.ocInfoTransfer = ocInfoTransfer;
         this.searchIndexService = searchIndexService;
+        this.gatherSourceRepository = gatherSourceRepository;
     }
 
     public PageListVo<OcDraftEntity> searchDraftList(DraftSearchReq req) {
         if (req.getState() == null) {
             req.setNotState(OcStateEnum.DELETED.getValue());
+        }
+        if (StringUtils.isNotBlank(req.getRunnerType())) {
+            List<Long> sourceIds = gatherSourceRepository.findIdsByRunnerType(req.getRunnerType().trim());
+            if (sourceIds.isEmpty()) {
+                req.autoInitPage();
+                return PageListVo.of(List.of(), 0L, req.getPage(), req.getSize());
+            }
+            req.setSourceIds(sourceIds);
         }
         req.autoInitPage();
         return draftRepository.findList(req);
@@ -143,12 +155,22 @@ public class GatherService implements JobInfoPersistService {
 
     @Override
     public SaveRes save(List<FetchedJobInfo> jobInfos) {
+        return save(jobInfos, null, null);
+    }
+
+    @Override
+    public SaveRes save(List<FetchedJobInfo> jobInfos, Long sourceId, Long sourceTaskId) {
         if (jobInfos == null || jobInfos.isEmpty()) {
             return new SaveRes(0, 0);
         }
         List<OcDraftEntity> draftList = jobInfos.stream().map(DraftConvert::covert).collect(Collectors.toList());
-        GatherVo vo = saveDraftDataList(draftList);
-        return new SaveRes(vo.getInsertList().size(), vo.getUpdateList().size());
+        GatherVo vo = saveDraftDataList(draftList, sourceId, sourceTaskId);
+        return new SaveRes(
+                vo.getInsertList().size(),
+                vo.getUpdateList().size(),
+                vo.getInsertList().stream().map(OcDraftEntity::getId).toList(),
+                vo.getUpdateList().stream().map(OcDraftEntity::getId).toList()
+        );
     }
 
     @Override

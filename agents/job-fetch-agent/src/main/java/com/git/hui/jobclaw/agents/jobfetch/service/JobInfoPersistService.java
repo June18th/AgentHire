@@ -15,6 +15,8 @@ public interface JobInfoPersistService {
 
     SaveRes save(List<FetchedJobInfo> jobInfos);
 
+    SaveRes save(List<FetchedJobInfo> jobInfos, Long sourceId, Long sourceTaskId);
+
     List<FetchedDraftEntity> listToBePublished(int size);
 
     boolean updateDraft(long id, FetchedJobInfo jobInfo);
@@ -27,7 +29,10 @@ public interface JobInfoPersistService {
      */
     int publishDrafts(List<Long> draftIds);
 
-    record SaveRes(int insertCnt, int updateCnt) {
+    record SaveRes(int insertCnt, int updateCnt, List<Long> insertDraftIds, List<Long> updateDraftIds) {
+        public SaveRes(int insertCnt, int updateCnt) {
+            this(insertCnt, updateCnt, List.of(), List.of());
+        }
     }
 
 }

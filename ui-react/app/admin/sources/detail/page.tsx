@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowLeft,
   Archive,
@@ -22,10 +22,16 @@ import {
   fetchGatherSourceList,
   fetchTaskList,
   reRunGatherSource,
+  connectGatherTaskStream,
+  formatGatherTaskStreamToast,
+  runAgentGatherTask,
   updateGatherSourceStatus,
   type GatherSourceItem,
   type TaskListItem,
 } from "@/lib/api"
+import { GatherTaskDetailDialog } from "@/components/gather/gather-task-detail-dialog"
+import { formatGatherTaskModelDisplay, gatherTaskStateClass, gatherTaskStateLabels, isAgentRunner, runnerLabels, RUNNER_IM_FETCH, buildGatherTaskQueueHref } from "@/lib/admin-workbench"
+import { buildDraftListHref, getTaskDraftIds, parseTaskDraftResult } from "@/lib/gather-task-utils"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
@@ -44,12 +50,8 @@ const typeLabels: Record<number, string> = {
 const ownerLabels: Record<string, string> = {
   admin: "Admin 投料",
   agent: "Agent 作业",
+  im: "IM",
   system: "System",
-}
-
-const runnerLabels: Record<string, string> = {
-  draft_only: "生成草稿",
-  agent: "Agent 作业",
 }
 
 const statusLabels: Record<string, string> = {
@@ -66,20 +68,6 @@ const statusClassNames: Record<string, string> = {
   invalid: "border-rose-200 bg-rose-50 text-rose-700",
 }
 
-const taskStateClass: Record<number, string> = {
-  0: "border-slate-200 bg-slate-50 text-slate-600",
-  1: "border-blue-200 bg-blue-50 text-blue-700",
-  2: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  3: "border-rose-200 bg-rose-50 text-rose-700",
-}
-
-const taskStateLabels: Record<number, string> = {
-  0: "待处理",
-  1: "处理中",
-  2: "已完成",
-  3: "失败",
-}
-
 interface ParsedResultSummary {
   parsed: boolean
   insert: number
@@ -87,16 +75,6 @@ interface ParsedResultSummary {
   unchanged: number
   skip: number
   failed: number
-}
-
-interface TaskDraftResult {
-  parsed: boolean
-  raw: string
-  insertDraftIds: number[]
-  updateDraftIds: number[]
-  unchangedDraftIds: number[]
-  skipDraftIds: number[]
-  failedItems: string[]
 }
 
 function formatDateTime(value?: number | string | null) {
@@ -133,94 +111,6 @@ function parseResultSummary(summary?: string | null): ParsedResultSummary {
   } catch {
     return { parsed: false, insert: 0, update: 0, unchanged: 0, skip: 0, failed: 0 }
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function toDraftIdList(value: unknown) {
-  const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : []
-  return Array.from(
-    new Set(
-      source
-        .map((item) => Number(String(item).trim()))
-        .filter((id) => Number.isInteger(id) && id > 0)
-    )
-  )
-}
-
-function toFailedItemList(value: unknown) {
-  const source = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : []
-  return source
-    .map((item) => {
-      if (typeof item === "string" || typeof item === "number") {
-        return String(item).trim()
-      }
-      if (isRecord(item)) {
-        const title = item.title ?? item.position ?? item.name ?? item.reason ?? item.msg
-        return title === undefined || title === null ? JSON.stringify(item) : String(title).trim()
-      }
-      return ""
-    })
-    .filter(Boolean)
-}
-
-function emptyTaskDraftResult(raw = ""): TaskDraftResult {
-  return {
-    parsed: false,
-    raw,
-    insertDraftIds: [],
-    updateDraftIds: [],
-    unchangedDraftIds: [],
-    skipDraftIds: [],
-    failedItems: [],
-  }
-}
-
-function parseTaskDraftResult(result?: string | null): TaskDraftResult {
-  const raw = result?.trim() || ""
-  if (!raw) {
-    return emptyTaskDraftResult()
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (!isRecord(parsed)) {
-      return emptyTaskDraftResult(raw)
-    }
-    return {
-      parsed: true,
-      raw,
-      insertDraftIds: toDraftIdList(parsed.insertDraftIds ?? parsed.insert),
-      updateDraftIds: toDraftIdList(parsed.updateDraftIds ?? parsed.update),
-      unchangedDraftIds: toDraftIdList(parsed.unchangedDraftIds ?? parsed.unchanged),
-      skipDraftIds: toDraftIdList(parsed.skipDraftIds ?? parsed.skip),
-      failedItems: toFailedItemList(parsed.failedItems ?? parsed.failed),
-    }
-  } catch {
-    return emptyTaskDraftResult(raw)
-  }
-}
-
-function getTaskDraftIds(result: TaskDraftResult) {
-  return Array.from(new Set([
-    ...result.insertDraftIds,
-    ...result.updateDraftIds,
-    ...result.unchangedDraftIds,
-    ...result.skipDraftIds,
-  ]))
-}
-
-function buildDraftListHref(taskId: number, draftIds: number[], sourceId?: number) {
-  const params = new URLSearchParams({
-    draftIds: draftIds.join(","),
-    sourceTaskId: String(taskId),
-  })
-  if (sourceId) {
-    params.set("sourceId", String(sourceId))
-  }
-  return `/admin/drafts?${params.toString()}`
 }
 
 function buildSourceDraftHref(sourceId: number) {
@@ -317,7 +207,7 @@ function TaskResultBadges({ task }: { task: TaskListItem }) {
       </div>
       {draftIds.length > 0 && (
         <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 border-slate-200 bg-white text-slate-700">
-          <Link href={buildDraftListHref(task.taskId, draftIds, task.sourceId)}>
+          <Link href={buildDraftListHref(task.taskId, draftIds, task.sourceId, task.runnerType)}>
             <ExternalLink className="h-3.5 w-3.5" />
             查看草稿
           </Link>
@@ -341,9 +231,12 @@ export default function AdminSourceDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [reRunning, setReRunning] = useState(false)
   const [statusUpdating, setStatusUpdating] = useState(false)
+  const [detailTask, setDetailTask] = useState<TaskListItem | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const taskStreamCloseRef = useRef<(() => void) | null>(null)
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(taskTotal / TASK_PAGE_SIZE)), [taskTotal])
-  const canReRun = source?.status === "active"
+  const canReRun = source?.status === "active" && source?.runnerType !== RUNNER_IM_FETCH
 
   const loadDetail = useCallback(async () => {
     if (!sourceId) {
@@ -381,6 +274,13 @@ export default function AdminSourceDetailPage() {
     loadDetail()
   }, [loadDetail])
 
+  useEffect(() => {
+    return () => {
+      taskStreamCloseRef.current?.()
+      taskStreamCloseRef.current = null
+    }
+  }, [])
+
   const handleReRun = async () => {
     if (!source) {
       return
@@ -388,9 +288,49 @@ export default function AdminSourceDetailPage() {
     setReRunning(true)
     try {
       const taskId = await reRunGatherSource(source.id)
-      toast({ title: "已重新采集", description: `任务 #${taskId} 已加入采集队列` })
+      if (isAgentRunner(source.runnerType)) {
+        toast({ title: "Agent 任务已创建", description: `任务 #${taskId} 正在执行…` })
+      } else {
+        toast({ title: "已重新采集", description: `任务 #${taskId} 已加入采集队列` })
+      }
       setPage(1)
       await loadDetail()
+      taskStreamCloseRef.current?.()
+      if (isAgentRunner(source.runnerType)) {
+        taskStreamCloseRef.current = runAgentGatherTask(taskId, {
+          onTaskDone: (payload) => {
+            toast(formatGatherTaskStreamToast(payload))
+            void loadDetail()
+            taskStreamCloseRef.current?.()
+            taskStreamCloseRef.current = null
+          },
+          onError: (streamError) => {
+            toast({
+              title: "Agent 执行连接失败",
+              description: streamError.message,
+              variant: "destructive",
+            })
+          },
+        })
+      } else {
+        taskStreamCloseRef.current = connectGatherTaskStream(
+          taskId,
+          (payload) => {
+            const notice = formatGatherTaskStreamToast(payload)
+            toast(notice)
+            void loadDetail()
+            taskStreamCloseRef.current?.()
+            taskStreamCloseRef.current = null
+          },
+          (streamError) => {
+            toast({
+              title: "任务通知连接失败",
+              description: streamError.message,
+              variant: "destructive",
+            })
+          }
+        )
+      }
     } catch (err) {
       toast({
         title: "重新采集失败",
@@ -478,11 +418,15 @@ export default function AdminSourceDetailPage() {
         </div>
       </section>
 
-      {source && !canReRun && (
+      {source?.runnerType === RUNNER_IM_FETCH ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          此来源由 IM 用户对话触发，任务在用户侧自动执行，后台不支持重新采集。
+        </div>
+      ) : source && !canReRun ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           当前来源状态为「{statusLabels[source.status] || source.status}」，暂不可重新采集；恢复为「正常」后可继续触发任务。
         </div>
-      )}
+      ) : null}
 
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -592,7 +536,7 @@ export default function AdminSourceDetailPage() {
                 <TableRow className="bg-slate-50">
                   <TableHead className="w-24">任务 ID</TableHead>
                   <TableHead className="w-28">类型</TableHead>
-                  <TableHead className="w-40">作业</TableHead>
+                  <TableHead className="w-28">运行</TableHead>
                   <TableHead className="w-32">状态</TableHead>
                   <TableHead>模型</TableHead>
                   <TableHead className="min-w-[300px]">草稿结果</TableHead>
@@ -617,34 +561,74 @@ export default function AdminSourceDetailPage() {
                 ) : (
                   tasks.map((task) => (
                     <TableRow key={task.taskId}>
-                      <TableCell className="font-medium text-content-primary">#{task.taskId}</TableCell>
+                      <TableCell className="font-medium text-content-primary">
+                        <button
+                          type="button"
+                          className="rounded px-1 text-blue-700 hover:bg-blue-50 hover:underline"
+                          onClick={() => {
+                            setDetailTask(task)
+                            setDetailOpen(true)
+                          }}
+                        >
+                          #{task.taskId}
+                        </button>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
                           {typeLabels[task.type] || `类型 ${task.type}`}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-content-secondary">
-                        {runnerLabels[task.runnerType || ""] || task.runnerType || "-"}
+                        <div>{runnerLabels[task.runnerType || ""] || task.runnerType || "-"}</div>
+                        {task.sourceRunIndex ? (
+                          <div className="text-xs text-content-tertiary">第 {task.sourceRunIndex} 次运行</div>
+                        ) : null}
+                        {task.jobFetchBizTaskId ? (
+                          <button
+                            type="button"
+                            className="text-left text-xs text-blue-700 hover:underline"
+                            onClick={() => {
+                              setDetailTask(task)
+                              setDetailOpen(true)
+                            }}
+                          >
+                            IM 任务 `{task.jobFetchBizTaskId}`
+                            {task.jobFetchChannel ? ` · ${task.jobFetchChannel}` : ""}
+                          </button>
+                        ) : null}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={cn("border-slate-200 bg-white", taskStateClass[task.state])}>
-                          {taskStateLabels[task.state] || task.state}
+                        <Badge variant="outline" className={cn("border-slate-200 bg-white", gatherTaskStateClass[task.state])}>
+                          {gatherTaskStateLabels[task.state] || task.state}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[280px] truncate text-sm text-content-secondary" title={task.model}>
-                        {task.model || "-"}
+                      <TableCell className="max-w-[280px] truncate text-sm text-content-secondary" title={formatGatherTaskModelDisplay(task)}>
+                        {formatGatherTaskModelDisplay(task)}
                       </TableCell>
                       <TableCell>
                         <TaskResultBadges task={task} />
                       </TableCell>
                       <TableCell className="text-sm text-content-tertiary">{formatDateTime(task.updateTime)}</TableCell>
                       <TableCell className="text-right">
-                        <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
-                          <Link href={`/admin/entry?tab=tasks&sourceId=${sourceId}`}>
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            队列
-                          </Link>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2"
+                            onClick={() => {
+                              setDetailTask(task)
+                              setDetailOpen(true)
+                            }}
+                          >
+                            详情
+                          </Button>
+                          <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
+                            <Link href={buildGatherTaskQueueHref({ taskId: task.taskId, sourceId })}>
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              队列
+                            </Link>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -678,6 +662,13 @@ export default function AdminSourceDetailPage() {
           </div>
         </div>
       </section>
+
+      <GatherTaskDetailDialog
+        task={detailTask}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        typeLabel={(type) => typeLabels[type] || `类型 ${type}`}
+      />
     </div>
   )
 }

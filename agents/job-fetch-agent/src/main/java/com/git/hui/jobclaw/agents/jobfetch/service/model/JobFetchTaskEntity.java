@@ -91,6 +91,19 @@ public class JobFetchTaskEntity {
      */
     @Column(name = "conversion_id")
     private String conversionId;
+
+    /**
+     * 关联 gather_task 主键，便于后台统一回看采集链路。
+     */
+    @Column(name = "gather_task_id")
+    private Long gatherTaskId;
+
+    /**
+     * 关联 gather_source 主键。
+     */
+    @Column(name = "gather_source_id")
+    private Long gatherSourceId;
+
     /**
      * 创建时间
      */

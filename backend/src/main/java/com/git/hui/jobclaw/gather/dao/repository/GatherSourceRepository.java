@@ -10,6 +10,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +19,9 @@ import java.util.Optional;
 
 public interface GatherSourceRepository extends JpaRepository<GatherSourceEntity, Long>, JpaSpecificationExecutor<GatherSourceEntity> {
     Optional<GatherSourceEntity> findFirstBySourceHash(String sourceHash);
+
+    @Query("select s.id from gather_source s where s.runnerType = :runnerType")
+    List<Long> findIdsByRunnerType(@Param("runnerType") String runnerType);
 
     default PageListVo<GatherSourceEntity> findList(GatherSourceSearchReq req) {
         Specification<GatherSourceEntity> spec = (root, query, criteriaBuilder) -> {

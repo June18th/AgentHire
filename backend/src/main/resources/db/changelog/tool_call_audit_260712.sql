@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS tool_call_audit (
+    id VARCHAR(64) PRIMARY KEY,
+    invocation_id VARCHAR(64),
+    job_claw_user_id VARCHAR(64),
+    conversation_id VARCHAR(255),
+    channel VARCHAR(64),
+    agent VARCHAR(128),
+    tool_name VARCHAR(255),
+    tool_call_id VARCHAR(128),
+    iteration INT,
+    args_summary LONGTEXT,
+    result_summary LONGTEXT,
+    status VARCHAR(32),
+    duration_ms BIGINT,
+    error_message VARCHAR(2000),
+    create_time TIMESTAMP,
+    INDEX idx_tool_audit_user_time (job_claw_user_id, create_time),
+    INDEX idx_tool_audit_agent_time (agent, create_time),
+    INDEX idx_tool_audit_invocation (invocation_id)
+);

@@ -210,4 +210,33 @@
             <column name="source_task_id" type="bigint" remarks="采集任务ID"/>
         </addColumn>
     </changeSet>
+
+    <changeSet id="260420_00000001" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="job_fetch_task"/>
+            </not>
+        </preConditions>
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/update_schema_260420.sql"/>
+    </changeSet>
+
+    <changeSet id="260712_00000001" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="job_fetch_task"/>
+            <not>
+                <columnExists tableName="job_fetch_task" columnName="gather_task_id"/>
+            </not>
+        </preConditions>
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/job_fetch_gather_link_260712.sql"/>
+    </changeSet>
+
+    <!-- 工具调用审计表 -->
+    <changeSet id="260712_00000002" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tool_call_audit"/>
+            </not>
+        </preConditions>
+        <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/tool_call_audit_260712.sql"/>
+    </changeSet>
 </databaseChangeLog>
