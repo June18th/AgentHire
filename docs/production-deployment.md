@@ -64,19 +64,15 @@ Create the production environment file:
 Copy-Item .env.production.example .env.production
 ```
 
-Edit `.env.production` and replace every `CHANGE_ME_*` value. At minimum, set:
+Edit `.env.production` and replace the required `CHANGE_ME_*` values. At minimum, set:
 
 ```text
-COMPOSE_PROFILES
 MYSQL_ROOT_PASSWORD
-REDIS_PASSWORD
-MINIO_ACCESS_KEY
-MINIO_SECRET_KEY
 JOBCLAW_JWT_SECRET
 JOBCLAW_SITE_WEB_SITE_URL
 ```
 
-`COMPOSE_PROFILES` controls optional infrastructure. Example full stack:
+The default `COMPOSE_PROFILES=` value starts only MySQL and the application services. Redis and MinIO credentials are required only when their profiles are enabled. Example full stack:
 
 ```env
 COMPOSE_PROFILES=redis,kafka,elasticsearch,minio

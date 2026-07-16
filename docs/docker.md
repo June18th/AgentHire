@@ -227,18 +227,18 @@ GET http://localhost:8088/api/oc/search?keyword=java&page=1&size=5
 
 单服务器生产基线见 `docker/compose/compose.prod.yml`，详细运维说明见 [production-deployment.md](production-deployment.md)。
 
-生产编排包含 Gateway / API / Web / MySQL，以及可选的 Redis / Kafka / Elasticsearch / MinIO。可选组件通过 **Compose Profiles** 控制：
+生产编排包含 Gateway / API / Web / MySQL，以及可选的 Redis / Kafka / Elasticsearch / MinIO。默认使用最小栈，可选组件通过 **Compose Profiles** 控制：
 
 ```env
 # .env.production
-COMPOSE_PROFILES=redis,kafka,elasticsearch,minio
-JOBCLAW_REDIS_ENABLED=true
-JOBCLAW_MQ_ENABLED=true
-JOBCLAW_SEARCH_ES_ENABLED=true
-JOBCLAW_IMG_STORAGE_TYPE=minio
+COMPOSE_PROFILES=
+JOBCLAW_REDIS_ENABLED=false
+JOBCLAW_MQ_ENABLED=false
+JOBCLAW_SEARCH_ES_ENABLED=false
+JOBCLAW_IMG_STORAGE_TYPE=local
 ```
 
-- 只启 MySQL + 应用：`COMPOSE_PROFILES=`（留空），并设 `JOBCLAW_*_ENABLED=false` / `JOBCLAW_IMG_STORAGE_TYPE=local`。
+- 启用全组件栈：`COMPOSE_PROFILES=redis,kafka,elasticsearch,minio`，并同步打开三个 `JOBCLAW_*_ENABLED` 开关、将图片存储设为 `minio`。
 - 关闭 ES 但保留其他组件：从 `COMPOSE_PROFILES` 去掉 `elasticsearch`，设 `JOBCLAW_SEARCH_ES_ENABLED=false`。
 - API **仅强依赖 MySQL**；Redis/Kafka/ES/MinIO 不可用时应用仍可启动，对应能力降级（缓存本地、MQ 跳过、搜索回 MySQL、图片走本地）。
 
