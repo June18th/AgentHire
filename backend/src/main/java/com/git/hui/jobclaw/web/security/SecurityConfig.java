@@ -39,11 +39,16 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/", "/index.html", "/favicon.ico", "/_next/**", "/assets/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/actuator/metrics", "/actuator/metrics/**")
+                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_PLATFORM_ADMIN", "ROLE_SUPER_ADMIN")
                         .requestMatchers("/h2-console/**").permitAll()
-                        .requestMatchers("/api/common/**", "/api/wx/**", "/api/oc/list", "/oc/img/**").permitAll()
+                        .requestMatchers("/api/common/**", "/api/wx/**", "/api/oc/list", "/api/oc/search", "/oc/img/**").permitAll()
+                        // MCP uses its own bearer-token validation in PermissionCheckInterceptor.
+                        .requestMatchers("/api/sse", "/api/mcp", "/api/mcp/**").permitAll()
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_PLATFORM_ADMIN", "ROLE_SUPER_ADMIN")
                         .requestMatchers("/api/user/**", "/api/chat/**", "/api/recharge/**").authenticated()
-                        .anyRequest().permitAll())
+                        // AIDEV-NOTE: New endpoints require authentication.
+                        .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

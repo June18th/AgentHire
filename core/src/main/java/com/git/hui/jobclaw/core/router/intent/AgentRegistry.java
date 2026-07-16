@@ -47,6 +47,15 @@ public interface AgentRegistry {
     Optional<BizAgent> getAgent(String agentId);
 
     /**
+     * Returns an agent only when it is visible to the specified user.
+     */
+    default Optional<BizAgent> getAgentForUser(String jobClawUserId, String agentId) {
+        return getAgent(agentId).filter(candidate -> getAllAgents(jobClawUserId).stream()
+                .anyMatch(agent -> agent.getAgentIntro().getAgentId()
+                        .equals(candidate.getAgentIntro().getAgentId())));
+    }
+
+    /**
      * 根据意图类型获取合适的Agent列表
      * AIDEV-NOTE: 返回按优先级排序的Agent列表
      *
@@ -62,6 +71,12 @@ public interface AgentRegistry {
      * @return 默认Agent
      */
     Optional<BizAgent> getDefaultAgent();
+
+    default Optional<BizAgent> getDefaultAgentForUser(String jobClawUserId) {
+        return getDefaultAgent().filter(candidate -> getAllAgents(jobClawUserId).stream()
+                .anyMatch(agent -> agent.getAgentIntro().getAgentId()
+                        .equals(candidate.getAgentIntro().getAgentId())));
+    }
 
     /**
      * 获取所有已注册的Agent

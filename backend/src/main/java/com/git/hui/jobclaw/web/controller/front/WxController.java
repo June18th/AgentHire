@@ -1,6 +1,5 @@
 package com.git.hui.jobclaw.web.controller.front;
 
-import cn.hutool.core.util.NumberUtil;
 import com.git.hui.jobclaw.configs.service.CommonDictService;
 import com.git.hui.jobclaw.constants.user.LoginConstants;
 import com.git.hui.jobclaw.core.apis.context.UserBo;
@@ -9,6 +8,7 @@ import com.git.hui.jobclaw.core.apis.permission.Permission;
 import com.git.hui.jobclaw.core.utils.SpringUtil;
 import com.git.hui.jobclaw.openapi.model.OpenApiUserDTO;
 import com.git.hui.jobclaw.user.helper.SessionHelper;
+import com.git.hui.jobclaw.user.helper.WxCallbackSignatureVerifier;
 import com.git.hui.jobclaw.user.helper.WxLoginProperties;
 import com.git.hui.jobclaw.user.service.LoginService;
 import com.git.hui.jobclaw.user.service.RechargeService;
@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,15 +53,18 @@ public class WxController {
     private final CommonDictService commonDictService;
 
     private final RechargeService rechargeService;
+    private final WxCallbackSignatureVerifier callbackSignatureVerifier;
 
     @Autowired
     public WxController(LoginService loginService, UserService userService, SessionHelper sessionHelper,
-                        CommonDictService commonDictService, RechargeService rechargeService) {
+                        CommonDictService commonDictService, RechargeService rechargeService,
+                        WxCallbackSignatureVerifier callbackSignatureVerifier) {
         this.loginService = loginService;
         this.userService = userService;
         this.sessionHelper = sessionHelper;
         this.commonDictService = commonDictService;
         this.rechargeService = rechargeService;
+        this.callbackSignatureVerifier = callbackSignatureVerifier;
     }
 
     /**
@@ -137,10 +141,19 @@ public class WxController {
      * @param msg
      * @return
      */
+    @GetMapping(path = "callback", produces = MediaType.TEXT_PLAIN_VALUE)
+    public ResponseEntity<String> verifyCallback(HttpServletRequest request) {
+        if (!validCallback(request)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("invalid signature");
+        }
+        return ResponseEntity.ok(request.getParameter("echostr"));
+    }
+
     @PostMapping(path = "callback",
             consumes = {"application/xml", "text/xml"},
             produces = "application/xml;charset=utf-8")
-    public BaseWxMsgResVo callBack(@RequestBody WxTxtMsgReqVo msg) {
+    public BaseWxMsgResVo callBack(@RequestBody WxTxtMsgReqVo msg, HttpServletRequest request) {
+        requireValidCallback(request);
         String content = msg.getContent();
         if ("subscribe".equals(msg.getEvent()) || "scan".equalsIgnoreCase(msg.getEvent())) {
             String key = msg.getEventKey();
@@ -155,7 +168,7 @@ public class WxController {
 
                 userService.autoRegisterWxUserInfo(msg.getFromUserName());
                 String ans;
-                if (NumberUtil.isNumber(code) && code.length() == 4) {
+                if (com.git.hui.jobclaw.util.CodeGenerateUtil.isVerifyCode(code)) {
                     // 登录的场景
                     ans = loginService.login(code) ? "登录成功" : "登录失败，请输入验证码";
                 } else {
@@ -168,7 +181,7 @@ public class WxController {
             }
         }
 
-        if (NumberUtil.isNumber(content)) {
+        if (com.git.hui.jobclaw.util.CodeGenerateUtil.isVerifyCode(content)) {
             // 验证码登录方式，首先自动注册一个用户；然后再实现登录跳转
             userService.autoRegisterWxUserInfo(msg.getFromUserName());
             WxTxtMsgResVo res = new WxTxtMsgResVo();
@@ -190,8 +203,20 @@ public class WxController {
      * @return
      */
     @PostMapping(path = "pai/callback")
-    public BaseWxMsgResVo autoLogin(@RequestBody WxTxtMsgReqVo msg) {
-        return callBack(msg);
+    public BaseWxMsgResVo autoLogin(@RequestBody WxTxtMsgReqVo msg, HttpServletRequest request) {
+        return callBack(msg, request);
+    }
+
+    private boolean validCallback(HttpServletRequest request) {
+        return callbackSignatureVerifier.verify(request.getParameter("signature"),
+                request.getParameter("timestamp"), request.getParameter("nonce"));
+    }
+
+    private void requireValidCallback(HttpServletRequest request) {
+        if (!validCallback(request)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "invalid WeChat callback signature");
+        }
     }
 
     private void fillResVo(BaseWxMsgResVo res, WxTxtMsgReqVo msg) {

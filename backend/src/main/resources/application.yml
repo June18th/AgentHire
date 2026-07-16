@@ -126,7 +126,7 @@ jobclaw:
       appSecret: ${WX_LOGIN_APP_SECRET:a7c4xb(使用公众号的appSecret)68c84}
       qrCodeImg: ${WX_LOGIN_QR_IMG:${jobclaw.site.login-qr-img}}
       qrCodeLogo: ${WX_LOGIN_QR_LOGO:${jobclaw.site.web-site-logo}}
-      securityCheckToken: ${WX_SECURITY_CHECK_TOKEN:} # 为空，表示不对微信回调的接口进行校验
+      securityCheckToken: ${WX_SECURITY_CHECK_TOKEN:} # 生产环境必须配置；仅 dev/test 允许为空
       subscribeWelcomeInfo: ${WX_LOGIN_SUBSCRIBE_WELCOME_INFO:欢迎来到求职派，请关注公众号，获取更多信息}
 
 pay:
@@ -332,6 +332,7 @@ jobrunr:
 logging:
   level:
     com.git.hui: info
+    com.lark.oapi.ws: warn
     com.git.hui.jobclaw.core.agent.identity: debug
     com.git.hui.jobclaw.core.agent.react.ReActAdvisor: debug
     com.git.hui.jobclaw.core.agent.models.LlmRspCell: info

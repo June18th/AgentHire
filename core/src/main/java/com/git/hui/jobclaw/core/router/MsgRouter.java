@@ -125,18 +125,27 @@ public class MsgRouter {
         }
 
         // Step 4: 意图识别
-        IntentClassificationRes classification = intentClassifier.classify(conversationInfo, userMessage, java.util.Collections.emptyList());
+        List<String> intentHistory = sessionBinder.getIntentHistory(jobClawUserId, conversationId).stream()
+                .map(item -> item.intentType().name() + ":" + item.confidence())
+                .toList();
+        IntentClassificationRes classification = intentClassifier.classify(conversationInfo, userMessage, intentHistory);
         log.info("Intent classification: {}", classification);
 
 
         // Step 5: 路由到Agent
         Optional<String> currentBoundAgent = sessionBinder.getBoundAgentId(jobClawUserId, conversationId);
+        sessionBinder.addIntentHistory(jobClawUserId, conversationId, classification.intentType(), classification.confidence());
+        if (currentBoundAgent.isPresent() && !classification.isConfident()) {
+            routeToAgent(currentBoundAgent.get(), msg, conversationInfo);
+            return;
+        }
         AgentRouter.RouterResult routeResult = agentRouter.route(classification, currentBoundAgent);
 
         // Step 8: 绑定会话状态（如果是新会话）
         if (routeResult.isNewSession()) {
             sessionBinder.bind(jobClawUserId, conversationId, routeResult.agentId());
-            sessionBinder.addIntentHistory(jobClawUserId, conversationId, classification.intentType(), classification.confidence());
+        } else {
+            sessionBinder.renew(jobClawUserId, conversationId);
         }
 
         // Step 9: 执行Agent
@@ -148,7 +157,14 @@ public class MsgRouter {
      */
     private void routeToAgent(String agentId, ChannelReceiveMessage msg, UserConversationInfo conversationInfo) {
         // 获取Agent
-        BizAgent agent = agentRegistry.getAgent(agentId).orElseGet(() -> agentRegistry.getDefaultAgent().orElse(null));
+        BizAgent agent = agentRegistry.getAgentForUser(conversationInfo.jobClawUserId(), agentId).orElse(null);
+        if (agent == null && agentRegistry.getAgent(agentId).isPresent()) {
+            log.warn("User {} attempted to access restricted agent {}", conversationInfo.jobClawUserId(), agentId);
+            sessionBinder.unbind(conversationInfo.jobClawUserId(), conversationInfo.conversationId());
+        }
+        if (agent == null) {
+            agent = agentRegistry.getDefaultAgentForUser(conversationInfo.jobClawUserId()).orElse(null);
+        }
 
         if (agent == null) {
             log.error("未找到Agent: {}", agentId);

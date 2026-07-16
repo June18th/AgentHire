@@ -102,7 +102,8 @@ public class FileSystemSessionAgentBinder implements SessionAgentBinder {
         }
         
         // 绑定已过期（getBoundAgent已经检查过期返回空）
-        return getBoundAgent(jobClawUserId, sessionId).isEmpty();
+        // AIDEV-NOTE: Reclassify normal messages for Agent handoff.
+        return userMessage != null && !userMessage.isBlank();
     }
     
     @Override
@@ -174,6 +175,7 @@ public class FileSystemSessionAgentBinder implements SessionAgentBinder {
                 Instant expiresAt = Instant.parse(fm.get("expiresAt"));
                 state.boundAgent = new BoundAgentInfo(boundAgentId, boundAt, expiresAt);
             }
+            state.intentHistory = parseIntentHistory(fm.get("intentHistory"));
             
             return state;
         } catch (IOException e) {
@@ -208,6 +210,11 @@ public class FileSystemSessionAgentBinder implements SessionAgentBinder {
                 fm.put("boundAt", state.boundAgent.boundAt().toString());
                 fm.put("expiresAt", state.boundAgent.expiresAt().toString());
             }
+            if (state.intentHistory != null && !state.intentHistory.isEmpty()) {
+                fm.put("intentHistory", state.intentHistory.stream()
+                        .map(item -> item.intentType().name() + "," + item.confidence() + "," + item.timestamp())
+                        .collect(java.util.stream.Collectors.joining(";")));
+            }
             
             String content = YamlParser.serialize(new YamlDocument(fm, null));
             
@@ -223,6 +230,26 @@ public class FileSystemSessionAgentBinder implements SessionAgentBinder {
     /**
      * 内存会话状态（简化实现）
      */
+    private List<IntentHistoryItem> parseIntentHistory(String value) {
+        if (value == null || value.isBlank()) {
+            return new ArrayList<>();
+        }
+        List<IntentHistoryItem> history = new ArrayList<>();
+        for (String item : value.split(";")) {
+            String[] parts = item.split(",", 3);
+            if (parts.length != 3) {
+                continue;
+            }
+            try {
+                history.add(new IntentHistoryItem(PresetAgentIntro.valueOf(parts[0]),
+                        Double.parseDouble(parts[1]), Instant.parse(parts[2])));
+            } catch (IllegalArgumentException ignored) {
+                log.warn("Ignore invalid intent history item: {}", item);
+            }
+        }
+        return history;
+    }
+
     private static class SessionState {
         String sessionId;
         String jobClawUserId;
