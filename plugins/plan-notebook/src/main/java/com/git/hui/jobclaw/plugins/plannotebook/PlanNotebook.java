@@ -1,6 +1,5 @@
 package com.git.hui.jobclaw.plugins.plannotebook;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.git.hui.jobclaw.core.utils.json.JsonUtil;
 import com.git.hui.jobclaw.plugins.plannotebook.model.Plan;
 import com.git.hui.jobclaw.plugins.plannotebook.model.SubTask;
@@ -17,6 +16,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Stores one current plan per user under the agent workspace.
@@ -32,7 +33,7 @@ public class PlanNotebook {
 
     public PlanNotebook(Resource workspace) throws IOException {
         this.usersDir = workspace.getFile().toPath().resolve("users").toAbsolutePath().normalize();
-        this.objectMapper = JsonUtil.getMapper().copy().findAndRegisterModules();
+        this.objectMapper = JsonUtil.getMapper();
     }
 
     public Plan create(String userId, String name, List<String> descriptions) {
@@ -59,7 +60,7 @@ public class PlanNotebook {
             }
             try {
                 return Optional.of(objectMapper.readValue(file.toFile(), Plan.class));
-            } catch (IOException e) {
+            } catch (JacksonException e) {
                 throw new IllegalStateException("Failed to read plan for user " + userId, e);
             }
         }
@@ -90,7 +91,7 @@ public class PlanNotebook {
         synchronized (lock(userId)) {
             try {
                 Files.deleteIfExists(resolveFile(userId));
-            } catch (IOException e) {
+            } catch (IOException | JacksonException e) {
                 throw new IllegalStateException("Failed to clear plan for user " + userId, e);
             }
         }

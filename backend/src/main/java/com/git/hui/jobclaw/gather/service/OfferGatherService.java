@@ -7,7 +7,6 @@ import cn.idev.excel.FastExcel;
 import cn.idev.excel.context.AnalysisContext;
 import cn.idev.excel.metadata.data.ReadCellData;
 import cn.idev.excel.read.listener.ReadListener;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.git.hui.jobclaw.core.bizexception.BizException;
 import com.git.hui.jobclaw.core.bizexception.StatusEnum;
 import com.git.hui.jobclaw.configs.service.CommonDictService;
@@ -41,6 +40,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
+import tools.jackson.databind.JsonNode;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

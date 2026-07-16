@@ -1,12 +1,11 @@
 package com.git.hui.jobclaw.web.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.git.hui.jobclaw.web.model.res.AdminLlmProviderTestVo;
 import com.git.hui.jobclaw.web.model.res.AdminLlmProviderVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -99,8 +98,7 @@ public class AdminLlmProviderTestService {
         return "openai".equals(apiStyle) || "anthropic".equals(apiStyle);
     }
 
-    private HttpRequest buildRequest(String apiStyle, AdminLlmProviderVo.ProviderConfigVo config, String apiKey, String modelName)
-            throws JsonProcessingException {
+    private HttpRequest buildRequest(String apiStyle, AdminLlmProviderVo.ProviderConfigVo config, String apiKey, String modelName) {
         String path = resolveCompletionsPath(apiStyle, config.getCompletionsPath());
         HttpRequest.Builder builder = HttpRequest.newBuilder(buildEndpoint(config.getBaseUrl(), path))
                 .timeout(REQUEST_TIMEOUT)
@@ -116,7 +114,7 @@ public class AdminLlmProviderTestService {
         return builder.build();
     }
 
-    private String buildBody(String apiStyle, String modelName) throws JsonProcessingException {
+    private String buildBody(String apiStyle, String modelName) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", modelName);
         body.put("max_tokens", 1);

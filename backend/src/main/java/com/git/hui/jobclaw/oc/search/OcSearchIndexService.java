@@ -1,6 +1,6 @@
 package com.git.hui.jobclaw.oc.search;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.git.hui.jobclaw.configs.SearchProperties;
 import com.git.hui.jobclaw.constants.oc.OcStateEnum;
 import com.git.hui.jobclaw.core.apis.PageListVo;

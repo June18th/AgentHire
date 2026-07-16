@@ -1,6 +1,5 @@
 package com.git.hui.jobclaw.plugins.plannotebook;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.git.hui.jobclaw.core.agent.react.ReActMiddleware;
 import com.git.hui.jobclaw.core.tools.AutoDiscoveredTool;
 import org.springframework.beans.factory.annotation.Value;

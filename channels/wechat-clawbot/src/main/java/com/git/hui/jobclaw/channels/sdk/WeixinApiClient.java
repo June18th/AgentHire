@@ -1,7 +1,5 @@
 package com.git.hui.jobclaw.channels.sdk;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -9,6 +7,9 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.security.SecureRandom;
@@ -41,8 +42,9 @@ public class WeixinApiClient {
         this.channelVersion = channelVersion != null ? channelVersion : "unknown";
         
         // 配置 ObjectMapper
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        this.objectMapper = JsonMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
         
         this.httpClient = HttpClients.createDefault();
     }

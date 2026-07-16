@@ -1,7 +1,6 @@
 package com.git.hui.jobclaw.provider.anthropic;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import tools.jackson.databind.json.JsonMapper;
 
 public class AnthropicClaudeCodeOAuthTokenExtractor {
 
