@@ -12,13 +12,16 @@ import com.git.hui.jobclaw.core.agent.models.UserConversationInfo;
 import com.git.hui.jobclaw.core.bus.ChannelEventPublisher;
 import com.git.hui.jobclaw.core.channel.ChannelReceiveMessage;
 import lombok.extern.slf4j.Slf4j;
+import org.jobrunr.scheduling.JobScheduler;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 职位抓取任务服务
@@ -44,6 +47,9 @@ public class JobFetchTaskService {
 
     @Autowired
     private JobInfoPersistService jobInfoSaveService;
+
+    @Autowired
+    private JobScheduler jobScheduler;
 
     @Autowired(required = false)
     private JobFetchGatherRegistrar jobFetchGatherRegistrar;
@@ -73,7 +79,7 @@ public class JobFetchTaskService {
         log.info("创建URL抓取任务: taskId={}, url={}", taskId, url);
 
         // 异步执行任务
-        Thread.ofVirtual().start(() -> executeUrlTaskAsync(task, userConversationInfo, url, msg));
+        enqueue(task);
         return buildTaskResponse(task);
     }
 
@@ -85,6 +91,9 @@ public class JobFetchTaskService {
                                                      String path,
                                                      ChannelReceiveMessage msg) {
         String taskId = generateTaskId();
+        boolean hasFiles = !CollectionUtils.isEmpty(msg.getFiles());
+        boolean hasMedias = !CollectionUtils.isEmpty(msg.getMedias());
+        String taskType = hasFiles ? "FILE" : hasMedias ? "MEDIA" : "TEXT";
 
         // 创建任务记录
         JobFetchTaskEntity task = new JobFetchTaskEntity()
@@ -92,8 +101,8 @@ public class JobFetchTaskService {
                 .setJobClawUserId(userConversationInfo.jobClawUserId())
                 .setChannel(userConversationInfo.channel())
                 .setConversionId(userConversationInfo.conversationId())
-                .setTaskType(CollectionUtils.isEmpty(msg.getFiles()) && CollectionUtils.isEmpty(msg.getMedias()) ? "TEXT" : "FILE")
-                .setInputContent(text != null ? text : path)
+                .setTaskType(taskType)
+                .setInputContent(hasFiles || hasMedias ? path : text)
                 .setOriginMessage(msg.getMessage())
                 .setStatus(JobFetchTaskStatus.PENDING.name())
                 .setJobCount(0);
@@ -103,13 +112,85 @@ public class JobFetchTaskService {
         log.info("创建文本/文件提取任务: taskId={}, type={}", taskId, task.getTaskType());
 
         // 异步执行任务
-        Thread.ofVirtual().start(() -> executeTextOrFileTaskAsync(task, userConversationInfo, text, path, msg));
+        enqueue(task);
         return buildTaskResponse(task);
     }
 
     /**
      * 查询任务状态
      */
+    private void enqueue(JobFetchTaskEntity task) {
+        try {
+            jobScheduler.<JobFetchTaskJobHandler>enqueue(handler -> handler.execute(task.getTaskId()));
+        } catch (RuntimeException e) {
+            updateTaskFailed(task, "Failed to enqueue durable task: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /** AIDEV-NOTE: JobRunr reloads execution input by taskId. */
+    public void executePersistedTask(String taskId) {
+        JobFetchTaskEntity task = taskRepository.findByTaskId(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task does not exist: " + taskId));
+        if (JobFetchTaskStatus.SUCCESS.name().equals(task.getStatus())) {
+            log.info("Skip completed job fetch task: {}", taskId);
+            return;
+        }
+
+        UserConversationInfo conversationInfo = new UserConversationInfo(
+                task.getJobClawUserId(), task.getChannel(), task.getConversionId(), false);
+        ChannelReceiveMessage message = restoreMessage(task);
+        if ("URL".equals(task.getTaskType())) {
+            executeUrlTaskAsync(task, conversationInfo, task.getInputContent(), message);
+        } else {
+            executeTextOrFileTaskAsync(task, conversationInfo,
+                    "TEXT".equals(task.getTaskType()) ? task.getInputContent() : null,
+                    !"TEXT".equals(task.getTaskType()) ? task.getInputContent() : null,
+                    message);
+        }
+    }
+
+    private ChannelReceiveMessage restoreMessage(JobFetchTaskEntity task) {
+        ChannelReceiveMessage message = ChannelReceiveMessage.builder()
+                .msgId("JOB_FETCH_" + task.getTaskId())
+                .jobClawUserId(task.getJobClawUserId())
+                .fromUserId(task.getConversionId())
+                .channel(task.getChannel())
+                .message("TEXT".equals(task.getTaskType()) ? task.getInputContent() : task.getOriginMessage())
+                .build();
+        if (("FILE".equals(task.getTaskType()) || "MEDIA".equals(task.getTaskType()))
+                && task.getInputContent() != null) {
+            Path filePath = Path.of(task.getInputContent());
+            String mimeType = null;
+            try {
+                mimeType = Files.probeContentType(filePath);
+            } catch (Exception e) {
+                log.debug("Unable to detect file type for {}", filePath, e);
+            }
+            if ("MEDIA".equals(task.getTaskType())) {
+                message.setMedias(List.of(ChannelReceiveMessage.MediaMsg.builder()
+                        .filePath(filePath)
+                        .fileType(extension(filePath))
+                        .mimeType(mimeType)
+                        .build()));
+            } else {
+                message.setFiles(List.of(ChannelReceiveMessage.FileMsg.builder()
+                        .filePath(filePath)
+                        .fileName(filePath.getFileName().toString())
+                        .fileType(extension(filePath))
+                        .mimeType(mimeType)
+                        .build()));
+            }
+        }
+        return message;
+    }
+
+    private String extension(Path path) {
+        String name = path.getFileName().toString();
+        int index = name.lastIndexOf('.');
+        return index < 0 ? "" : name.substring(index + 1);
+    }
+
     public JobFetchTaskResponse queryTask(String jobClawUserId, String taskId) {
         JobFetchTaskEntity task = taskRepository.findByJobClawUserIdAndTaskId(jobClawUserId, taskId)
                 .orElseThrow(() -> new IllegalArgumentException("任务不存在: " + taskId));
@@ -130,7 +211,6 @@ public class JobFetchTaskService {
     /**
      * 异步执行URL抓取任务
      */
-    @Async
     public void executeUrlTaskAsync(JobFetchTaskEntity task,
                                     UserConversationInfo userConversationInfo,
                                     String url,
@@ -157,13 +237,13 @@ public class JobFetchTaskService {
             log.error("URL抓取任务失败: taskId={}", taskId, e);
             updateTaskFailed(task, e.getMessage());
             pushTaskFailure(task, e.getMessage());
+            throw new IllegalStateException("Job fetch task failed: " + taskId, e);
         }
     }
 
     /**
      * 异步执行文本/文件提取任务
      */
-    @Async
     public void executeTextOrFileTaskAsync(JobFetchTaskEntity task,
                                            UserConversationInfo userConversationInfo,
                                            String text,
@@ -197,6 +277,7 @@ public class JobFetchTaskService {
             log.error("文本/文件提取任务失败: taskId={}", taskId, e);
             updateTaskFailed(task, e.getMessage());
             pushTaskFailure(task, e.getMessage());
+            throw new IllegalStateException("Job fetch task failed: " + taskId, e);
         }
     }
 
@@ -317,43 +398,10 @@ public class JobFetchTaskService {
 
     /**
      * 生成任务ID
-     * 基于时间戳转换为36进制(a-z0-9)字符串
+     * 使用随机 UUID，避免并发创建时发生唯一键冲突。
      */
-    private String generateTaskId() {
-        long timestamp = System.currentTimeMillis() / 1000;
-        return "job_" + encodeBase36(timestamp);
-    }
-
-    /**
-     * 将长整数转换为36进制字符串(a-z0-9)
-     *
-     * @param number 长整数
-     * @return 36进制字符串
-     */
-    private String encodeBase36(long number) {
-        if (number == 0) {
-            return "0";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        String chars = "0123456789abcdefghijklmnopqrstuvwxyz";
-        boolean negative = number < 0;
-
-        if (negative) {
-            number = -number;
-        }
-
-        while (number > 0) {
-            int remainder = (int) (number % 36);
-            sb.append(chars.charAt(remainder));
-            number /= 36;
-        }
-
-        if (negative) {
-            sb.append('-');
-        }
-
-        return sb.reverse().toString();
+    static String generateTaskId() {
+        return "job_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     /**
