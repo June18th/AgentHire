@@ -83,6 +83,31 @@ public class JobAgentTools {
     }
 
     @Tool(description = """
+            按自然语言条件联网搜索职位页面，并创建异步抓取任务。
+
+            **触发时机**: 用户没有提供具体 URL，而是要求查找岗位时必须调用:
+            - "搜索北京 Java 实习"
+            - "查找最近一周深圳后端校招"
+            - "帮我找上海 AI 工程师岗位"
+
+            **参数说明**:
+            - query: 完整搜索条件，应包含地点、岗位、招聘类型、时间等用户已给出的限制
+            - 搜索结果只会进入待审核草稿，不会自动发布
+            - 任务完成后会主动推送通知
+            """, returnDirect = true)
+    public String searchJobs(
+            @JsonPropertyDescription("岗位搜索条件，例如：北京 Java 实习 2026 校招")
+            String query,
+            ToolContext toolContext) {
+        log.info("工具调用：按条件搜索职位，queryLength={}", query == null ? 0 : query.length());
+        ChannelReceiveMessage msg = (ChannelReceiveMessage) toolContext.getContext().get("msg");
+        UserConversationInfo userConversationInfo = (UserConversationInfo) toolContext.getContext().get("user");
+
+        JobFetchTaskResponse taskResponse = jobFetchService.searchJobs(userConversationInfo, query, msg);
+        return buildTaskCreatedMessage(taskResponse, "联网搜索");
+    }
+
+    @Tool(description = """
             从文本内容、文件或图片中提取职位信息,自动创建异步任务。
                         
             **触发时机**: 当用户提供以下类型的内容时调用此工具:

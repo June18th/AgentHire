@@ -3,6 +3,9 @@ package com.git.hui.jobclaw.agents.jobfetch.service;
 import com.git.hui.jobclaw.agents.jobfetch.crawler.JobCrawler;
 import com.git.hui.jobclaw.agents.jobfetch.extract.JobExtractor;
 import com.git.hui.jobclaw.agents.jobfetch.extract.impl.TextJobExtractor;
+import com.git.hui.jobclaw.agents.jobfetch.search.JobSearchCandidate;
+import com.git.hui.jobclaw.agents.jobfetch.search.JobSearchProperties;
+import com.git.hui.jobclaw.agents.jobfetch.search.JobSearchProvider;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.FetchedJobInfo;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskEntity;
 import com.git.hui.jobclaw.agents.jobfetch.service.model.JobFetchTaskResponse;
@@ -20,7 +23,11 @@ import org.springframework.util.CollectionUtils;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -50,6 +57,12 @@ public class JobFetchTaskService {
 
     @Autowired
     private JobScheduler jobScheduler;
+
+    @Autowired
+    private List<JobSearchProvider> jobSearchProviders;
+
+    @Autowired
+    private JobSearchProperties jobSearchProperties;
 
     @Autowired(required = false)
     private JobFetchGatherRegistrar jobFetchGatherRegistrar;
@@ -117,6 +130,34 @@ public class JobFetchTaskService {
     }
 
     /**
+     * 创建搜索发现任务。搜索只发现候选页面，职位仍需抓取解析后进入草稿库。
+     */
+    public JobFetchTaskResponse createSearchTask(UserConversationInfo userConversationInfo,
+                                                 String query,
+                                                 ChannelReceiveMessage msg) {
+        if (query == null || query.isBlank()) {
+            throw new IllegalArgumentException("岗位搜索条件不能为空");
+        }
+        String taskId = generateTaskId();
+        JobFetchTaskEntity task = new JobFetchTaskEntity()
+                .setTaskId(taskId)
+                .setJobClawUserId(userConversationInfo.jobClawUserId())
+                .setChannel(userConversationInfo.channel())
+                .setConversionId(userConversationInfo.conversationId())
+                .setTaskType("SEARCH")
+                .setInputContent(query.trim())
+                .setOriginMessage(msg.getMessage())
+                .setStatus(JobFetchTaskStatus.PENDING.name())
+                .setJobCount(0);
+
+        taskRepository.save(task);
+        linkGatherTask(task, userConversationInfo);
+        log.info("创建岗位搜索任务: taskId={}, queryLength={}", taskId, query.trim().length());
+        enqueue(task);
+        return buildTaskResponse(task);
+    }
+
+    /**
      * 查询任务状态
      */
     private void enqueue(JobFetchTaskEntity task) {
@@ -140,13 +181,14 @@ public class JobFetchTaskService {
         UserConversationInfo conversationInfo = new UserConversationInfo(
                 task.getJobClawUserId(), task.getChannel(), task.getConversionId(), false);
         ChannelReceiveMessage message = restoreMessage(task);
-        if ("URL".equals(task.getTaskType())) {
-            executeUrlTaskAsync(task, conversationInfo, task.getInputContent(), message);
-        } else {
-            executeTextOrFileTaskAsync(task, conversationInfo,
+        switch (task.getTaskType()) {
+            case "URL" -> executeUrlTaskAsync(task, conversationInfo, task.getInputContent(), message);
+            case "SEARCH" -> executeSearchTaskAsync(task, conversationInfo, task.getInputContent(), message);
+            case "TEXT", "FILE", "MEDIA" -> executeTextOrFileTaskAsync(task, conversationInfo,
                     "TEXT".equals(task.getTaskType()) ? task.getInputContent() : null,
                     !"TEXT".equals(task.getTaskType()) ? task.getInputContent() : null,
                     message);
+            default -> throw new IllegalStateException("不支持的职位抓取任务类型: " + task.getTaskType());
         }
     }
 
@@ -239,6 +281,139 @@ public class JobFetchTaskService {
             pushTaskFailure(task, e.getMessage());
             throw new IllegalStateException("Job fetch task failed: " + taskId, e);
         }
+    }
+
+    /**
+     * AIDEV-NOTE: 搜索仅发现公网候选页，逐页抓取后统一写入草稿
+     */
+    public void executeSearchTaskAsync(JobFetchTaskEntity task,
+                                       UserConversationInfo userConversationInfo,
+                                       String query,
+                                       ChannelReceiveMessage msg) {
+        String taskId = task.getTaskId();
+        try {
+            updateTaskStatus(task, JobFetchTaskStatus.RUNNING, null);
+            JobSearchProvider searchProvider = selectSearchProvider();
+            int maxResults = Math.max(1, jobSearchProperties.getMaxResults());
+            List<JobSearchCandidate> candidates = searchProvider.search(query, maxResults);
+            if (candidates.isEmpty()) {
+                updateTaskSuccess(task, 0);
+                pushTaskResult(task, List.of());
+                return;
+            }
+
+            int maxPages = Math.max(1, Math.min(jobSearchProperties.getMaxPages(), candidates.size()));
+            List<FetchedJobInfo> fetchedJobs = new ArrayList<>();
+            int attemptedPages = 0;
+            int failedPages = 0;
+            for (JobSearchCandidate candidate : candidates) {
+                if (attemptedPages >= maxPages) {
+                    break;
+                }
+                if (!isJobRelated(candidate)) {
+                    log.info("跳过招聘相关性不足的搜索结果: {}", candidate.url());
+                    continue;
+                }
+                attemptedPages++;
+                try {
+                    List<FetchedJobInfo> pageJobs = jobCrawler.crawl(
+                            userConversationInfo, candidate.url(), buildSearchOriginMessage(msg, candidate));
+                    if (pageJobs == null || pageJobs.isEmpty()) {
+                        failedPages++;
+                        continue;
+                    }
+                    pageJobs.stream()
+                            .filter(job -> job != null && job.isValid())
+                            .peek(job -> enrichSearchSource(job, candidate))
+                            .forEach(fetchedJobs::add);
+                } catch (RuntimeException e) {
+                    failedPages++;
+                    log.warn("搜索候选页抓取失败: taskId={}, url={}, reason={}",
+                            taskId, candidate.url(), e.getMessage());
+                }
+            }
+
+            List<FetchedJobInfo> jobs = deduplicateSearchJobs(fetchedJobs);
+            if (attemptedPages > 0 && jobs.isEmpty()) {
+                throw new IllegalStateException(String.format(
+                        "搜索返回 %d 个候选页面，但尝试抓取的 %d 个页面均未解析出职位",
+                        candidates.size(), attemptedPages));
+            }
+            if (failedPages > 0) {
+                task.setErrorMessage(String.format("部分页面未解析成功: %d/%d", failedPages, attemptedPages));
+            }
+            updateTaskSuccess(task, jobs.size());
+            log.info("岗位搜索任务完成: taskId={}, candidates={}, attempted={}, failed={}, jobs={}",
+                    taskId, candidates.size(), attemptedPages, failedPages, jobs.size());
+            pushTaskResult(task, jobs);
+        } catch (Exception e) {
+            log.error("岗位搜索任务失败: taskId={}", taskId, e);
+            updateTaskFailed(task, e.getMessage());
+            pushTaskFailure(task, e.getMessage());
+            throw new IllegalStateException("Job search task failed: " + taskId, e);
+        }
+    }
+
+    private JobSearchProvider selectSearchProvider() {
+        if (!jobSearchProperties.isEnabled()) {
+            throw new IllegalStateException("岗位联网搜索未启用");
+        }
+        return jobSearchProviders.stream()
+                .filter(provider -> provider.provider().equalsIgnoreCase(jobSearchProperties.getProvider()))
+                .filter(JobSearchProvider::isAvailable)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "岗位搜索供应商不可用: " + jobSearchProperties.getProvider()));
+    }
+
+    private String buildSearchOriginMessage(ChannelReceiveMessage msg, JobSearchCandidate candidate) {
+        String origin = msg == null || msg.getMessage() == null ? "" : msg.getMessage();
+        return origin + "\n搜索结果标题: " + nullToEmpty(candidate.title())
+                + "\n搜索摘要: " + nullToEmpty(candidate.snippet());
+    }
+
+    private boolean isJobRelated(JobSearchCandidate candidate) {
+        String text = (nullToEmpty(candidate.title()) + " "
+                + nullToEmpty(candidate.snippet()) + " "
+                + nullToEmpty(candidate.url())).toLowerCase(Locale.ROOT);
+        return List.of("招聘", "职位", "岗位", "校招", "实习", "应届", "求职",
+                        "career", "careers", "job", "jobs", "hiring", "join-us", "joinus")
+                .stream().anyMatch(text::contains);
+    }
+
+    private void enrichSearchSource(FetchedJobInfo job, JobSearchCandidate candidate) {
+        if (job.getRelatedLink() == null || job.getRelatedLink().isBlank()) {
+            job.setRelatedLink(candidate.url());
+        }
+        if (job.getSource() == null || job.getSource().isBlank()) {
+            String source = candidate.source() == null || candidate.source().isBlank()
+                    ? candidate.url()
+                    : candidate.source() + " - " + candidate.url();
+            job.setSource(source);
+        }
+        if ((job.getLastUpdatedTime() == null || job.getLastUpdatedTime().isBlank())
+                && candidate.publishDate() != null && !candidate.publishDate().isBlank()) {
+            job.setLastUpdatedTime(candidate.publishDate());
+        }
+    }
+
+    private List<FetchedJobInfo> deduplicateSearchJobs(List<FetchedJobInfo> jobs) {
+        Map<String, FetchedJobInfo> unique = new LinkedHashMap<>();
+        for (FetchedJobInfo job : jobs) {
+            String key = normalizeKey(job.getRelatedLink()) + "|"
+                    + normalizeKey(job.getCompanyName()) + "|"
+                    + normalizeKey(job.getPosition());
+            unique.putIfAbsent(key, job);
+        }
+        return List.copyOf(unique.values());
+    }
+
+    private String normalizeKey(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 
     /**
@@ -456,6 +631,9 @@ public class JobFetchTaskService {
         sb.append("📈 数据处理结果:\n\n");
         sb.append(String.format("  • 新增: %d 条\n\n", res.insertCnt()));
         sb.append(String.format("  • 更新: %d 条\n\n", res.updateCnt()));
+        if (task.getErrorMessage() != null && !task.getErrorMessage().isBlank()) {
+            sb.append(String.format("  • 提醒: %s\n\n", task.getErrorMessage()));
+        }
             
         sb.append("\n💡 提示:\n\n");
         sb.append("• 职位信息已保存到数据库\n\n");

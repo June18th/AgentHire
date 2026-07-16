@@ -46,6 +46,16 @@ public class JobFetchService {
     }
 
     /**
+     * 按岗位条件搜索候选网页，并异步抓取到草稿库。
+     */
+    public JobFetchTaskResponse searchJobs(UserConversationInfo userConversationInfo,
+                                           String query,
+                                           ChannelReceiveMessage msg) {
+        log.info("创建岗位搜索任务: queryLength={}", query == null ? 0 : query.length());
+        return taskService.createSearchTask(userConversationInfo, query, msg);
+    }
+
+    /**
      * 查询任务状态
      */
     public JobFetchTaskResponse queryTask(String jobClawUserId, String taskId) {

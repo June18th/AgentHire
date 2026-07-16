@@ -43,7 +43,7 @@ public class JobFetchTaskEntity {
     private String jobClawUserId;
 
     /**
-     * 任务类型: URL/TEXT/FILE
+     * 任务类型: URL/SEARCH/TEXT/FILE/MEDIA
      */
     @Column(nullable = false, length = 20)
     private String taskType;

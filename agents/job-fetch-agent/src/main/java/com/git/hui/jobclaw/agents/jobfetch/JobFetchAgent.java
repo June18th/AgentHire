@@ -97,13 +97,19 @@ public class JobFetchAgent extends AbsBizAgent {
             → **必须调用** `fetchJobsFromUrl(url)` 工具
             → 示例: "帮我爬取这个链接的职位: https://xxx.com/jobs"
             → 示例: "从这个网址提取招聘信息: https://example.com"
+
+            #### 场景2: 用户只提供岗位搜索条件
+            → **必须调用** `searchJobs(query)` 工具
+            → 示例: "搜索北京 Java 实习"
+            → 示例: "查找最近一周深圳后端校招"
+            → 搜索结果只能进入待审核草稿，绝不能自动发布
                         
-            #### 场景2: 用户上传文件/图片
+            #### 场景3: 用户上传文件/图片
             → **必须调用** `extractJobsFromTextOrLocalFile(text=null, path=文件路径)` 工具
             → 系统会自动检测附件,你只需要调用工具即可
             → 示例: 用户发送PDF/Word/Excel文件或招聘海报图片
                         
-            #### 场景3: 用户粘贴文本内容
+            #### 场景4: 用户粘贴文本内容
             → **必须调用** `extractJobsFromTextOrLocalFile(text=文本内容, path=null)` 工具
             → 示例: "从这段文字中提取职位: [粘贴的文本]"
             → 示例: "分析以下招聘信息: [文本内容]"

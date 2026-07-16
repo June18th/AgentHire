@@ -198,6 +198,14 @@ agent:
       enabled: ${AGENT_TOOL_DYNAMIC_DISCOVERY_ENABLED:true}
       max-results: ${AGENT_TOOL_DYNAMIC_DISCOVERY_MAX_RESULTS:10}
       lucene-min-score-threshold: ${AGENT_TOOL_DYNAMIC_DISCOVERY_LUCENE_MIN_SCORE_THRESHOLD:0.25}
+  job-search:
+    enabled: ${AGENT_JOB_SEARCH_ENABLED:true}
+    provider: ${AGENT_JOB_SEARCH_PROVIDER:zhipu}
+    engine: ${AGENT_JOB_SEARCH_ENGINE:search_std}
+    max-results: ${AGENT_JOB_SEARCH_MAX_RESULTS:8}
+    max-pages: ${AGENT_JOB_SEARCH_MAX_PAGES:5}
+    connect-timeout-ms: ${AGENT_JOB_SEARCH_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${AGENT_JOB_SEARCH_READ_TIMEOUT_MS:15000}
   ai:
     preference: # 用户维度的模型配置偏好
       - user-id: total # 所有用户共用的机器人配置

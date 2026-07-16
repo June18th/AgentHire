@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -135,6 +136,17 @@ public class ModelProviders {
      */
     public ModelConfig.ModelInfo getGlobalModelInfo(String modelSelection) {
         return resolveModel(modelSelection, null, true).modelInfo();
+    }
+
+    /**
+     * Returns the current global provider configuration for non-model capabilities.
+     * The caller must treat the returned configuration as read-only.
+     */
+    public Optional<AiUserPreferenceProperties.ProviderConfig> getGlobalProviderConfig(String provider) {
+        if (StringUtils.isBlank(provider) || aiUserPreferenceProperties.getProviders() == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(aiUserPreferenceProperties.getProviders().get(provider));
     }
 
     private ResolvedModel resolveModel(String modelSelection,
