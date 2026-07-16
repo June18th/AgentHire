@@ -2,6 +2,19 @@
 
 本文说明当前项目的 Docker 运行方式。后端主模块为 `backend/`，前端为 `ui-react/`。
 
+## Maven 构建缓存
+
+后端镜像使用 BuildKit 命名缓存 `jobclaw-maven-repository-v1`，挂载到构建阶段的
+`/workspace/workspace/.m2/repository`，与 `.mvn/maven.config` 保持一致。不要把宿主机
+`~/.m2` 配置为 Docker Context，也不要复制 Maven
+仓库到镜像中。首次构建需要下载依赖，后续构建会直接复用 BuildKit 缓存；执行
+`docker builder prune` 会清除此缓存。
+
+```dockerfile
+RUN --mount=type=cache,id=jobclaw-maven-repository-v1,target=/workspace/workspace/.m2/repository,sharing=locked \
+    mvn -B -ntp -P${MAVEN_PROFILE} -pl backend -am package -Dmaven.test.skip=true
+```
+
 ## 推荐模式：前后端分离
 
 推荐使用前后端分离的 Docker 组合。默认本地启动保持轻量，只启动 MySQL、后端 API、前端静态服务和统一网关：

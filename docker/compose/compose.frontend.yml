@@ -5,8 +5,6 @@ services:
     build:
       context: ../..
       dockerfile: docker/api/Dockerfile
-      additional_contexts:
-        maven-local-repo: ${MAVEN_LOCAL_REPO:-../../build/maven-empty-repo}
       args:
         MAVEN_PROFILE: prod
     image: jobclaw-api:prod

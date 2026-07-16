@@ -25,13 +25,10 @@ ARG MAVEN_PROFILE=dev
 # AI-GENERATED: 与 plugins/playwright/pom.xml 中 playwright.version 保持一致
 ARG PLAYWRIGHT_VERSION=1.52.0
 
-RUN --mount=type=cache,target=/root/.m2 \
-    --mount=type=bind,from=maven-local-repo,source=.,target=/host-m2,ro \
-    mkdir -p /root/.m2/repository; \
-    cp -an /host-m2/. /root/.m2/repository/ 2>/dev/null || true; \
+RUN --mount=type=cache,id=jobclaw-maven-repository-v1,target=/workspace/workspace/.m2/repository,sharing=locked \
     mvn -B -ntp -P${MAVEN_PROFILE} -pl backend -am package -DskipTests; \
     mkdir -p /playwright-cli; \
-    find /root/.m2/repository/com/microsoft/playwright -name '*.jar' -exec cp -t /playwright-cli {} +
+    find /workspace/workspace/.m2/repository/com/microsoft/playwright -name '*.jar' -exec cp -t /playwright-cli {} +
 
 FROM eclipse-temurin:21-jre-noble
 

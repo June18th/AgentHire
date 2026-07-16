@@ -47,18 +47,11 @@ For a machine-wide fix, configure Maven's `localRepository` in `%USERPROFILE%\.m
 <localRepository>C:\Users\your-name\.m2\repository</localRepository>
 ```
 
-The Docker helper scripts reuse the host Maven repository when it exists. On Windows they set `MAVEN_LOCAL_REPO` to:
-
-```text
-%USERPROFILE%\.m2\repository
-```
-
-You can override it before starting Docker:
-
-```powershell
-$env:MAVEN_LOCAL_REPO = "D:\maven-repository"
-.\build\docker-split.ps1
-```
+Docker builds use a named BuildKit cache mounted at `/workspace/workspace/.m2/repository`,
+matching the repository path configured in `.mvn/maven.config`.
+The host Maven repository is never sent as a Docker build context or copied into an image.
+The first build downloads dependencies; subsequent builds reuse the BuildKit cache named
+`jobclaw-maven-repository-v1`. Running `docker builder prune` removes this cache.
 
 ## Docker
 

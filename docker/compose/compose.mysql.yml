@@ -25,8 +25,6 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
-      additional_contexts:
-        maven-local-repo: ${MAVEN_LOCAL_REPO:-../../build/maven-empty-repo}
       args:
         MAVEN_PROFILE: prod
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}

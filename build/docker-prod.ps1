@@ -20,11 +20,5 @@ if (Select-String -LiteralPath $envFile -Pattern "job\.example\.com" -Quiet) {
     exit 1
 }
 
-$mavenRepo = Join-Path $HOME ".m2\repository"
-if (-not $env:MAVEN_LOCAL_REPO -and (Test-Path -LiteralPath $mavenRepo)) {
-    $env:MAVEN_LOCAL_REPO = (Resolve-Path -LiteralPath $mavenRepo).Path
-    Write-Host "Using host Maven repository: $env:MAVEN_LOCAL_REPO"
-}
-
 docker compose --env-file $envFile -f docker/compose/compose.prod.yml up --build -d
 Write-Host "Production stack started. Optional infra is controlled by COMPOSE_PROFILES in $envFile."
