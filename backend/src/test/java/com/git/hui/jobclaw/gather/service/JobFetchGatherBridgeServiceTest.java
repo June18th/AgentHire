@@ -11,8 +11,10 @@ import org.mockito.ArgumentCaptor;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -82,6 +84,22 @@ class JobFetchGatherBridgeServiceTest {
 
         assertThat(new JobFetchGatherBridgeService(taskService)
                 .register(conversation(), "TEXT", "job text")).isNull();
+    }
+
+    @Test
+    void isolatesGatherLedgerFailuresFromMainFetchFlow() {
+        GatherTaskService taskService = mock(GatherTaskService.class);
+        doThrow(new IllegalStateException("db unavailable"))
+                .when(taskService).markExternalTaskProcessing(12L);
+        doThrow(new IllegalStateException("db unavailable"))
+                .when(taskService).saveTaskResult(eq(12L), any());
+        JobFetchGatherBridgeService bridge = new JobFetchGatherBridgeService(taskService);
+
+        assertThatCode(() -> bridge.markRunning(12L)).doesNotThrowAnyException();
+        assertThatCode(() -> bridge.markSuccess(12L, List.of(1L), List.of()))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> bridge.markFailed(12L, "fetch failed"))
+                .doesNotThrowAnyException();
     }
 
     private static UserConversationInfo conversation() {

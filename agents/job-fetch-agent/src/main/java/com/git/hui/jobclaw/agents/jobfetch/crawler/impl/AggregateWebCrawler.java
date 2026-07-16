@@ -96,7 +96,6 @@ public class AggregateWebCrawler implements JobCrawler {
         try {
             SmartWebFetchTool webFetchTool = SmartWebFetchTool.builder(jobLlmCaller.simpleClient(userConversationInfo))
                     // fixme 为了安全起见，不应该关闭这个安全校验
-                    .domainSafetyCheck(false)
                     .summaryEnable(false)
                     .build();
             var tools = ToolCallbacks.from(webFetchTool);

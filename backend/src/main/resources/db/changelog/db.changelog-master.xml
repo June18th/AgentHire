@@ -239,4 +239,19 @@
         </preConditions>
         <sqlFile dbms="mysql" endDelimiter=";" encoding="UTF-8" path="db/changelog/tool_call_audit_260712.sql"/>
     </changeSet>
+
+    <!-- 补偿部分执行的 job_fetch_task 关联列迁移 -->
+    <changeSet id="260714_00000001" author="Codex">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="job_fetch_task"/>
+                <not>
+                    <columnExists tableName="job_fetch_task" columnName="gather_source_id"/>
+                </not>
+            </and>
+        </preConditions>
+        <addColumn tableName="job_fetch_task">
+            <column name="gather_source_id" type="bigint" remarks="关联 gather_source.id"/>
+        </addColumn>
+    </changeSet>
 </databaseChangeLog>

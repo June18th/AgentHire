@@ -28,7 +28,9 @@ class ToolCallAuditMiddlewareTest {
         setContext(middleware, "chat-1");
 
         middleware.beforeActing(List.of(new AssistantMessage.ToolCall(
-                "call-1", "function", "searchJobs", "{\"email\":\"dev@example.com\",\"phone\":\"13812345678\"}"
+                "call-1", "function", "searchJobs",
+                "{\"email\":\"dev@example.com\",\"phone\":\"13812345678\","
+                        + "\"apiKey\":\"key-123\",\"password\":\"pass-456\"}"
         )), 2, "chat-1");
         middleware.afterActing(response("call-1", "searchJobs", "Bearer secret-token result"), 2, "chat-1");
 
@@ -42,6 +44,7 @@ class ToolCallAuditMiddlewareTest {
         assertThat(record.iteration()).isEqualTo(2);
         assertThat(record.status()).isEqualTo("SUCCESS");
         assertThat(record.argsSummary()).contains("***@***", "***").doesNotContain("dev@example.com", "13812345678");
+        assertThat(record.argsSummary()).doesNotContain("key-123", "pass-456");
         assertThat(record.resultSummary()).isEqualTo("Bearer *** result");
     }
 
@@ -54,13 +57,14 @@ class ToolCallAuditMiddlewareTest {
                 "call-2", "function", "loadPage", "{}"
         )), 1, "chat-2");
 
-        middleware.onError(new IllegalStateException("browser failed"), 1, "chat-2");
+        middleware.onError(new IllegalStateException("browser failed, token=secret-123"), 1, "chat-2");
         middleware.onError(new IllegalStateException("duplicate"), 1, "chat-2");
 
         assertThat(events).hasSize(1);
         ToolCallRecord record = (ToolCallRecord) events.getFirst();
         assertThat(record.status()).isEqualTo("FAILED");
-        assertThat(record.errorMessage()).isEqualTo("browser failed");
+        assertThat(record.errorMessage()).isEqualTo("browser failed, token=***");
+        assertThat(record.errorMessage()).doesNotContain("secret-123");
         assertThat(record.toolName()).isEqualTo("loadPage");
     }
 

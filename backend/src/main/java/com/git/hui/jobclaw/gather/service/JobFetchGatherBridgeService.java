@@ -51,7 +51,7 @@ public class JobFetchGatherBridgeService implements JobFetchGatherRegistrar {
         if (gatherTaskId == null) {
             return;
         }
-        gatherTaskService.markExternalTaskProcessing(gatherTaskId);
+        runSafely(gatherTaskId, "mark running", () -> gatherTaskService.markExternalTaskProcessing(gatherTaskId));
     }
 
     @Override
@@ -59,7 +59,7 @@ public class JobFetchGatherBridgeService implements JobFetchGatherRegistrar {
         if (gatherTaskId == null) {
             return;
         }
-        gatherTaskService.saveTaskResult(
+        runSafely(gatherTaskId, "mark success", () -> gatherTaskService.saveTaskResult(
                 gatherTaskId,
                 new GatherTaskResultBo(
                         GatherTaskResultBo.SUCCESS,
@@ -69,7 +69,7 @@ public class JobFetchGatherBridgeService implements JobFetchGatherRegistrar {
                         List.of(),
                         List.of()
                 )
-        );
+        ));
     }
 
     private List<Long> safeIds(List<Long> ids) {
@@ -81,7 +81,7 @@ public class JobFetchGatherBridgeService implements JobFetchGatherRegistrar {
         if (gatherTaskId == null) {
             return;
         }
-        gatherTaskService.saveTaskResult(
+        runSafely(gatherTaskId, "mark failed", () -> gatherTaskService.saveTaskResult(
                 gatherTaskId,
                 new GatherTaskResultBo(
                         StringUtils.defaultIfBlank(message, "failed"),
@@ -91,7 +91,16 @@ public class JobFetchGatherBridgeService implements JobFetchGatherRegistrar {
                         List.of(),
                         List.of()
                 )
-        );
+        ));
+    }
+
+    // AIDEV-NOTE: 台账故障不得影响主抓取任务
+    private void runSafely(Long gatherTaskId, String action, Runnable operation) {
+        try {
+            operation.run();
+        } catch (Exception ex) {
+            log.warn("Failed to {} for gather task: gatherTaskId={}", action, gatherTaskId, ex);
+        }
     }
 
     private String resolveModel(UserConversationInfo userConversationInfo) {

@@ -1,6 +1,8 @@
 package com.git.hui.jobclaw.plugins.playwright;
 
+import com.git.hui.jobclaw.core.security.PublicUrlSafety;
 import com.microsoft.playwright.Browser;
+import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
@@ -29,6 +31,7 @@ public class PlaywrightBrowserTool implements AutoCloseable {
 
     private Playwright playwright;
     private Browser browser;
+    private BrowserContext browserContext;
     private Page page;
 
     protected PlaywrightBrowserTool(boolean headless) {
@@ -42,7 +45,20 @@ public class PlaywrightBrowserTool implements AutoCloseable {
             browser = launchBrowser();
         }
         if (page == null || page.isClosed()) {
-            page = browser.newPage();
+            if (browserContext == null) {
+                browserContext = browser.newContext();
+                browserContext.route("**/*", route -> {
+                    PublicUrlSafety.CheckResult result = PublicUrlSafety.check(route.request().url());
+                    if (result.canAccess()) {
+                        route.resume();
+                    } else {
+                        logger.warn("Blocked unsafe browser request: url={}, reason={}",
+                                route.request().url(), result.reason());
+                        route.abort();
+                    }
+                });
+            }
+            page = browserContext.newPage();
         }
         return page;
     }
@@ -67,6 +83,10 @@ public class PlaywrightBrowserTool implements AutoCloseable {
     @Tool(description = "Navigate to a URL in the browser. Returns the page title and a text summary of the page content.")
     public synchronized String navigateTo(
             @ToolParam(description = "The URL to navigate to") String url) {
+        PublicUrlSafety.CheckResult result = PublicUrlSafety.check(url);
+        if (!result.canAccess()) {
+            return "URL safety check failed for " + url + ": " + result.reason();
+        }
         try {
             Page p = getOrCreatePage();
             p.navigate(url);
@@ -176,6 +196,10 @@ public class PlaywrightBrowserTool implements AutoCloseable {
         if (page != null && !page.isClosed()) {
             page.close();
             page = null;
+        }
+        if (browserContext != null) {
+            browserContext.close();
+            browserContext = null;
         }
         if (browser != null && browser.isConnected()) {
             browser.close();

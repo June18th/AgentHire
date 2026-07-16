@@ -16,6 +16,7 @@
 package com.git.hui.jobclaw.agents.jobfetch.crawler.impl.tool;
 
 import com.vladsch.flexmark.html2md.converter.FlexmarkHtmlConverter;
+import com.git.hui.jobclaw.core.security.PublicUrlSafety;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -72,6 +73,8 @@ public class SmartWebFetchTool implements AutoCloseable {
     private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     private static final Duration CACHE_TTL = Duration.ofMinutes(15);
+
+    private static final int MAX_REDIRECTS = 5;
 
     private static final String DOMAIN_SAFETY_CHECK_URL = "https://claude.ai/api/web/domain_info";
 
@@ -131,7 +134,7 @@ public class SmartWebFetchTool implements AutoCloseable {
                               boolean failOpenOnSafetyCheckError, int maxRetries, boolean summaryEnable) {
         this.summaryEnable = summaryEnable;
         this.httpClient = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.ALWAYS)
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(DEFAULT_CONNECT_TIMEOUT)
                 .build();
 
@@ -191,7 +194,13 @@ public class SmartWebFetchTool implements AutoCloseable {
             return "Error: Invalid URL format: " + e.getMessage();
         }
 
-        // Domain safety check
+        // AIDEV-NOTE: SSRF校验必须始终启用
+        DomainCanFetch localCheck = checkLocalUrlSafety(uri);
+        if (!localCheck.canFetch()) {
+            return "URL safety check failed for URL '" + url + "': " + localCheck.reason();
+        }
+
+        // Optional remote domain reputation check
         if (this.domainSafetyCheck) {
             DomainCanFetch check = this.domainCanFetchChecker.check(url, this.failOpenOnSafetyCheckError);
             if (!check.canFetch()) {
@@ -284,6 +293,8 @@ public class SmartWebFetchTool implements AutoCloseable {
                 }
 
                 return response;
+            } catch (UnsafeUrlException e) {
+                throw e;
             } catch (WebFetchException e) {
                 lastException = e;
                 // Only retry on network errors, not on interruptions
@@ -310,19 +321,8 @@ public class SmartWebFetchTool implements AutoCloseable {
     }
 
     private HttpResponse<String> fetchHtml(String url) {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(DEFAULT_REQUEST_TIMEOUT)
-                .header("User-Agent", USER_AGENT)
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                .header("Accept-Language", "en-US,en;q=0.5")
-                .GET()
-                .build();
-
         try {
-            // First fetch as bytes to handle charset properly
-            HttpResponse<byte[]> byteResponse = this.httpClient.send(request,
-                    HttpResponse.BodyHandlers.ofByteArray());
+            HttpResponse<byte[]> byteResponse = this.fetchBytesFollowingSafeRedirects(URI.create(url));
 
             // Extract charset from Content-Type header
             Charset charset = this.extractCharset(byteResponse).orElse(StandardCharsets.UTF_8);
@@ -378,6 +378,51 @@ public class SmartWebFetchTool implements AutoCloseable {
             Thread.currentThread().interrupt();
             throw new WebFetchException("Request was interrupted", e);
         }
+    }
+
+    private HttpResponse<byte[]> fetchBytesFollowingSafeRedirects(URI initialUri)
+            throws IOException, InterruptedException {
+        URI currentUri = initialUri;
+        for (int redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount++) {
+            DomainCanFetch localCheck = checkLocalUrlSafety(currentUri);
+            if (!localCheck.canFetch()) {
+                throw new UnsafeUrlException(localCheck.reason());
+            }
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(currentUri)
+                    .timeout(DEFAULT_REQUEST_TIMEOUT)
+                    .header("User-Agent", USER_AGENT)
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .header("Accept-Language", "en-US,en;q=0.5")
+                    .GET()
+                    .build();
+            HttpResponse<byte[]> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            if (!isRedirect(response.statusCode())) {
+                return response;
+            }
+            if (redirectCount == MAX_REDIRECTS) {
+                throw new WebFetchException("Too many redirects", null);
+            }
+            String location = response.headers().firstValue("Location")
+                    .orElseThrow(() -> new WebFetchException("Redirect response has no Location header", null));
+            try {
+                currentUri = currentUri.resolve(location);
+            } catch (IllegalArgumentException ex) {
+                throw new WebFetchException("Invalid redirect URL", ex);
+            }
+        }
+        throw new WebFetchException("Too many redirects", null);
+    }
+
+    private static boolean isRedirect(int statusCode) {
+        return statusCode == 301 || statusCode == 302 || statusCode == 303
+                || statusCode == 307 || statusCode == 308;
+    }
+
+    static DomainCanFetch checkLocalUrlSafety(URI uri) {
+        PublicUrlSafety.CheckResult result = PublicUrlSafety.check(uri);
+        return new DomainCanFetch(result.host(), result.canAccess(), result.reason());
     }
 
     /**
@@ -497,6 +542,13 @@ public class SmartWebFetchTool implements AutoCloseable {
 
     }
 
+    private static final class UnsafeUrlException extends WebFetchException {
+
+        private UnsafeUrlException(String message) {
+            super(message, null);
+        }
+    }
+
     /**
      * Domain safety checker using Claude's domain info API.
      */
@@ -576,11 +628,11 @@ public class SmartWebFetchTool implements AutoCloseable {
 
         private int maxContentLength = 100_000; // Default: 100 KB
 
-        private boolean domainSafetyCheck = true;
+        private boolean domainSafetyCheck = false;
 
         private int maxCacheSize = 100;
 
-        private boolean failOpenOnSafetyCheckError = true;
+        private boolean failOpenOnSafetyCheckError = false;
 
         private int maxRetries = 2;
 
@@ -642,7 +694,7 @@ public class SmartWebFetchTool implements AutoCloseable {
          * Sets whether to fail open (allow fetch) when domain safety check encounters an
          * error. If set to false, will fail closed (block fetch) on safety check errors.
          * @param failOpenOnSafetyCheckError true to allow fetch on safety check errors
-         * (default), false to block
+         * (default is false), false to block
          * @return this Builder instance
          */
         public Builder failOpenOnSafetyCheckError(boolean failOpenOnSafetyCheckError) {

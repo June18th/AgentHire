@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 /**
  * ReAct 工具调用审计中间件，结构化发布 ToolCallRecord 事件供落库。
@@ -32,6 +33,17 @@ public class ToolCallAuditMiddleware implements ReActMiddleware {
 
     private static final String CACHE_NAME = "toolCallAuditState";
     private static final int MAX_SUMMARY_LEN = 2000;
+    private static final Pattern AUTH_VALUE = Pattern.compile(
+            "(?i)(\\b(?:authorization|proxy-authorization)\\s*[:=]\\s*)(?:Bearer|Basic)\\s+[^\\s,;}&]+"
+    );
+    private static final Pattern COOKIE_HEADER = Pattern.compile(
+            "(?i)(\\b(?:cookie|set-cookie)\\s*:\\s*)[^\\r\\n]+"
+    );
+    private static final Pattern SENSITIVE_VALUE = Pattern.compile(
+            "(?i)([\"']?(?:x[-_]?api[-_]?key|api[-_]?key|password|passwd|secret|"
+                    + "(?:access|refresh)[-_]?token|token|authorization|cookie|set-cookie)[\"']?\\s*[:=]\\s*)"
+                    + "(?:\"[^\"]*\"|'[^']*'|[^\\s,;&}]+)"
+    );
 
     private final ApplicationEventPublisher publisher;
     private final LocalCacheManager cacheManager;
@@ -133,7 +145,7 @@ public class ToolCallAuditMiddleware implements ReActMiddleware {
                 sample(result, MAX_SUMMARY_LEN),
                 status,
                 durationMs,
-                errorMessage,
+                sample(errorMessage, MAX_SUMMARY_LEN),
                 Instant.now()
         );
         try {
@@ -161,7 +173,10 @@ public class ToolCallAuditMiddleware implements ReActMiddleware {
         if (text == null) {
             return null;
         }
-        String cleaned = text.replaceAll("(?i)Bearer\\s+\\S+", "Bearer ***")
+        String cleaned = COOKIE_HEADER.matcher(text).replaceAll("$1***");
+        cleaned = AUTH_VALUE.matcher(cleaned).replaceAll("$1***");
+        cleaned = SENSITIVE_VALUE.matcher(cleaned).replaceAll("$1***");
+        cleaned = cleaned.replaceAll("(?i)Bearer\\s+\\S+", "Bearer ***")
                 .replaceAll("[\\w.+-]+@[\\w.-]+", "***@***")
                 .replaceAll("1[3-9]\\d{9}", "***");
         return cleaned.length() <= maxLen ? cleaned : cleaned.substring(0, maxLen) + "...";
